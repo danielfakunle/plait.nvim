@@ -1,0 +1,12 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+  "workspace": {
+    "library": ["$VIMRUNTIME", "deps"],
+    "ignoreDir": ["deps", "docs"]
+  },
+  "diagnostics": {
+    "globals": ["vim"],
+    "libraryFiles": "Disable",
+    "ignoredFiles": "Disable"
+  }
+}
