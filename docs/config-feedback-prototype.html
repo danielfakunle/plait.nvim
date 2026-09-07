@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plait configuration feedback prototype</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0d1117;
+      --panel: #151b23;
+      --panel-2: #1c2430;
+      --line: #303946;
+      --text: #e6edf3;
+      --muted: #9ba7b4;
+      --accent: #74c7a5;
+      --accent-2: #7aa2f7;
+      --warn: #efbd67;
+      --danger: #f07178;
+      --ok: #8fce94;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.5 var(--sans);
+    }
+    button { font: inherit; }
+    code, pre { font-family: var(--mono); }
+    .prototype-note {
+      padding: 8px 20px;
+      border-bottom: 1px solid #3a2f1f;
+      background: #1c1811;
+      color: #d9b875;
+      font: 12px/1.4 var(--mono);
+      text-align: center;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 58px;
+      padding: 0 24px;
+      border-bottom: 1px solid var(--line);
+      background: #11161d;
+    }
+    .brand { display: flex; align-items: baseline; gap: 10px; }
+    .brand strong { font: 650 17px var(--mono); letter-spacing: -.02em; }
+    .brand span, .context { color: var(--muted); font-size: 12px; }
+    .scenario-bar {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+    .scenario-button {
+      flex: 0 0 auto;
+      padding: 7px 11px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .scenario-button:hover { color: var(--text); border-color: #566274; }
+    .scenario-button.active { background: #293343; color: var(--text); border-color: #607087; }
+    .variant { display: none; min-height: calc(100vh - 137px); padding-bottom: 96px; }
+    .variant.active { display: block; }
+    .eyebrow {
+      color: var(--accent);
+      font: 650 11px/1.4 var(--mono);
+      letter-spacing: .09em;
+      text-transform: uppercase;
+    }
+    .muted { color: var(--muted); }
+    .danger { color: var(--danger); }
+    .warn { color: var(--warn); }
+    .ok { color: var(--ok); }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font: 11px var(--mono);
+    }
+
+    /* A: terse compiler report */
+    .compiler-shell { max-width: 940px; margin: 0 auto; padding: 42px 24px; }
+    .compiler-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+    .compiler-heading h1 { margin: 7px 0 3px; font-size: 24px; letter-spacing: -.03em; }
+    .status-count { padding-top: 6px; font: 12px var(--mono); color: var(--muted); }
+    .terminal {
+      margin-top: 24px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #090d12;
+      box-shadow: 0 18px 50px rgba(0,0,0,.2);
+    }
+    .terminal-title {
+      display: flex;
+      justify-content: space-between;
+      padding: 9px 13px;
+      border-bottom: 1px solid #242c37;
+      color: var(--muted);
+      background: #111720;
+      font: 11px var(--mono);
+    }
+    .terminal pre { margin: 0; padding: 20px; overflow: auto; font-size: 12px; line-height: 1.75; white-space: pre-wrap; }
+    .code-line { display: block; }
+    .line-no { display: inline-block; width: 28px; color: #4f5b68; user-select: none; }
+    .underline { text-decoration: underline wavy var(--danger); text-underline-offset: 4px; }
+    .diagnostics { border-top: 1px solid #242c37; }
+    .diagnostic { padding: 16px 20px; border-bottom: 1px solid #242c37; }
+    .diagnostic:last-child { border-bottom: 0; }
+    .diagnostic-title { display: flex; gap: 9px; align-items: baseline; font: 600 12px var(--mono); }
+    .diagnostic-body { margin: 8px 0 0 26px; color: #bdc7d1; font: 12px/1.65 var(--mono); }
+    .fix-line { color: var(--accent); }
+    .compiler-footer { margin-top: 14px; color: var(--muted); font: 11px var(--mono); }
+
+    /* B: guided repair */
+    .guided-shell { display: grid; grid-template-columns: 270px minmax(0, 1fr); min-height: calc(100vh - 137px); }
+    .guided-sidebar { padding: 30px 22px; border-right: 1px solid var(--line); background: #11171f; }
+    .guided-sidebar h2 { margin: 8px 0 24px; font-size: 18px; }
+    .step { position: relative; padding: 0 0 25px 30px; color: var(--muted); }
+    .step::before {
+      content: "";
+      position: absolute;
+      top: 5px;
+      left: 8px;
+      bottom: -5px;
+      width: 1px;
+      background: var(--line);
+    }
+    .step:last-child::before { display: none; }
+    .step-dot { position: absolute; left: 2px; top: 3px; width: 13px; height: 13px; border: 2px solid #526071; border-radius: 50%; background: #11171f; }
+    .step.active { color: var(--text); }
+    .step.active .step-dot { border-color: var(--warn); background: var(--warn); box-shadow: 0 0 0 4px rgba(239,189,103,.12); }
+    .step.done .step-dot { border-color: var(--ok); background: var(--ok); }
+    .step strong { display: block; font-size: 13px; }
+    .step small { font-size: 11px; }
+    .guided-main { max-width: 850px; width: 100%; padding: 48px 54px; }
+    .guided-main h1 { max-width: 650px; margin: 10px 0 12px; font-size: 30px; line-height: 1.15; letter-spacing: -.04em; }
+    .guided-main > p { max-width: 700px; color: var(--muted); font-size: 15px; }
+    .explanation-box { margin-top: 28px; padding: 20px; border-left: 3px solid var(--warn); background: #181a1a; }
+    .explanation-box strong { display: block; margin-bottom: 6px; }
+    .source-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 22px; }
+    .source-card { padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+    .source-card header { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    .source-card code { display: block; color: #c7d1db; font-size: 12px; line-height: 1.7; white-space: pre-wrap; }
+    .repair { margin-top: 22px; padding: 20px; border: 1px solid #315d4c; border-radius: 8px; background: #102019; }
+    .repair h3 { margin: 0 0 7px; color: var(--accent); font-size: 14px; }
+    .repair-choice { display: flex; align-items: flex-start; gap: 10px; margin-top: 12px; }
+    .repair-choice span { width: 20px; height: 20px; border: 1px solid #4d7666; border-radius: 50%; color: var(--accent); text-align: center; font: 11px/18px var(--mono); }
+    .guided-actions { display: flex; gap: 10px; margin-top: 24px; }
+    .primary, .secondary { padding: 9px 13px; border-radius: 6px; cursor: pointer; }
+    .primary { border: 1px solid var(--accent); background: var(--accent); color: #092018; font-weight: 650; }
+    .secondary { border: 1px solid var(--line); background: transparent; color: var(--text); }
+
+    /* C: plan explorer */
+    .explorer-shell { display: grid; grid-template-columns: 230px minmax(320px, 1fr) 360px; min-height: calc(100vh - 137px); }
+    .tree, .details { background: #11171f; }
+    .tree { padding: 24px 15px; border-right: 1px solid var(--line); }
+    .tree-title { margin: 7px 8px 20px; font-size: 15px; }
+    .tree-section { margin: 20px 8px 7px; color: #647182; font: 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+    .tree-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 8px; border-radius: 5px; color: #b2becb; font: 12px var(--mono); }
+    .tree-item.selected { background: #243142; color: var(--text); }
+    .tree-item .count { color: #718096; }
+    .plan { padding: 28px; overflow: auto; }
+    .plan-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 15px; margin-bottom: 24px; }
+    .plan h1 { margin: 7px 0 0; font-size: 22px; }
+    .plan-table { width: 100%; min-width: 560px; border-collapse: collapse; font: 12px var(--mono); }
+    .plan-table th { padding: 8px 10px; color: #758294; font-size: 10px; text-align: left; text-transform: uppercase; letter-spacing: .06em; }
+    .plan-table td { padding: 11px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+    .plan-table tr.selected { background: #1a2532; }
+    .plan-table tr { cursor: pointer; }
+    .plan-table tr:hover { background: #18212b; }
+    .effect-kind { color: var(--accent-2); }
+    .details { padding: 28px 24px; border-left: 1px solid var(--line); }
+    .details h2 { margin: 8px 0 5px; font-size: 19px; }
+    .detail-section { margin-top: 25px; }
+    .detail-section h3 { margin: 0 0 10px; color: #718096; font: 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+    .provenance-node { position: relative; margin-left: 7px; padding: 0 0 18px 22px; }
+    .provenance-node::before { content: ""; position: absolute; left: 4px; top: 7px; bottom: -3px; width: 1px; background: #3a4553; }
+    .provenance-node:last-child::before { display: none; }
+    .provenance-node::after { content: ""; position: absolute; left: 1px; top: 5px; width: 7px; height: 7px; border: 1px solid #718096; border-radius: 50%; background: #11171f; }
+    .provenance-node strong { display: block; font: 12px var(--mono); }
+    .provenance-node small { color: var(--muted); }
+    .detail-code { padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: #0b1016; color: #cbd4dd; font: 11px/1.6 var(--mono); white-space: pre-wrap; }
+
+    .switcher {
+      position: fixed;
+      z-index: 20;
+      left: 50%;
+      bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 330px;
+      padding: 7px;
+      transform: translateX(-50%);
+      border: 1px solid #697789;
+      border-radius: 999px;
+      background: #edf2f7;
+      color: #111827;
+      box-shadow: 0 15px 45px rgba(0,0,0,.45);
+    }
+    .switcher button { width: 34px; height: 32px; border: 0; border-radius: 50%; background: #dbe2ea; color: #18202b; cursor: pointer; font-size: 18px; }
+    .switcher button:hover { background: #cbd5e1; }
+    .switcher-label { flex: 1; text-align: center; font: 600 12px var(--mono); }
+
+    @media (max-width: 900px) {
+      .explorer-shell { grid-template-columns: 175px 1fr; }
+      .details { grid-column: 1 / -1; border-top: 1px solid var(--line); border-left: 0; }
+    }
+    @media (max-width: 680px) {
+      .topbar { padding: 0 14px; }
+      .context { display: none; }
+      .variant { min-height: calc(100vh - 137px); }
+      .guided-shell, .explorer-shell { display: block; }
+      .guided-sidebar, .tree { border-right: 0; border-bottom: 1px solid var(--line); }
+      .guided-sidebar { padding: 20px; }
+      .guided-sidebar .step { display: inline-block; width: 32%; padding: 26px 5px 0; vertical-align: top; }
+      .guided-sidebar .step::before { top: 8px; left: 15px; right: -8px; bottom: auto; width: auto; height: 1px; }
+      .guided-sidebar .step-dot { left: 9px; top: 2px; }
+      .guided-sidebar h2 { margin-bottom: 16px; }
+      .guided-main { padding: 30px 20px; }
+      .source-pair { grid-template-columns: 1fr; }
+      .tree { padding: 18px 12px; }
+      .tree-section, .tree-item { display: inline-flex; margin: 2px; }
+      .tree-section { display: none; }
+      .plan { padding: 22px 14px; overflow-x: auto; }
+      .details { padding: 25px 20px 90px; }
+      .switcher { min-width: min(330px, calc(100vw - 24px)); bottom: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Three variants of Plait's authoring feedback, switchable via ?variant=A|B|C. -->
+  <div class="prototype-note">THROWAWAY PROTOTYPE: compare feedback structure, not visual polish</div>
+  <header class="topbar">
+    <div class="brand"><strong>plait</strong><span>configuration feedback</span></div>
+    <div class="context">init.lua &middot; pre-application validation</div>
+  </header>
+  <nav class="scenario-bar" aria-label="Prototype scenarios">
+    <button class="scenario-button active" data-scenario="conflict">Conflict</button>
+    <button class="scenario-button" data-scenario="invalid">Invalid value</button>
+    <button class="scenario-button" data-scenario="resolved">Resolved dependency</button>
+    <button class="scenario-button" data-scenario="provenance">Provenance</button>
+    <button class="scenario-button" data-scenario="application">Application failure</button>
+  </nav>
+
+  <main>
+    <section id="variant-a" class="variant">
+      <div class="compiler-shell">
+        <div class="compiler-heading">
+          <div>
+            <div class="eyebrow">Variant A / Compiler report</div>
+            <h1 id="a-title">Configuration has one conflict</h1>
+            <div class="muted" id="a-subtitle">Nothing was applied. Correct the declaration and validate again.</div>
+          </div>
+          <div class="status-count" id="a-count">1 error &middot; 0 warnings</div>
+        </div>
+        <div class="terminal">
+          <div class="terminal-title"><span>:Plait validate</span><span id="a-duration">resolved in 14 ms</span></div>
+          <pre id="a-code"><span class="code-line"><span class="line-no">12</span>  modules = {</span><span class="code-line"><span class="line-no">13</span>    "language",</span><span class="code-line"><span class="line-no">14</span>    <span class="underline">"formatting.conform"</span>,</span><span class="code-line"><span class="line-no">15</span>    <span class="underline">"formatting.native"</span>,</span><span class="code-line"><span class="line-no">16</span>  }</span></pre>
+          <div class="diagnostics" id="a-diagnostics">
+            <div class="diagnostic">
+              <div class="diagnostic-title"><span class="danger">E104</span><span>exclusive capability has multiple activators</span></div>
+              <div class="diagnostic-body">Capability <b>formatting</b> is exclusive, but both <b>formatting.conform</b> and <b>formatting.native</b> activate it.<br><br><span class="fix-line">fix: keep exactly one formatting module in modules</span><br><span class="muted">inspect: :Plait explain capability formatting</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="compiler-footer">Plait validates the complete effective plan before applying managed effects.</div>
+      </div>
+    </section>
+
+    <section id="variant-b" class="variant">
+      <div class="guided-shell">
+        <aside class="guided-sidebar">
+          <div class="eyebrow">Variant B</div>
+          <h2>Guided repair</h2>
+          <div class="step done"><span class="step-dot"></span><strong>Resolve modules</strong><small>7 selected</small></div>
+          <div class="step active"><span class="step-dot"></span><strong id="b-step">Resolve conflict</strong><small id="b-step-note">Your choice is needed</small></div>
+          <div class="step"><span class="step-dot"></span><strong>Review plan</strong><small>Not yet available</small></div>
+        </aside>
+        <div class="guided-main">
+          <div class="eyebrow" id="b-eyebrow">Formatting / conflict</div>
+          <h1 id="b-title">Choose who should provide formatting</h1>
+          <p id="b-summary">Two selected modules claim an exclusive capability. Plait will not choose one based on module order.</p>
+          <div class="explanation-box"><strong id="b-explain-title">Why validation stopped</strong><span id="b-explain">Only one module can be responsible for the formatting capability. Choosing implicitly would make formatting depend on incidental ordering.</span></div>
+          <div class="source-pair" id="b-sources">
+            <article class="source-card"><header><strong>formatting.conform</strong><span class="chip">init.lua:14</span></header><code>activates: formatting<br>provider: conform.nvim<br>reason: selected by owner</code></article>
+            <article class="source-card"><header><strong>formatting.native</strong><span class="chip">init.lua:15</span></header><code>activates: formatting<br>provider: vim.lsp.buf.format<br>reason: selected by owner</code></article>
+          </div>
+          <div class="repair" id="b-repair"><h3>Suggested repair</h3><div>Remove the module you do not want from <code>modules</code>.</div><div class="repair-choice"><span>1</span><div>Keep <b>formatting.conform</b><br><small class="muted">Remove formatting.native</small></div></div><div class="repair-choice"><span>2</span><div>Keep <b>formatting.native</b><br><small class="muted">Remove formatting.conform</small></div></div></div>
+          <div class="guided-actions"><button class="primary">Open declaration</button><button class="secondary">Copy suggested change</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="variant-c" class="variant">
+      <div class="explorer-shell">
+        <aside class="tree">
+          <div class="eyebrow">Variant C</div>
+          <h2 class="tree-title">Effective plan</h2>
+          <div class="tree-section">Overview</div>
+          <div class="tree-item"><span>Status</span><span class="danger" id="c-status">invalid</span></div>
+          <div class="tree-item"><span>Modules</span><span class="count">7</span></div>
+          <div class="tree-item selected"><span>Capabilities</span><span class="count">5</span></div>
+          <div class="tree-section">Inspect</div>
+          <div class="tree-item"><span>Managed effects</span><span class="count">18</span></div>
+          <div class="tree-item"><span>Packages</span><span class="count">6</span></div>
+          <div class="tree-item"><span>Tools</span><span class="count">4</span></div>
+          <div class="tree-item"><span>Diagnostics</span><span class="danger" id="c-errors">1</span></div>
+        </aside>
+        <div class="plan">
+          <div class="plan-header"><div><div class="eyebrow" id="c-eyebrow">Capability inspection</div><h1 id="c-title">Formatting cannot be resolved</h1></div><span class="chip" id="c-chip">pre-application</span></div>
+          <table class="plan-table">
+            <thead><tr><th>Capability / effect</th><th>Value or provider</th><th>Source</th></tr></thead>
+            <tbody id="c-rows">
+              <tr><td><b>language intelligence</b></td><td class="ok">resolved</td><td>language</td></tr>
+              <tr class="selected"><td><b>formatting</b></td><td class="danger">conflict</td><td>2 activators</td></tr>
+              <tr><td><span class="effect-kind">provider</span> conform.nvim</td><td>candidate</td><td>formatting.conform</td></tr>
+              <tr><td><span class="effect-kind">native</span> vim.lsp.buf.format</td><td>candidate</td><td>formatting.native</td></tr>
+              <tr><td><b>git integration</b></td><td class="ok">resolved</td><td>git</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <aside class="details">
+          <div class="eyebrow" id="c-detail-kind">Unresolved capability</div>
+          <h2 id="c-detail-title">formatting</h2>
+          <div class="muted" id="c-detail-summary">An exclusive capability has two owner-selected activators.</div>
+          <div class="detail-section"><h3>Provenance</h3><div id="c-provenance"><div class="provenance-node"><strong>init.lua:14</strong><small>owner selected formatting.conform</small></div><div class="provenance-node"><strong>formatting.conform</strong><small>activates formatting via conform.nvim</small></div><div class="provenance-node"><strong>formatting</strong><small class="danger">conflicts with formatting.native</small></div></div></div>
+          <div class="detail-section"><h3 id="c-code-title">Suggested repair</h3><div class="detail-code" id="c-code">modules = {
+  "formatting.conform",
+- "formatting.native",
+}</div></div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <div class="switcher" aria-label="Prototype variant switcher">
+    <button id="previous" aria-label="Previous variant">&larr;</button>
+    <div class="switcher-label" id="variant-label">A (Compiler report)</div>
+    <button id="next" aria-label="Next variant">&rarr;</button>
+  </div>
+
+  <script>
+    const variants = [
+      { key: "A", name: "Compiler report" },
+      { key: "B", name: "Guided repair" },
+      { key: "C", name: "Plan explorer" },
+    ];
+
+    const scenarios = {
+      conflict: {
+        a: ["Configuration has one conflict", "Nothing was applied. Correct the declaration and validate again.", "1 error / 0 warnings"],
+        b: ["Formatting / conflict", "Choose who should provide formatting", "Two selected modules claim an exclusive capability. Plait will not choose one based on module order."],
+        c: ["Capability inspection", "Formatting cannot be resolved", "invalid", "1"],
+      },
+      invalid: {
+        a: ["Configuration has an invalid value", "Nothing was applied. The error points to the owner-facing configuration point.", "1 error / 0 warnings"],
+        b: ["Language intelligence / invalid value", "Choose a supported diagnostics display", "The value 'floating' is not allowed at language.diagnostics.display."],
+        c: ["Configuration point", "language.diagnostics.display is invalid", "invalid", "1"],
+      },
+      resolved: {
+        a: ["Configuration is valid", "Seven selected modules resolve to five capabilities and eighteen managed effects.", "0 errors / 0 warnings"],
+        b: ["Language intelligence / dependency", "Review how TypeScript support was resolved", "TypeScript support requires language intelligence. Both were explicitly selected and Plait added an ordering edge."],
+        c: ["Dependency inspection", "TypeScript support is resolved", "valid", "0"],
+      },
+      provenance: {
+        a: ["Configuration is valid", "Inspect why <leader>cf exists before applying the effective plan.", "0 errors / 0 warnings"],
+        b: ["Formatting / provenance", "See why this keymap exists", "The owner selected formatting.conform; its formatting capability contributes the format-buffer keymap."],
+        c: ["Managed effect inspection", "Why does <leader>cf exist?", "valid", "0"],
+      },
+      application: {
+        a: ["Application stopped", "Some managed effects were already applied. No later phases were attempted.", "1 runtime error / partial application"],
+        b: ["Git integration / application", "Repair a provider failure", "gitsigns.nvim failed during the after-entrypoint provider application phase."],
+        c: ["Application inspection", "Application stopped at git integration", "partial", "1"],
+      },
+    };
+
+    function variantFromUrl() {
+      const value = new URLSearchParams(location.search).get("variant");
+      return variants.some((v) => v.key === value) ? value : "A";
+    }
+
+    let currentVariant = variantFromUrl();
+    let currentScenario = "conflict";
+
+    function renderVariant() {
+      document.querySelectorAll(".variant").forEach((el) => el.classList.remove("active"));
+      document.getElementById(`variant-${currentVariant.toLowerCase()}`).classList.add("active");
+      const variant = variants.find((item) => item.key === currentVariant);
+      document.getElementById("variant-label").textContent = `${variant.key} (${variant.name})`;
+    }
+
+    function selectVariant(offset) {
+      const index = variants.findIndex((item) => item.key === currentVariant);
+      currentVariant = variants[(index + offset + variants.length) % variants.length].key;
+      const url = new URL(location.href);
+      url.searchParams.set("variant", currentVariant);
+      history.replaceState({}, "", url);
+      renderVariant();
+    }
+
+    function renderScenario(key) {
+      currentScenario = key;
+      const data = scenarios[key];
+      document.querySelectorAll(".scenario-button").forEach((button) => button.classList.toggle("active", button.dataset.scenario === key));
+      [document.getElementById("a-title").textContent, document.getElementById("a-subtitle").textContent, document.getElementById("a-count").textContent] = data.a;
+      [document.getElementById("b-eyebrow").textContent, document.getElementById("b-title").textContent, document.getElementById("b-summary").textContent] = data.b;
+      [document.getElementById("c-eyebrow").textContent, document.getElementById("c-title").textContent, document.getElementById("c-status").textContent, document.getElementById("c-errors").textContent] = data.c;
+
+      const isConflict = key === "conflict";
+      const isHealthy = key === "resolved" || key === "provenance";
+      document.getElementById("b-sources").style.display = isConflict ? "grid" : "none";
+      document.getElementById("b-repair").style.display = isHealthy ? "none" : "block";
+      document.getElementById("c-status").className = isHealthy ? "ok" : key === "application" ? "warn" : "danger";
+      document.getElementById("c-errors").className = isHealthy ? "ok" : "danger";
+
+      const details = {
+        conflict: ["Unresolved capability", "formatting", "An exclusive capability has two owner-selected activators.", "Suggested repair", "modules = {\n  \"formatting.conform\",\n- \"formatting.native\",\n}"],
+        invalid: ["Invalid configuration point", "language.diagnostics.display", "The owner value 'floating' is outside the capability contract.", "Allowed values", "\"virtual_text\" | \"signs\" | \"both\" | \"off\""],
+        resolved: ["Resolved dependency", "lang.typescript -> language intelligence", "Both modules were selected explicitly. The dependency constrains validity and ordering.", "Resolution", "language -> lang.typescript\nreason: requires capability language intelligence"],
+        provenance: ["Managed effect", "keymap <leader>cf", "Format the current buffer through the responsible formatting capability.", "Effective value", "mode = \"n\"\nlhs = \"<leader>cf\"\nrhs = plait.format_buffer"],
+        application: ["Application failure", "gitsigns.nvim setup", "Application stopped after earlier phases completed. Later effects were not attempted.", "Partial state", "completed: package runtime path\ncompleted: initialization providers\nfailed: after-entrypoint / git integration\nskipped: 4 later effects"],
+      }[key];
+      [document.getElementById("c-detail-kind").textContent, document.getElementById("c-detail-title").textContent, document.getElementById("c-detail-summary").textContent, document.getElementById("c-code-title").textContent, document.getElementById("c-code").textContent] = details;
+    }
+
+    document.getElementById("previous").addEventListener("click", () => selectVariant(-1));
+    document.getElementById("next").addEventListener("click", () => selectVariant(1));
+    document.querySelectorAll(".scenario-button").forEach((button) => button.addEventListener("click", () => renderScenario(button.dataset.scenario)));
+    addEventListener("keydown", (event) => {
+      const tag = event.target.tagName;
+      if (["INPUT", "TEXTAREA"].includes(tag) || event.target.isContentEditable) return;
+      if (event.key === "ArrowLeft") selectVariant(-1);
+      if (event.key === "ArrowRight") selectVariant(1);
+    });
+    addEventListener("popstate", () => { currentVariant = variantFromUrl(); renderVariant(); });
+    renderVariant();
+    renderScenario(currentScenario);
+  </script>
+</body>
+</html>

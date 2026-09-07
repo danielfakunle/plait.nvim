@@ -20,6 +20,10 @@ _Avoid_: Neovim configuration, resolved configuration
 A capability-independent scenario in which a configuration owner adopts, composes, customizes, diagnoses, inspects, or deliberately escapes Plait-managed configuration.
 _Avoid_: Feature walkthrough, implementation task
 
+**Canonical configuration fixture**:
+A complete, executable Plait configuration that is the authority behind documentation examples and release-validation scenarios.
+_Avoid_: Untested snippet, illustrative pseudocode
+
 **Managed effect**:
 An observable change to Neovim or its providers that results from the Plait configuration and remains Plait's responsibility.
 _Avoid_: Arbitrary Lua effect, provider internal
@@ -48,12 +52,24 @@ _Avoid_: Feature, plugin
 A plugin, native Neovim behavior, or external tool that directly participates in realizing a capability. A capability integration may coordinate multiple providers, and a provider may participate in multiple capability integrations.
 _Avoid_: Capability, module
 
+**Provider escape hatch**:
+An explicit boundary where a configuration owner supplies opaque provider-specific options that Plait does not type or validate, except to protect integration settings owned by Plait.
+_Avoid_: Capability configuration, provider wrapper
+
 **Package requirement**:
 A declaration that a capability integration needs a plugin package, including its canonical identity, source, version constraint, provenance, and responsible capability. Plait translates package requirements into package-manager operations without exposing the package manager's interface as module vocabulary.
 _Avoid_: Plugin specification, provider configuration
 
+**Package synchronization**:
+An explicit, configuration-owner-authorized operation that reconciles installed package checkouts and the shared `vim.pack` lockfile with Plait's effective package requirements.
+_Avoid_: Automatic update, package activation
+
+**Compatibility manifest**:
+The versioned, executable declaration that binds a Plait release to its supported Neovim and platform matrix, qualified provider revisions, external-tool constraints, and provider guard metadata.
+_Avoid_: Release-please manifest, lockfile, release notes
+
 **Provider application phase**:
-A named lifecycle boundary at which a responsible capability applies its fully assembled provider configuration. In v0.1, provider application occurs during initialization or after normal plugin entrypoints have been sourced.
+A lifecycle boundary at which a responsible capability applies its fully assembled provider configuration. In v0.1, provider application occurs during the configuration owner's initialization, after package activation and before normal plugin entrypoints are sourced.
 _Avoid_: Module order, package installation order
 
 **Capability integration**:
@@ -63,6 +79,14 @@ _Avoid_: Plugin configuration, plugin stack
 **Capability contract**:
 The supported managed effects, configuration points, defaults, contributions, interactions, and ownership boundary through which Plait promises a capability's outcome. It describes normal authoring behavior without duplicating a provider's interface.
 _Avoid_: Provider configuration, module implementation
+
+**Capability facade**:
+Plait's provider-independent interface to common user intentions and status that belong to a capability.
+_Avoid_: Provider wrapper
+
+**Capability action**:
+A provider-independent operation exposed by a capability facade and shared by its Lua, command, and mapping entry points.
+_Avoid_: Provider command
 
 **Responsible capability**:
 The single capability accountable for applying and explaining a managed effect, including effects assembled from contributions made by other modules or capabilities.
@@ -95,3 +119,11 @@ _Avoid_: Override
 **Conflict**:
 Incompatible module contributions to the same configuration point where neither deliberately supersedes the other.
 _Avoid_: Override
+
+**Release gate**:
+A mandatory automated or human acceptance criterion that must pass before a change is merged or a Plait release is published.
+_Avoid_: Advisory check
+
+**Release qualification**:
+The recorded evidence that a release candidate satisfies every release gate across the supported compatibility matrix and author journeys.
+_Avoid_: Version declaration, inferred compatibility

@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plait primary configuration API prototype</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #10120f;
+      --panel: #171a16;
+      --panel-raised: #1e221c;
+      --line: #373c32;
+      --text: #f0eee5;
+      --muted: #aaa99f;
+      --accent: #d6ff6b;
+      --accent-dim: #334020;
+      --warn: #f1bb64;
+      --bad: #ee7f72;
+      --good: #9ed587;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.5 var(--sans);
+    }
+    button { font: inherit; }
+    code, pre { font-family: var(--mono); }
+    .prototype-note {
+      padding: 8px 18px;
+      border-bottom: 1px solid #4b3e22;
+      background: #211d13;
+      color: #dbc07a;
+      text-align: center;
+      font: 11px/1.4 var(--mono);
+      letter-spacing: .04em;
+    }
+    header {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 34px 28px 24px;
+    }
+    .eyebrow {
+      color: var(--accent);
+      font: 650 11px/1.4 var(--mono);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+    h1 {
+      max-width: 780px;
+      margin: 8px 0 10px;
+      font-size: clamp(28px, 5vw, 52px);
+      line-height: 1.02;
+      letter-spacing: -.055em;
+    }
+    .lede { max-width: 800px; margin: 0; color: var(--muted); font-size: 15px; }
+    .shell {
+      display: grid;
+      grid-template-columns: 230px minmax(360px, 1fr) 330px;
+      max-width: 1280px;
+      min-height: 660px;
+      margin: 0 auto 40px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+    }
+    .rail, .review { padding: 22px; background: #141713; }
+    .rail { border-right: 1px solid var(--line); }
+    .review { border-left: 1px solid var(--line); }
+    .section-label {
+      margin: 0 0 10px;
+      color: #85877d;
+      font: 650 10px/1.4 var(--mono);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+    .variant-button, .scenario-button, .action-button, .step-button {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      text-align: left;
+    }
+    .variant-button { margin-bottom: 8px; padding: 11px; }
+    .variant-button strong { display: block; color: var(--text); font: 600 12px var(--mono); }
+    .variant-button span { display: block; margin-top: 3px; font-size: 11px; }
+    .variant-button.active { border-color: #829d42; background: var(--accent-dim); color: #d7ddc9; }
+    .scenario-list { display: grid; gap: 6px; margin-top: 24px; }
+    .scenario-button { padding: 8px 10px; font-size: 12px; }
+    .scenario-button.active { border-color: #6f7567; background: #242820; color: var(--text); }
+    .free-play { margin-top: 25px; padding-top: 18px; border-top: 1px solid var(--line); }
+    .action-button { margin-bottom: 7px; padding: 8px 10px; }
+    .action-button:hover, .step-button:hover { border-color: var(--accent); color: var(--text); }
+    .workspace { min-width: 0; padding: 24px; }
+    .workspace-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+    .workspace h2 { margin: 5px 0 3px; font-size: 22px; letter-spacing: -.025em; }
+    .workspace-head p { margin: 0; color: var(--muted); font-size: 12px; }
+    .badge {
+      flex: 0 0 auto;
+      padding: 4px 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--accent);
+      font: 10px var(--mono);
+    }
+    .code-frame {
+      margin-top: 18px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0c0e0c;
+    }
+    .code-title { padding: 8px 12px; border-bottom: 1px solid #282c25; color: #7e8277; font: 10px var(--mono); }
+    pre { min-height: 355px; margin: 0; padding: 18px; overflow: auto; color: #d8dccf; font-size: 11px; line-height: 1.65; white-space: pre; }
+    .walkthrough { margin-top: 18px; padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-raised); }
+    .walkthrough p { margin: 4px 0 12px; color: var(--muted); font-size: 12px; }
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+    .step-button { padding: 9px; font-size: 11px; }
+    .step-button.done { border-color: #52673b; color: var(--good); }
+    .step-button.current { border-color: var(--accent); background: var(--accent-dim); color: var(--text); }
+    .observation { margin-top: 12px; padding: 10px 12px; border-left: 2px solid var(--accent); background: #171d11; color: #d5dacb; font-size: 12px; }
+    .review h2 { margin: 5px 0 16px; font-size: 18px; }
+    .state-row { padding: 10px 0; border-top: 1px solid var(--line); }
+    .state-row:first-of-type { border-top: 0; }
+    .state-row span { display: block; color: #85877d; font: 10px var(--mono); text-transform: uppercase; letter-spacing: .07em; }
+    .state-row strong { display: block; margin-top: 3px; font-size: 12px; }
+    .criteria { margin-top: 22px; }
+    .criterion { display: grid; grid-template-columns: 18px 1fr; gap: 8px; margin-bottom: 11px; }
+    .mark { font: 650 12px var(--mono); }
+    .mark.good { color: var(--good); }
+    .mark.warn { color: var(--warn); }
+    .mark.bad { color: var(--bad); }
+    .criterion strong { display: block; font-size: 12px; }
+    .criterion small { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; line-height: 1.45; }
+    .pressure {
+      margin-top: 22px;
+      padding: 14px;
+      border: 1px solid #55452c;
+      border-radius: 7px;
+      background: #1e1a12;
+    }
+    .pressure strong { display: block; color: var(--warn); font-size: 11px; }
+    .pressure p { margin: 6px 0 0; color: #c9c0ad; font-size: 11px; }
+
+    @media (max-width: 980px) {
+      .shell { grid-template-columns: 205px minmax(0, 1fr); margin-inline: 14px; }
+      .review { grid-column: 1 / -1; border-top: 1px solid var(--line); border-left: 0; }
+      .criteria { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+    }
+    @media (max-width: 680px) {
+      header { padding: 26px 18px 18px; }
+      .shell { display: block; margin-inline: 8px; }
+      .rail { border-right: 0; border-bottom: 1px solid var(--line); }
+      .variant-list { display: grid; grid-template-columns: 1fr; }
+      .scenario-list { grid-template-columns: 1fr 1fr; }
+      .workspace { padding: 18px 12px; }
+      .workspace-head { display: block; }
+      .badge { display: inline-block; margin-top: 9px; }
+      pre { min-height: 0; font-size: 10px; }
+      .steps, .criteria { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="prototype-note">THROWAWAY PROTOTYPE: compare authoring models, not implementation syntax</div>
+  <header>
+    <div class="eyebrow">Plait API workbench</div>
+    <h1>How should an owner describe their editor?</h1>
+    <p class="lede">This prototype asks which setup, module-selection, customization, override, and local-extension API keeps intent obvious while preserving Plait's deterministic composition model.</p>
+  </header>
+
+  <main class="shell">
+    <aside class="rail">
+      <div class="section-label">Authoring model</div>
+      <div class="variant-list" id="variants"></div>
+
+      <div class="scenario-list" id="scenarios" aria-label="Author journeys"></div>
+
+      <div class="free-play">
+        <div class="section-label">Free play</div>
+        <button class="action-button" data-action="next-variant">Try next model</button>
+        <button class="action-button" data-action="next-scenario">Try next journey</button>
+        <button class="action-button" data-action="reset">Reset walkthrough</button>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <div class="workspace-head">
+        <div>
+          <div class="eyebrow" id="variant-kicker"></div>
+          <h2 id="scenario-title"></h2>
+          <p id="scenario-goal"></p>
+        </div>
+        <div class="badge" id="ownership-badge"></div>
+      </div>
+      <div class="code-frame">
+        <div class="code-title">~/.config/nvim/init.lua</div>
+        <pre><code id="code"></code></pre>
+      </div>
+      <div class="walkthrough">
+        <div class="section-label">Guided review</div>
+        <p>Press each step in order. The review state updates with what to inspect in the declaration.</p>
+        <div class="steps" id="steps"></div>
+        <div class="observation" id="observation"></div>
+      </div>
+    </section>
+
+    <aside class="review">
+      <div class="eyebrow">Current state</div>
+      <h2>Authoring readout</h2>
+      <div class="state-row"><span>Model</span><strong id="state-model"></strong></div>
+      <div class="state-row"><span>Journey</span><strong id="state-journey"></strong></div>
+      <div class="state-row"><span>Primary concept</span><strong id="state-concept"></strong></div>
+      <div class="state-row"><span>Ownership boundary</span><strong id="state-ownership"></strong></div>
+
+      <div class="criteria">
+        <div class="section-label">Quality-bar pressure</div>
+        <div id="criteria"></div>
+      </div>
+      <div class="pressure">
+        <strong>Question to react to</strong>
+        <p id="pressure-question"></p>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    // Pure prototype model: no DOM access, suitable for lifting into a comparison harness.
+    const ApiWorkbench = (() => {
+      const variants = [
+        {
+          id: "sections",
+          short: "A",
+          name: "Capability sections",
+          summary: "One setup table with separate selection, configuration, override, and extension homes.",
+          concept: "A Plait configuration",
+          ownership: "Section name states the composition operation",
+          pressure: "Do four explicit sections clarify intent, or make one configuration feel fragmented?",
+        },
+        {
+          id: "colocated",
+          short: "B",
+          name: "Colocated selections",
+          summary: "Each selected module carries its routine options; deliberate operations remain separate.",
+          concept: "A list of selected modules",
+          ownership: "Routine options travel with activation",
+          pressure: "Does colocating activation and options improve locality, or blur module selection with capability configuration?",
+        },
+        {
+          id: "declarations",
+          short: "C",
+          name: "Fluent declarations",
+          summary: "Named calls express selection and every composition operation in sequence.",
+          concept: "An ordered-looking declaration program",
+          ownership: "Each method names the operation",
+          pressure: "Are explicit calls worth the surface area and the false suggestion that call order controls meaning?",
+        },
+        {
+          id: "typed-declarations",
+          short: "D",
+          name: "Typed declaration tables",
+          summary: "Explicit collection methods accept schema-shaped tables; apply remains a separate lifecycle step.",
+          concept: "A typed declarative plan under construction",
+          ownership: "Method names state intent; table shape supplies completion",
+          pressure: "Does combining explicit methods with completable tables justify a multi-call configuration whose order must remain meaningless?",
+        },
+      ];
+
+      const scenarios = [
+        {
+          id: "activate",
+          title: "Activate a useful editor",
+          goal: "Select the v0.1 built-ins without knowing their providers or dependency order.",
+          ownership: "Built-in modules",
+          steps: [
+            "Find the one selection home",
+            "Read outcomes, not providers",
+            "Check that order has no meaning",
+          ],
+          observations: [
+            "Start with the declaration's visual center. Can an owner immediately see what Plait manages?",
+            "The names should be capabilities and language outcomes. Mason, Conform, blink.cmp, and lspconfig should not appear.",
+            "Reordering these selections must produce the same plan. Does the syntax accidentally imply precedence?",
+          ],
+        },
+        {
+          id: "customize",
+          title: "Customize common behavior",
+          goal: "Use capability-level configuration points without copying defaults or consulting provider docs.",
+          ownership: "Plait remains responsible",
+          steps: [
+            "Locate the capability",
+            "Change one named outcome",
+            "Check unrelated defaults stay hidden",
+          ],
+          observations: [
+            "A common preference should be discoverable from the capability name and editor completion.",
+            "The declaration changes indentation and format-on-save in owner-facing terms, without provider vocabulary or callbacks.",
+            "The owner should not copy a full default table. Omitted values remain framework defaults and stay inspectable.",
+          ],
+        },
+        {
+          id: "override",
+          title: "Override a keyed contribution",
+          goal: "Deliberately replace Lua's built-in server declaration while preserving validation and provenance.",
+          ownership: "Plait validates and applies the result",
+          steps: [
+            "Name the lower-layer target",
+            "Make replacement intent explicit",
+            "Check stale targets must fail",
+          ],
+          observations: [
+            "The stable identity `lua_ls` is the target. The owner should not need to know resolution internals.",
+            "This is not generic merging: the syntax must communicate deliberate replacement rather than accidental precedence.",
+            "If `lua_ls` no longer exists, validation must point to this declaration and list nearby valid identities before applying effects.",
+          ],
+        },
+        {
+          id: "extend",
+          title: "Add a local Python module",
+          goal: "Define and select a reusable owner-local module that contributes a server, formatter, and tool requirements.",
+          ownership: "Local module composes through public contracts",
+          steps: [
+            "Give the module stable identity",
+            "Declare capability constraints",
+            "Contribute through keyed seams",
+          ],
+          observations: [
+            "A reusable local module needs a canonical identity so activation, diagnostics, and provenance can name it.",
+            "Requirements constrain explicitly selected capabilities; they must not silently activate `language`, `formatting`, or `tooling`.",
+            "The module contributes plain data through public capability contracts. It does not mutate Neovim or invoke providers.",
+          ],
+        },
+      ];
+
+      const code = {
+        sections: {
+          activate: `require("plait").setup({
+  modules = {
+    "editor",
+    "language",
+    "completion",
+    "formatting",
+    "tooling",
+    "lang.lua",
+    "lang.typescript",
+  },
+})`,
+          customize: `require("plait").setup({
+  modules = { "editor", "formatting" },
+
+  configure = {
+    editor = {
+      indentation = { style = "spaces", width = 4 },
+      clipboard = "system",
+    },
+    formatting = {
+      on_save = false,
+    },
+  },
+})`,
+          override: `require("plait").setup({
+  modules = {
+    "language", "formatting", "tooling", "lang.lua",
+  },
+
+  override = {
+    language = {
+      servers = {
+        lua_ls = {
+          settings = { Lua = { hint = { enable = true } } },
+        },
+      },
+    },
+  },
+})`,
+          extend: `local python = require("plait").module({
+  name = "local.lang.python",
+  provides = { "lang.python" },
+  requires = { "language", "formatting", "tooling" },
+  extend = {
+    language = { servers = { basedpyright = { filetypes = { "python" } } } },
+    formatting = {
+      formatters = { ruff = {} },
+      by_filetype = { python = { "ruff" } },
+    },
+    tooling = { tools = { basedpyright = {}, ruff = {} } },
+  },
+})
+
+require("plait").setup({
+  modules = { "language", "formatting", "tooling", python },
+})`,
+        },
+        colocated: {
+          activate: `local plait = require("plait")
+
+plait.setup({
+  modules = {
+    plait.use("editor"),
+    plait.use("language"),
+    plait.use("completion"),
+    plait.use("formatting"),
+    plait.use("tooling"),
+    plait.use("lang.lua"),
+    plait.use("lang.typescript"),
+  },
+})`,
+          customize: `local plait = require("plait")
+
+plait.setup({
+  modules = {
+    plait.use("editor", {
+      indentation = { style = "spaces", width = 4 },
+      clipboard = "system",
+    }),
+    plait.use("formatting", {
+      on_save = false,
+    }),
+  },
+})`,
+          override: `local plait = require("plait")
+
+plait.setup({
+  modules = {
+    plait.use("language"),
+    plait.use("formatting"),
+    plait.use("tooling"),
+    plait.use("lang.lua"),
+  },
+  override = {
+    plait.replace("language.servers", "lua_ls", {
+      settings = { Lua = { hint = { enable = true } } },
+    }),
+  },
+})`,
+          extend: `local plait = require("plait")
+
+local python = plait.module("local.lang.python", {
+  provides = { "lang.python" },
+  requires = { "language", "formatting", "tooling" },
+  extend = {
+    plait.add("language.servers", "basedpyright", { filetypes = { "python" } }),
+    plait.add("formatting.formatters", "ruff", {}),
+    plait.add("formatting.by_filetype", "python", { "ruff" }),
+    plait.add("tooling.tools", "basedpyright", {}),
+    plait.add("tooling.tools", "ruff", {}),
+  },
+})
+
+plait.setup({
+  modules = {
+    plait.use("language"), plait.use("formatting"),
+    plait.use("tooling"), python,
+  },
+})`,
+        },
+        declarations: {
+          activate: `local config = require("plait").config()
+
+config:use("editor")
+config:use("language")
+config:use("completion")
+config:use("formatting")
+config:use("tooling")
+config:use("lang.lua")
+config:use("lang.typescript")
+
+config:apply()`,
+          customize: `local config = require("plait").config()
+
+config:use("editor")
+config:use("formatting")
+
+config:configure("editor", {
+  indentation = { style = "spaces", width = 4 },
+  clipboard = "system",
+})
+config:configure("formatting", { on_save = false })
+
+config:apply()`,
+          override: `local config = require("plait").config()
+
+config:use("language")
+config:use("formatting")
+config:use("tooling")
+config:use("lang.lua")
+
+config:replace("language.servers", "lua_ls", {
+  settings = { Lua = { hint = { enable = true } } },
+})
+
+config:apply()`,
+          extend: `local plait = require("plait")
+local config = plait.config()
+
+local python = plait.module("local.lang.python")
+python:provides("lang.python")
+python:requires("language", "formatting", "tooling")
+python:add("language.servers", "basedpyright", { filetypes = { "python" } })
+python:add("formatting.formatters", "ruff", {})
+python:add("formatting.by_filetype", "python", { "ruff" })
+python:add("tooling.tools", "basedpyright", {})
+python:add("tooling.tools", "ruff", {})
+
+config:use("language")
+config:use("formatting")
+config:use("tooling")
+config:use(python)
+config:apply()`,
+        },
+        "typed-declarations": {
+          activate: `local config = require("plait").config()
+
+config:select({
+  "editor",
+  "language",
+  "completion",
+  "formatting",
+  "tooling",
+  "lang.lua",
+  "lang.typescript",
+})
+
+config:apply()`,
+          customize: `local config = require("plait").config()
+
+config:select({ "editor", "formatting" })
+
+config:configure({
+  editor = {
+    indentation = { style = "spaces", width = 4 },
+    clipboard = "system",
+  },
+  formatting = {
+    on_save = false,
+  },
+})
+
+config:apply()`,
+          override: `local plait = require("plait")
+local config = plait.config()
+
+config:select({
+  "language", "formatting", "tooling", "lang.lua",
+})
+
+config:override({
+  language = {
+    servers = {
+      lua_ls = plait.replace({
+        settings = { Lua = { hint = { enable = true } } },
+      }),
+    },
+  },
+})
+
+config:apply()`,
+          extend: `local plait = require("plait")
+local config = plait.config()
+
+local python = plait.module({
+  name = "local.lang.python",
+  provides = { "lang.python" },
+  requires = { "language", "formatting", "tooling" },
+  contribute = {
+    language = { servers = { basedpyright = { filetypes = { "python" } } } },
+    formatting = {
+      formatters = { ruff = {} },
+      by_filetype = { python = { "ruff" } },
+    },
+    tooling = { tools = { basedpyright = {}, ruff = {} } },
+  },
+})
+
+config:select({ "language", "formatting", "tooling", python })
+config:apply()`,
+        },
+      };
+
+      const criteria = {
+        sections: {
+          activate: [["good", "One obvious selection home", "Plain strings keep first activation terse."], ["good", "Provider-free", "Only owner-facing module names appear."], ["good", "Set-like appearance", "A table suggests membership more than execution."]],
+          customize: [["good", "Capability-first", "Configuration is keyed by owner outcomes."], ["good", "Operation is explicit", "`configure` distinguishes routine settings."], ["warn", "Split locality", "Selection and its options live in different sections."]],
+          override: [["good", "Deliberate layer", "The `override` section announces precedence."], ["warn", "Operation is inferred", "Nested shape does not say replace versus disable."], ["good", "Stable target visible", "`lua_ls` can be validated before application."]],
+          extend: [["good", "Plain declarative data", "The local module is inspectable and side-effect-free."], ["good", "Public seams visible", "Contributions are grouped by responsible capability."], ["warn", "Large nested shape", "Several keyed seams become visually dense."]],
+        },
+        colocated: {
+          activate: [["warn", "Extra ceremony", "Every built-in selection repeats `plait.use`."], ["good", "Provider-free", "Only module identities appear."], ["warn", "Call-like ordering", "Readers may infer that call order controls meaning."]],
+          customize: [["good", "Strong locality", "Activation and routine options are read together."], ["warn", "Boundary blur", "Module parameters may be mistaken for module-owned settings."], ["good", "Defaults stay omitted", "Only disagreements are declared."]],
+          override: [["good", "Typed operation", "`replace` names intent and a stable target."], ["warn", "Mixed grammar", "Routine options are records while overrides are operation objects."], ["good", "Stale target detectable", "The target identity is explicit."]],
+          extend: [["good", "Typed keyed additions", "Every contribution states seam and identity."], ["good", "Reusable identity", "The local module participates in provenance."], ["warn", "String-path surface", "Completion and refactoring depend on path conventions."]],
+        },
+        declarations: {
+          activate: [["bad", "High ceremony", "Seven selections require seven statements plus apply."], ["good", "Provider-free", "Capability language remains intact."], ["bad", "Order looks semantic", "Sequential calls strongly imply precedence."]],
+          customize: [["good", "Operation is explicit", "`configure` directly names responsibility."], ["warn", "Scattered declaration", "One configuration is spread across statements."], ["good", "Defaults stay omitted", "Only changed points are present."]],
+          override: [["good", "Typed operation", "Replacement cannot be confused with merging."], ["good", "Stable target visible", "Validation can identify `lua_ls`."], ["warn", "Program-shaped config", "Mutation-looking calls obscure the final value."]],
+          extend: [["good", "Highly explicit", "Identity, constraints, and each operation are named."], ["bad", "Verbose local modules", "Simple data requires many method calls."], ["bad", "False sequencing", "Contribution call order appears meaningful."]],
+        },
+        "typed-declarations": {
+          activate: [["good", "One typed selection call", "Module identities can complete as a literal union."], ["good", "Provider-free", "Only owner-facing module names appear."], ["warn", "Two-stage lifecycle", "Authors must understand collection followed by apply."]],
+          customize: [["good", "Structural completion", "LuaLS can traverse capability and configuration-point fields."], ["good", "Explicit operation", "The method names routine configuration."], ["warn", "Order looks meaningful", "Documentation must state that collection calls are set-like and declarative."]],
+          override: [["good", "Completion plus intent", "Known fields complete while `replace` states the operation."], ["good", "Built-in identity visible", "LuaLS can suggest statically declared targets such as `lua_ls`."], ["warn", "Dynamic identities validate later", "Owner-local keys cannot always be statically suggested."]],
+          extend: [["good", "Typed contribution shape", "Known capabilities and seams complete without string paths."], ["good", "Compact plain data", "The local module stays declarative and inspectable."], ["warn", "New keys are necessarily authored", "New identities such as `basedpyright` are validated, not suggested."]],
+        },
+      };
+
+      const initial = Object.freeze({ variant: 0, scenario: 0, step: 0 });
+
+      function reduce(state, action) {
+        if (action.type === "select-variant") return { ...state, variant: action.index, step: 0 };
+        if (action.type === "select-scenario") return { ...state, scenario: action.index, step: 0 };
+        if (action.type === "next-variant") return { ...state, variant: (state.variant + 1) % variants.length, step: 0 };
+        if (action.type === "next-scenario") return { ...state, scenario: (state.scenario + 1) % scenarios.length, step: 0 };
+        if (action.type === "set-step") return { ...state, step: action.index };
+        if (action.type === "reset") return { ...initial };
+        return state;
+      }
+
+      function view(state) {
+        const variant = variants[state.variant];
+        const scenario = scenarios[state.scenario];
+        return {
+          state,
+          variant,
+          scenario,
+          code: code[variant.id][scenario.id],
+          criteria: criteria[variant.id][scenario.id],
+          observation: scenario.observations[state.step],
+        };
+      }
+
+      return { initial, variants, scenarios, reduce, view };
+    })();
+
+    let state = { ...ApiWorkbench.initial };
+
+    function dispatch(action) {
+      state = ApiWorkbench.reduce(state, action);
+      render();
+    }
+
+    function render() {
+      const current = ApiWorkbench.view(state);
+      document.getElementById("variants").innerHTML = ApiWorkbench.variants.map((variant, index) => `
+        <button class="variant-button ${index === state.variant ? "active" : ""}" data-variant="${index}">
+          <strong>${variant.short} / ${variant.name}</strong>
+          <span>${variant.summary}</span>
+        </button>
+      `).join("");
+      document.getElementById("scenarios").innerHTML = ApiWorkbench.scenarios.map((scenario, index) => `
+        <button class="scenario-button ${index === state.scenario ? "active" : ""}" data-scenario="${index}">${scenario.title}</button>
+      `).join("");
+      document.getElementById("variant-kicker").textContent = `Model ${current.variant.short}: ${current.variant.name}`;
+      document.getElementById("scenario-title").textContent = current.scenario.title;
+      document.getElementById("scenario-goal").textContent = current.scenario.goal;
+      document.getElementById("ownership-badge").textContent = current.scenario.ownership;
+      document.getElementById("code").textContent = current.code;
+      document.getElementById("steps").innerHTML = current.scenario.steps.map((step, index) => `
+        <button class="step-button ${index < state.step ? "done" : ""} ${index === state.step ? "current" : ""}" data-step="${index}">${index + 1}. ${step}</button>
+      `).join("");
+      document.getElementById("observation").textContent = current.observation;
+      document.getElementById("state-model").textContent = current.variant.name;
+      document.getElementById("state-journey").textContent = current.scenario.title;
+      document.getElementById("state-concept").textContent = current.variant.concept;
+      document.getElementById("state-ownership").textContent = current.variant.ownership;
+      document.getElementById("criteria").innerHTML = current.criteria.map(([tone, title, detail]) => `
+        <div class="criterion">
+          <span class="mark ${tone}">${tone === "good" ? "+" : tone === "bad" ? "!" : "~"}</span>
+          <div><strong>${title}</strong><small>${detail}</small></div>
+        </div>
+      `).join("");
+      document.getElementById("pressure-question").textContent = current.variant.pressure;
+
+      document.querySelectorAll("[data-variant]").forEach((button) => {
+        button.addEventListener("click", () => dispatch({ type: "select-variant", index: Number(button.dataset.variant) }));
+      });
+      document.querySelectorAll("[data-scenario]").forEach((button) => {
+        button.addEventListener("click", () => dispatch({ type: "select-scenario", index: Number(button.dataset.scenario) }));
+      });
+      document.querySelectorAll("[data-step]").forEach((button) => {
+        button.addEventListener("click", () => dispatch({ type: "set-step", index: Number(button.dataset.step) }));
+      });
+    }
+
+    document.querySelectorAll("[data-action]").forEach((button) => {
+      button.addEventListener("click", () => dispatch({ type: button.dataset.action }));
+    });
+    render();
+  </script>
+</body>
+</html>
