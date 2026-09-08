@@ -40,6 +40,9 @@ local function without_provenance(plan)
     effect.state = nil
     effect.error = nil
   end
+  for _, capability in ipairs(semantic.capabilities) do
+    capability.configuration.sources = nil
+  end
   return semantic
 end
 
@@ -63,41 +66,52 @@ describe('effective plan', function()
         contributions = { 'editor.configuration' },
       },
     })
-    expect.equality(child.lua_get([[M.inspect('capabilities')]]), {
+    expect.equality(
+      child.lua_get([[
+      (function()
+        local capabilities = M.inspect('capabilities')
+        for _, capability in ipairs(capabilities) do
+          capability.configuration = capability.configuration.values
+        end
+        return capabilities
+      end)()
+    ]]),
       {
-        identity = 'editor',
-        state = 'active',
-        activator = 'editor',
-        cardinality = 'exclusive',
-        responsible_integration = 'editor/native',
-        dependents = {},
-        providers = {},
-        configuration = {
-          line_numbers = 'absolute',
-          persistent_undo = true,
-          yank_highlight = true,
-          splits = { horizontal = 'below', vertical = 'right' },
-          indentation = { style = 'spaces', width = 2 },
-          wrap = false,
-          clipboard = 'auto',
-          mappings = {
-            save = '<C-s>',
-            clear_search = '<Esc>',
-            focus_left = '<C-h>',
-            focus_down = '<C-j>',
-            focus_up = '<C-k>',
-            focus_right = '<C-l>',
+        {
+          identity = 'editor',
+          state = 'active',
+          activator = 'editor',
+          cardinality = 'exclusive',
+          responsible_integration = 'editor/native',
+          dependents = {},
+          providers = {},
+          configuration = {
+            line_numbers = 'absolute',
+            persistent_undo = true,
+            yank_highlight = true,
+            splits = { horizontal = 'below', vertical = 'right' },
+            indentation = { style = 'spaces', width = 2 },
+            wrap = false,
+            clipboard = 'auto',
+            mappings = {
+              save = '<C-s>',
+              clear_search = '<Esc>',
+              focus_left = '<C-h>',
+              focus_down = '<C-j>',
+              focus_up = '<C-k>',
+              focus_right = '<C-l>',
+            },
           },
+          contributions = { 'editor.configuration' },
+          actions = {
+            'editor.clear_search',
+            'editor.focus',
+            'editor.save',
+          },
+          degradation_reasons = {},
         },
-        contributions = { 'editor.configuration' },
-        actions = {
-          'editor.clear_search',
-          'editor.focus',
-          'editor.save',
-        },
-        degradation_reasons = {},
-      },
-    })
+      }
+    )
   end)
 
   it('resolves every built-in module in canonical dependency order', function()
@@ -324,9 +338,141 @@ describe('effective plan', function()
     ]])
 
     expect.equality(child.lua_get([[first.status]]), 'valid')
-    expect.equality(child.lua_get([[first.plan.capabilities[1].configuration.wrap]]), false)
-    expect.equality(child.lua_get([[second.plan.capabilities[1].configuration.wrap]]), true)
+    expect.equality(child.lua_get([[first.plan.capabilities[1].configuration.values.wrap]]), false)
+    expect.equality(child.lua_get([[second.plan.capabilities[1].configuration.values.wrap]]), true)
     expect.equality(child.lua_get([[first.plan_id ~= second.plan_id]]), true)
+  end)
+
+  it('resolves every supported capability default and owner configuration', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'editor', 'language', 'completion', 'formatting', 'tooling' })
+      config:configure({
+        language = {
+          diagnostics = { virtual_text = false, update_in_insert = true },
+          mappings = { definition = false, hover = 'H' },
+        },
+        completion = {
+          automatic = false,
+          sources = { 'path', 'lsp' },
+          documentation = 'automatic',
+          signature_help = false,
+          mappings = { trigger = false, accept = '<CR>' },
+        },
+        formatting = {
+          on_save = false,
+          timeout_ms = 60000,
+          lsp_fallback = 'never',
+          mappings = { format = false },
+        },
+        tooling = { check_on_startup = false },
+      })
+      result = config:validate()
+      configurations = {}
+      for _, capability in ipairs(result.plan.capabilities) do
+        configurations[capability.identity] = capability.configuration.values
+      end
+    ]])
+
+    expect.equality(child.lua_get([[result.status]]), 'valid')
+    expect.equality(child.lua_get([[configurations.language]]), {
+      diagnostics = {
+        signs = true,
+        underline = true,
+        virtual_text = false,
+        severity_sort = true,
+        update_in_insert = true,
+      },
+      mappings = {
+        definition = false,
+        references = 'gr',
+        hover = 'H',
+        rename = '<leader>cr',
+        code_action = '<leader>ca',
+        previous_diagnostic = '[d',
+        next_diagnostic = ']d',
+      },
+      inlay_hints = false,
+    })
+    expect.equality(child.lua_get([[configurations.completion]]), {
+      automatic = false,
+      sources = { 'path', 'lsp' },
+      documentation = 'automatic',
+      signature_help = false,
+      mappings = {
+        trigger = false,
+        next = '<C-n>',
+        previous = '<C-p>',
+        accept = '<CR>',
+        cancel = '<C-e>',
+        scroll_documentation_down = '<C-f>',
+        scroll_documentation_up = '<C-b>',
+      },
+    })
+    expect.equality(child.lua_get([[configurations.formatting]]), {
+      on_save = false,
+      timeout_ms = 60000,
+      lsp_fallback = 'never',
+      mappings = { format = false },
+    })
+    expect.equality(child.lua_get([[configurations.tooling]]), { check_on_startup = false })
+    expect.equality(
+      child.lua_get([[
+        vim.tbl_filter(function(item)
+          return item.path == 'configure.tooling.check_on_startup'
+        end, M.inspect('capabilities', 'tooling').configuration.sources)
+      ]]),
+      { { file = '<nvim>', line = 3, path = 'configure.tooling.check_on_startup' } }
+    )
+    expect.equality(
+      child.lua_get([[
+        vim.tbl_filter(function(item)
+          return item.path == 'configure.editor.line_numbers'
+        end, M.inspect('capabilities', 'editor').configuration.sources)
+      ]]),
+      {
+        {
+          file = 'plait:v0.1/editor.line_numbers',
+          line = 0,
+          path = 'configure.editor.line_numbers',
+        },
+      }
+    )
+  end)
+
+  it('identifies semantic plans independently of declaration order and provenance', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'language', 'completion' })
+      config:configure({ completion = { sources = { 'path', 'lsp' } } })
+      first = config:validate()
+    ]])
+    local first_id = child.lua_get([[first.plan_id]])
+
+    child.setup()
+    child.lua([[
+
+
+      local config = M.config()
+      config:configure({ completion = { sources = { 'path', 'lsp' } } })
+      config:select({ 'completion' })
+      config:select({ 'language' })
+      equivalent = config:validate()
+      config:configure({ completion = { documentation = 'automatic' } })
+      changed = config:validate()
+    ]])
+
+    expect.equality(child.lua_get([[equivalent.plan_id]]), first_id)
+    expect.equality(child.lua_get([[changed.plan_id ~= equivalent.plan_id]]), true)
+
+    child.setup()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'completion', 'language' })
+      config:configure({ completion = { sources = { 'lsp', 'path' } } })
+      reordered = config:validate()
+    ]])
+    expect.equality(child.lua_get([[reordered.plan_id ~= first_id]]), true)
   end)
 
   it('returns the collector from collection methods', function()
@@ -405,8 +551,8 @@ describe('effective plan', function()
     ]])
 
     expect.equality(child.lua_get([[result.status]]), 'valid')
-    expect.equality(child.lua_get([[result.plan.capabilities[1].configuration.wrap]]), true)
-    expect.equality(child.lua_get([[result.plan.capabilities[1].configuration.persistent_undo]]), false)
+    expect.equality(child.lua_get([[result.plan.capabilities[1].configuration.values.wrap]]), true)
+    expect.equality(child.lua_get([[result.plan.capabilities[1].configuration.values.persistent_undo]]), false)
   end)
 
   it('rejects incompatible repeated declarations without call-order precedence', function()
@@ -429,7 +575,7 @@ describe('effective plan', function()
       first.diagnostics[1] = { code = 'changed-result' }
 
       inspection = M.inspect('capabilities')
-      inspection[1].configuration.mappings.save = 'changed-inspection'
+      inspection[1].configuration.values.mappings.save = 'changed-inspection'
 
       config:configure({ editor = { wrap = 'invalid' } })
       second = config:validate()
@@ -438,7 +584,7 @@ describe('effective plan', function()
     ]])
 
     expect.equality(child.lua_get([[second.status]]), 'invalid')
-    expect.equality(child.lua_get([[first.plan.capabilities[1].configuration.mappings.save]]), '<C-s>')
+    expect.equality(child.lua_get([[first.plan.capabilities[1].configuration.values.mappings.save]]), '<C-s>')
     expect.equality(child.lua_get([[current]]), {})
     expect.equality(child.lua_get([[current_diagnostics[1].code]]), 'config.invalid')
     expect.equality(child.lua_get([[M.inspect('diagnostics') ~= current_diagnostics]]), true)

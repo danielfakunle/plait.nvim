@@ -25,6 +25,7 @@ end
 ---@return string
 local function expected(node)
   if node.type == 'map' then return 'a plain map' end
+  if node.type == 'array' then return 'a dense one-based array of ' .. expected(node.item) end
   if node.type == 'boolean' then return 'a boolean' end
   if node.type == 'integer' then return ('an integer from %d through %d'):format(node.minimum, node.maximum) end
   if node.type == 'mapping' then return 'a non-empty UTF-8 key string or false' end
@@ -65,12 +66,27 @@ end
 ---@param node table
 ---@return any
 local function default_value(node)
-  if node.type ~= 'map' then return node.default end
+  if node.type ~= 'map' then return vim.deepcopy(node.default) end
   local result = {}
   for name, child in pairs(node.fields) do
     result[name] = default_value(child)
   end
   return result
+end
+
+--- Return the length of a dense one-based array-shaped table.
+---@param value table
+---@return integer|nil
+local function dense_array_length(value)
+  local count = 0
+  local maximum = 0
+  for key in pairs(value) do
+    count = count + 1
+    if type(key) ~= 'number' or key < 1 or key % 1 ~= 0 then return nil end
+    maximum = math.max(maximum, key)
+  end
+  if maximum ~= count then return nil end
+  return count
 end
 
 --- Validate and normalize one schema node.
@@ -107,6 +123,31 @@ local function validate_node(node, value, path, declaration_source, diagnostics,
     for name, child in pairs(node.fields) do
       result[name] =
         validate_node(child, rawget(value, name), path .. '.' .. name, declaration_source, diagnostics, ancestors)
+    end
+    ancestors[value] = nil
+    return result
+  end
+  if node.type == 'array' then
+    if type(value) ~= 'table' or getmetatable(value) ~= nil then
+      diagnostics[#diagnostics + 1] = diagnostic(path, expected(node), value, declaration_source)
+      return default_value(node)
+    end
+    local count = dense_array_length(value)
+    if not count then
+      diagnostics[#diagnostics + 1] = diagnostic(path, expected(node), value, declaration_source)
+      diagnostics[#diagnostics].details.observed = 'mixed or sparse table'
+      return default_value(node)
+    end
+    if ancestors[value] then
+      diagnostics[#diagnostics + 1] = diagnostic(path, 'an acyclic ' .. expected(node), value, declaration_source)
+      diagnostics[#diagnostics].details.observed = 'cyclic table'
+      return default_value(node)
+    end
+    ancestors[value] = true
+    local result = {}
+    for index = 1, count do
+      result[index] =
+        validate_node(node.item, value[index], path .. '[' .. index .. ']', declaration_source, diagnostics, ancestors)
     end
     ancestors[value] = nil
     return result
@@ -149,19 +190,8 @@ local function validate_selections(selections, declaration_sources, diagnostics)
       diagnostic('select', 'a dense one-based array of module selections', selections, declaration_source)
     return nil, nil
   end
-  local count = 0
-  local maximum = 0
-  for key in pairs(selections) do
-    count = count + 1
-    if type(key) ~= 'number' or key < 1 or key % 1 ~= 0 then
-      diagnostics[#diagnostics + 1] =
-        diagnostic('select', 'a dense one-based array of module selections', selections, declaration_source)
-      diagnostics[#diagnostics].details.observed = 'mixed or sparse table'
-      return nil, nil
-    end
-    maximum = math.max(maximum, key)
-  end
-  if maximum ~= count then
+  local count = dense_array_length(selections)
+  if not count then
     diagnostics[#diagnostics + 1] =
       diagnostic('select', 'a dense one-based array of module selections', selections, declaration_source)
     diagnostics[#diagnostics].details.observed = 'mixed or sparse table'
@@ -183,6 +213,30 @@ local function validate_selections(selections, declaration_sources, diagnostics)
     end
   end
   return valid_selections, valid_sources
+end
+
+--- Build canonical provenance for every resolved configuration leaf.
+---@param node table
+---@param path string
+---@param owner_sources table<string, table[]>
+---@param result table[]
+local function configuration_sources(node, path, owner_sources, result)
+  if node.type == 'map' then
+    for name, child in pairs(node.fields) do
+      configuration_sources(child, path .. '.' .. name, owner_sources, result)
+    end
+    return
+  end
+  local sources = owner_sources[path]
+  if sources then
+    vim.list_extend(result, vim.deepcopy(sources))
+  else
+    result[#result + 1] = {
+      file = 'plait:v0.1/' .. path:gsub('^configure%.', ''),
+      line = 0,
+      path = path,
+    }
+  end
 end
 
 --- Sort diagnostics using the canonical public ordering.
@@ -217,30 +271,48 @@ function M.sort_diagnostics(diagnostics)
   end)
 end
 
---- Validate collected editor declarations without applying managed effects.
+--- Validate collected capability configuration without applying managed effects.
 ---@param selections any
 ---@param selection_sources table[]
 ---@param declaration any
 ---@param configuration_source table
----@param editor_schema table
+---@param owner_sources table<string, table[]>
+---@param configuration_schema table
 ---@return table|nil, table|nil, table[]
-function M.validate(selections, selection_sources, declaration, configuration_source, editor_schema)
+function M.validate(
+  selections,
+  selection_sources,
+  declaration,
+  configuration_source,
+  owner_sources,
+  configuration_schema
+)
   local diagnostics = {}
   local valid_selections, valid_selection_sources = validate_selections(selections, selection_sources, diagnostics)
-  local root_schema = { type = 'map', fields = { editor = editor_schema } }
+  local root_schema = { type = 'map', fields = configuration_schema }
   local collected_declaration = declaration == nil and {} or declaration
   local configuration =
     validate_node(root_schema, collected_declaration, 'configure', configuration_source, diagnostics, {})
   local resolution
   if valid_selections and valid_selection_sources then
+    local resolved_sources = {}
+    for capability, capability_schema in pairs(configuration_schema) do
+      resolved_sources[capability] = {}
+      configuration_sources(capability_schema, 'configure.' .. capability, owner_sources, resolved_sources[capability])
+      table.sort(resolved_sources[capability], function(left, right)
+        if left.path ~= right.path then return left.path < right.path end
+        if left.file ~= right.file then return left.file < right.file end
+        return left.line < right.line
+      end)
+    end
     local dependency_diagnostics
     resolution, dependency_diagnostics =
-      modules.resolve(valid_selections, valid_selection_sources, configuration.editor)
+      modules.resolve(valid_selections, valid_selection_sources, configuration, resolved_sources)
     vim.list_extend(diagnostics, dependency_diagnostics)
   end
   M.sort_diagnostics(diagnostics)
   if #diagnostics > 0 then return nil, nil, diagnostics end
-  return configuration.editor, resolution, diagnostics
+  return configuration, resolution, diagnostics
 end
 
 return M

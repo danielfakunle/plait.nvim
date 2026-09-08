@@ -1,4 +1,5 @@
 local canonical = require('plait.canonical')
+local plan = require('plait.plan')
 local schema = require('plait.schema_generated')
 local state = require('plait.state')
 local validation = require('plait.validation')
@@ -31,72 +32,6 @@ local function source(path)
   }
 end
 
---- Resolve the canonical effective plan for selected built-in modules.
----@param configuration table
----@param resolution table
----@return table
-local function plan_for(configuration, resolution)
-  local effects = {}
-  local editor
-  for _, module in ipairs(resolution.modules) do
-    if module.identity == 'editor' then editor = module end
-  end
-  if editor then
-    effects = {
-      {
-        identity = 'editor/native-options',
-        stage = 3,
-        responsible_capability = 'editor',
-        provider = nil,
-        dependencies = {},
-        state = 'pending',
-        sources = vim.deepcopy(editor.selection_sources),
-        error = nil,
-      },
-      {
-        identity = 'editor/actions',
-        stage = 4,
-        responsible_capability = 'editor',
-        provider = nil,
-        dependencies = { 'editor/native-options' },
-        state = 'pending',
-        sources = vim.deepcopy(editor.selection_sources),
-        error = nil,
-      },
-      {
-        identity = 'editor/mappings',
-        stage = 4,
-        responsible_capability = 'editor',
-        provider = nil,
-        dependencies = { 'editor/actions' },
-        state = 'pending',
-        sources = vim.deepcopy(editor.selection_sources),
-        error = nil,
-      },
-    }
-  end
-  if editor and configuration.yank_highlight then
-    effects[#effects + 1] = {
-      identity = 'editor/yank-highlight',
-      stage = 4,
-      responsible_capability = 'editor',
-      provider = nil,
-      dependencies = { 'editor/native-options' },
-      state = 'pending',
-      sources = vim.deepcopy(editor.selection_sources),
-      error = nil,
-    }
-  end
-  return {
-    snapshot_state = 'validated',
-    modules = resolution.modules,
-    capabilities = resolution.capabilities,
-    effects = effects,
-    packages = {},
-    tools = {},
-  }
-end
-
 ---@class PlaitCollector
 ---@field collector_source table
 ---@field selection_calls table[]
@@ -123,7 +58,7 @@ function Collector:select(entries)
 end
 
 --- Add capability configuration to this Plait configuration.
----@param declaration { editor?: PlaitEditorConfiguration }
+---@param declaration { editor?: PlaitEditorConfiguration, language?: PlaitLanguageConfiguration, completion?: PlaitCompletionConfiguration, formatting?: PlaitFormattingConfiguration, tooling?: PlaitToolingConfiguration }
 ---@return PlaitCollector
 function Collector:configure(declaration)
   ensure_collecting(self)
@@ -190,21 +125,60 @@ local function collected_equal(left, right)
   return left_ok and right_ok and left_encoded == right_encoded
 end
 
+--- Record the source of each owner configuration leaf.
+---@param value any
+---@param path string
+---@param declaration_source table
+---@param sources table<string, table[]>
+---@param ancestors? table<table, boolean>
+local function record_configuration_sources(value, path, declaration_source, sources, ancestors)
+  if type(value) ~= 'table' or getmetatable(value) ~= nil then
+    sources[path] = sources[path] or {}
+    local item_source = vim.deepcopy(declaration_source)
+    item_source.path = path
+    sources[path][#sources[path] + 1] = item_source
+    return
+  end
+  ancestors = ancestors or {}
+  if ancestors[value] then return end
+  ancestors[value] = true
+  local has_numeric_key = false
+  local has_entries = false
+  for key in pairs(value) do
+    has_entries = true
+    if type(key) ~= 'string' then has_numeric_key = true end
+  end
+  if has_numeric_key or not has_entries then
+    sources[path] = sources[path] or {}
+    local item_source = vim.deepcopy(declaration_source)
+    item_source.path = path
+    sources[path][#sources[path] + 1] = item_source
+  else
+    for key, child in pairs(value) do
+      record_configuration_sources(child, path .. '.' .. key, declaration_source, sources, ancestors)
+    end
+  end
+  ancestors[value] = nil
+end
+
 --- Merge disjoint repeated configuration calls and poison implicit conflicts.
 ---@param target table
 ---@param declaration table
-local function merge_configuration(target, declaration)
+---@param node table|nil
+local function merge_configuration(target, declaration, node)
   for key, value in pairs(declaration) do
     local existing = rawget(target, key)
+    local child = node and node.fields and node.fields[key]
     if existing == nil then
       target[key] = vim.deepcopy(value)
     elseif
-      type(existing) == 'table'
+      (not child or child.type == 'map')
+      and type(existing) == 'table'
       and getmetatable(existing) == nil
       and type(value) == 'table'
       and getmetatable(value) == nil
     then
-      merge_configuration(existing, value)
+      merge_configuration(existing, value, child)
     elseif not collected_equal(existing, value) then
       target[key] = setmetatable({}, {})
     end
@@ -214,25 +188,30 @@ end
 --- Combine repeated configuration calls without assigning call-order precedence.
 ---@param calls table[]
 ---@param fallback_source table
----@return any, table
+---@return any, table, table<string, table[]>
 local function combine_configuration(calls, fallback_source)
-  if #calls == 0 then return nil, fallback_source end
-  if #calls == 1 then return calls[1].value, calls[1].source end
+  local sources = {}
+  for _, call in ipairs(calls) do
+    record_configuration_sources(call.value, 'configure', call.source, sources)
+  end
+  if #calls == 0 then return nil, fallback_source, sources end
+  if #calls == 1 then return calls[1].value, calls[1].source, sources end
   local configuration = {}
   for _, call in ipairs(calls) do
-    if type(call.value) ~= 'table' or getmetatable(call.value) ~= nil then return call.value, call.source end
-    merge_configuration(configuration, call.value)
+    if type(call.value) ~= 'table' or getmetatable(call.value) ~= nil then return call.value, call.source, sources end
+    merge_configuration(configuration, call.value, { fields = schema })
   end
-  return configuration, calls[1].source
+  return configuration, calls[1].source, sources
 end
 
 --- Validate collected declarations and publish an effective-plan snapshot.
 ---@return table
 function Collector:validate()
   local selections, selection_sources = combine_selections(self.selection_calls, self.collector_source)
-  local declaration, configuration_source = combine_configuration(self.configuration_calls, self.collector_source)
+  local declaration, configuration_source, configuration_sources =
+    combine_configuration(self.configuration_calls, self.collector_source)
   local configuration, resolution, diagnostics =
-    validation.validate(selections, selection_sources, declaration, configuration_source, schema.editor)
+    validation.validate(selections, selection_sources, declaration, configuration_source, configuration_sources, schema)
   vim.list_extend(diagnostics, vim.deepcopy(state.bootstrap_diagnostics))
   validation.sort_diagnostics(diagnostics)
   if not configuration or not resolution or #diagnostics > 0 then
@@ -255,28 +234,18 @@ function Collector:validate()
       tools = {},
     })
   end
-  local plan = plan_for(configuration, resolution)
-  local semantic_plan = vim.deepcopy(plan)
-  semantic_plan.snapshot_state = nil
-  for _, module in ipairs(semantic_plan.modules) do
-    module.selection_sources = nil
-  end
-  for _, effect in ipairs(semantic_plan.effects) do
-    effect.sources = nil
-    effect.state = nil
-    effect.error = nil
-  end
-  local plan_id = vim.fn.sha256(canonical.encode(semantic_plan))
+  local effective_plan = plan.build(configuration, resolution)
+  local plan_id = plan.id(effective_plan, schema)
   state.snapshot = vim.deepcopy({
-    modules = plan.modules,
-    capabilities = plan.capabilities,
-    effects = plan.effects,
-    packages = plan.packages,
-    tools = plan.tools,
+    modules = effective_plan.modules,
+    capabilities = effective_plan.capabilities,
+    effects = effective_plan.effects,
+    packages = effective_plan.packages,
+    tools = effective_plan.tools,
     diagnostics = diagnostics,
     operations = {},
   })
-  return vim.deepcopy({ status = 'valid', diagnostics = diagnostics, plan = plan, plan_id = plan_id })
+  return vim.deepcopy({ status = 'valid', diagnostics = diagnostics, plan = effective_plan, plan_id = plan_id })
 end
 
 --- Seal this collector at the first apply entry.

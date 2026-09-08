@@ -116,6 +116,33 @@ describe('configuration validation', function()
     expect.equality(child.lua_get([[negative_infinity_result.diagnostics[1].details.observed]]), 'non-finite number')
   end)
 
+  it('enforces capability configuration enums, bounds, arrays, and closed fields', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'language', 'completion', 'formatting', 'tooling' })
+      config:configure({
+        language = { diagnostics = { signs = 'yes' } },
+        completion = {
+          sources = { [1] = 'lsp', [3] = 'path' },
+          documentation = 'sometimes',
+        },
+        formatting = { timeout_ms = 60001, lsp_fallback = false },
+        tooling = { install_on_startup = true },
+      })
+      result = config:validate()
+    ]])
+
+    expect.equality(child.lua_get([[result.status]]), 'invalid')
+    expect.equality(child.lua_get([[vim.tbl_map(function(item) return item.details.path end, result.diagnostics)]]), {
+      'configure.completion.documentation',
+      'configure.completion.sources',
+      'configure.formatting.lsp_fallback',
+      'configure.formatting.timeout_ms',
+      'configure.language.diagnostics.signs',
+      'configure.tooling.install_on_startup',
+    })
+  end)
+
   it('publishes closed source-aware diagnostics', function()
     child.lua([[
       local config = M.config()
@@ -195,6 +222,19 @@ describe('configuration validation', function()
         },
       }
     )
+  end)
+
+  it('treats repeated semantic arrays as atomic declarations', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'language', 'completion' })
+      config:configure({ completion = { sources = { 'lsp' } } })
+      config:configure({ completion = { sources = { 'lsp', 'path' } } })
+      result = config:validate()
+    ]])
+
+    expect.equality(child.lua_get([[result.status]]), 'invalid')
+    expect.equality(child.lua_get([[result.diagnostics[1].details.path]]), 'configure.completion.sources')
   end)
 
   it('retains dependency errors independent of invalid selections', function()

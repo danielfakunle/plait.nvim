@@ -2,7 +2,7 @@
   "pages": [
     "./(index)/index",
     "---Reference---",
-    "./reference/editor-schema",
+    "./reference/capability-configuration-schema",
     "---Guides---",
     "./guides/guide-1"
   ]

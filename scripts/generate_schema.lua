@@ -51,6 +51,7 @@ local function annotation_type(node)
   if node.type == 'integer' then return 'integer' end
   if node.type == 'boolean' then return 'boolean' end
   if node.type == 'mapping' then return 'string|false' end
+  if node.type == 'array' then return '(' .. annotation_type(node.item) .. ')[]' end
   local fields = {}
   for _, name in ipairs(sorted_keys(node.fields)) do
     fields[#fields + 1] = name .. '?: ' .. annotation_type(node.fields[name])
@@ -61,16 +62,18 @@ end
 --- Generate runtime validation metadata and LuaLS annotations.
 ---@return string
 local function runtime_artifact()
-  local editor = schema.editor
   local lines = {
     '-- Generated from lua/plait/schema.lua. Do not edit.',
     '',
-    '---@class PlaitEditorConfiguration',
   }
-  for _, name in ipairs(sorted_keys(editor.fields)) do
-    lines[#lines + 1] = '---@field ' .. name .. '? ' .. annotation_type(editor.fields[name])
+  for _, capability in ipairs(sorted_keys(schema)) do
+    local class_name = 'Plait' .. capability:gsub('^%l', string.upper) .. 'Configuration'
+    lines[#lines + 1] = '---@class ' .. class_name
+    for _, name in ipairs(sorted_keys(schema[capability].fields)) do
+      lines[#lines + 1] = '---@field ' .. name .. '? ' .. annotation_type(schema[capability].fields[name])
+    end
+    lines[#lines + 1] = ''
   end
-  lines[#lines + 1] = ''
   lines[#lines + 1] = 'return ' .. serialize(schema, 0)
   lines[#lines + 1] = ''
   return table.concat(lines, '\n')
@@ -83,6 +86,7 @@ local function describe(node)
   if node.type == 'enum' then return table.concat(node.values, ' \\| ') end
   if node.type == 'integer' then return ('integer %d..%d'):format(node.minimum, node.maximum) end
   if node.type == 'mapping' then return 'non-empty key string \\| false' end
+  if node.type == 'array' then return 'dense array of ' .. describe(node.item) end
   return node.type
 end
 
@@ -91,6 +95,13 @@ end
 ---@return string
 local function display_default(value)
   if type(value) == 'string' then return '`' .. value .. '`' end
+  if type(value) == 'table' then
+    local items = {}
+    for index, item in ipairs(value) do
+      items[index] = type(item) == 'string' and string.format('%q', item) or tostring(item)
+    end
+    return '`{ ' .. table.concat(items, ', ') .. ' }`'
+  end
   return '`' .. tostring(value) .. '`'
 end
 
@@ -142,18 +153,18 @@ local function markdown_table(rows)
   return table.concat(lines, '\n')
 end
 
---- Generate public editor-schema reference facts.
+--- Generate public capability-configuration schema reference facts.
 ---@return string
 local function reference_artifact()
   local rows = {}
-  reference_rows(schema.editor, 'editor.', rows)
+  for _, capability in ipairs(sorted_keys(schema)) do
+    reference_rows(schema[capability], capability .. '.', rows)
+  end
   return table.concat({
     '---',
-    'title: Editor Schema',
-    'description: Generated facts for the editor capability configuration.',
+    'title: Capability Configuration Schema',
+    'description: Generated facts for supported capability configuration.',
     '---',
-    '',
-    '<!-- Generated from lua/plait/schema.lua. Do not edit. -->',
     '',
     markdown_table(rows),
     '',
@@ -162,7 +173,7 @@ end
 
 local artifacts = {
   ['lua/plait/schema_generated.lua'] = runtime_artifact(),
-  ['site/content/reference/editor-schema.mdx'] = reference_artifact(),
+  ['site/content/reference/capability-configuration-schema.mdx'] = reference_artifact(),
 }
 
 local check = vim.tbl_contains(vim.v.argv, '--check')

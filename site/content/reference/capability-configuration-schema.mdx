@@ -1,0 +1,51 @@
+---
+title: Capability Configuration Schema
+description: Generated facts for supported capability configuration.
+---
+
+| Configuration point                             | Accepted value                                     | Default                                   |
+| ----------------------------------------------- | -------------------------------------------------- | ----------------------------------------- |
+| `completion.automatic`                          | `boolean`                                          | `true`                                    |
+| `completion.documentation`                      | `selected \| automatic \| off`                     | `selected`                                |
+| `completion.mappings.accept`                    | `non-empty key string \| false`                    | `<C-y>`                                   |
+| `completion.mappings.cancel`                    | `non-empty key string \| false`                    | `<C-e>`                                   |
+| `completion.mappings.next`                      | `non-empty key string \| false`                    | `<C-n>`                                   |
+| `completion.mappings.previous`                  | `non-empty key string \| false`                    | `<C-p>`                                   |
+| `completion.mappings.scroll_documentation_down` | `non-empty key string \| false`                    | `<C-f>`                                   |
+| `completion.mappings.scroll_documentation_up`   | `non-empty key string \| false`                    | `<C-b>`                                   |
+| `completion.mappings.trigger`                   | `non-empty key string \| false`                    | `<C-Space>`                               |
+| `completion.signature_help`                     | `boolean`                                          | `true`                                    |
+| `completion.sources`                            | `dense array of lsp \| buffer \| path \| snippets` | `{ "lsp", "buffer", "path", "snippets" }` |
+| `editor.clipboard`                              | `auto \| system \| osc52 \| disabled`              | `auto`                                    |
+| `editor.indentation.style`                      | `spaces \| tabs`                                   | `spaces`                                  |
+| `editor.indentation.width`                      | `integer 1..16`                                    | `2`                                       |
+| `editor.line_numbers`                           | `absolute \| relative \| off`                      | `absolute`                                |
+| `editor.mappings.clear_search`                  | `non-empty key string \| false`                    | `<Esc>`                                   |
+| `editor.mappings.focus_down`                    | `non-empty key string \| false`                    | `<C-j>`                                   |
+| `editor.mappings.focus_left`                    | `non-empty key string \| false`                    | `<C-h>`                                   |
+| `editor.mappings.focus_right`                   | `non-empty key string \| false`                    | `<C-l>`                                   |
+| `editor.mappings.focus_up`                      | `non-empty key string \| false`                    | `<C-k>`                                   |
+| `editor.mappings.save`                          | `non-empty key string \| false`                    | `<C-s>`                                   |
+| `editor.persistent_undo`                        | `boolean`                                          | `true`                                    |
+| `editor.splits.horizontal`                      | `below \| above`                                   | `below`                                   |
+| `editor.splits.vertical`                        | `right \| left`                                    | `right`                                   |
+| `editor.wrap`                                   | `boolean`                                          | `false`                                   |
+| `editor.yank_highlight`                         | `boolean`                                          | `true`                                    |
+| `formatting.lsp_fallback`                       | `if_no_formatter \| never`                         | `if_no_formatter`                         |
+| `formatting.mappings.format`                    | `non-empty key string \| false`                    | `<leader>cf`                              |
+| `formatting.on_save`                            | `boolean`                                          | `true`                                    |
+| `formatting.timeout_ms`                         | `integer 1..60000`                                 | `1000`                                    |
+| `language.diagnostics.severity_sort`            | `boolean`                                          | `true`                                    |
+| `language.diagnostics.signs`                    | `boolean`                                          | `true`                                    |
+| `language.diagnostics.underline`                | `boolean`                                          | `true`                                    |
+| `language.diagnostics.update_in_insert`         | `boolean`                                          | `false`                                   |
+| `language.diagnostics.virtual_text`             | `boolean`                                          | `true`                                    |
+| `language.inlay_hints`                          | `boolean`                                          | `false`                                   |
+| `language.mappings.code_action`                 | `non-empty key string \| false`                    | `<leader>ca`                              |
+| `language.mappings.definition`                  | `non-empty key string \| false`                    | `gd`                                      |
+| `language.mappings.hover`                       | `non-empty key string \| false`                    | `K`                                       |
+| `language.mappings.next_diagnostic`             | `non-empty key string \| false`                    | `]d`                                      |
+| `language.mappings.previous_diagnostic`         | `non-empty key string \| false`                    | `[d`                                      |
+| `language.mappings.references`                  | `non-empty key string \| false`                    | `gr`                                      |
+| `language.mappings.rename`                      | `non-empty key string \| false`                    | `<leader>cr`                              |
+| `tooling.check_on_startup`                      | `boolean`                                          | `true`                                    |

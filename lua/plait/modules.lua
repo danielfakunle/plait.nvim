@@ -270,9 +270,10 @@ end
 --- Resolve selected built-ins into canonical module and capability records.
 ---@param selections string[]
 ---@param selection_sources table[]
----@param editor_configuration table
+---@param configuration table
+---@param configuration_sources table<string, table[]>
 ---@return table|nil, table[]
-function M.resolve(selections, selection_sources, editor_configuration)
+function M.resolve(selections, selection_sources, configuration, configuration_sources)
   local selected = {}
   for index, identity in ipairs(selections) do
     local module = selected[identity]
@@ -429,7 +430,10 @@ function M.resolve(selections, selection_sources, editor_configuration)
       responsible_integration = definition.responsible_integration,
       dependents = vim.deepcopy(outgoing[activator]),
       providers = vim.deepcopy(definition.providers),
-      configuration = identity == 'editor' and vim.deepcopy(editor_configuration) or {},
+      configuration = {
+        values = vim.deepcopy(configuration[identity] or {}),
+        sources = vim.deepcopy(configuration_sources[identity] or {}),
+      },
       contributions = vim.deepcopy(selected[activator].contributions),
       actions = vim.deepcopy(definition.actions),
       degradation_reasons = {},
