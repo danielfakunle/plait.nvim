@@ -212,9 +212,10 @@ function Collector:validate()
     combine_configuration(self.configuration_calls, self.collector_source)
   local configuration, resolution, diagnostics =
     validation.validate(selections, selection_sources, declaration, configuration_source, configuration_sources, schema)
+  local semantic_diagnostic_count = #diagnostics
   vim.list_extend(diagnostics, vim.deepcopy(state.bootstrap_diagnostics))
   validation.sort_diagnostics(diagnostics)
-  if not configuration or not resolution or #diagnostics > 0 then
+  if not configuration or not resolution or semantic_diagnostic_count > 0 then
     state.snapshot = vim.deepcopy({
       modules = {},
       capabilities = {},

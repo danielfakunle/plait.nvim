@@ -1,3 +1,8 @@
+local state = require('plait.state')
+
+if state.bootstrap_initialized then return end
+state.bootstrap_initialized = true
+
 if vim.fn.exists(':Plait') == 0 then
   vim.api.nvim_create_user_command(
     'Plait',
@@ -5,7 +10,6 @@ if vim.fn.exists(':Plait') == 0 then
     { nargs = '+' }
   )
 else
-  local state = require('plait.state')
   state.bootstrap_diagnostics = {
     {
       code = 'bootstrap.command_collision',
