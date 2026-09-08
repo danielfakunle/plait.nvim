@@ -1,3 +1,9 @@
 {
-  "pages": ["---Group---", "./(index)/index", "---Another Group---", "./guides/guide-1"]
+  "pages": [
+    "./(index)/index",
+    "---Reference---",
+    "./reference/editor-schema",
+    "---Guides---",
+    "./guides/guide-1"
+  ]
 }
