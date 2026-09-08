@@ -13,6 +13,11 @@
 - New production functions require LuaDoc descriptions and appropriate LuaLS annotations. Comments should
   explain non-obvious decisions or Neovim API constraints, not restate code.
 
+## Code Style
+
+- Keep source files focused. Treat roughly 500 lines as a reorganization signal: split files approaching that
+  size along coherent module boundaries unless keeping the file together materially improves the design.
+
 ## Documentation Site
 
 - `site/` is a separate pnpm 11.24.0 project using Vite+, TanStack Start, and Fumadocs. Run its commands
