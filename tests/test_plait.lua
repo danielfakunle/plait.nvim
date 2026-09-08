@@ -29,6 +29,20 @@ local minimal_editor = [[
   })
 ]]
 
+local function without_provenance(plan)
+  local semantic = vim.deepcopy(plan)
+  semantic.snapshot_state = nil
+  for _, module in ipairs(semantic.modules) do
+    module.selection_sources = nil
+  end
+  for _, effect in ipairs(semantic.effects) do
+    effect.sources = nil
+    effect.state = nil
+    effect.error = nil
+  end
+  return semantic
+end
+
 describe('effective plan', function()
   it('validates and publishes the minimal editor plan', function()
     child.lua(minimal_editor .. [[result = config:validate()]])
@@ -84,6 +98,192 @@ describe('effective plan', function()
         degradation_reasons = {},
       },
     })
+  end)
+
+  it('resolves every built-in module in canonical dependency order', function()
+    child.lua([[
+      local config = M.config()
+      config:select({
+        'lang.typescript',
+        'tooling',
+        'formatting',
+        'completion',
+        'language',
+        'editor',
+        'lang.lua',
+      })
+      result = config:validate()
+    ]])
+
+    expect.equality(child.lua_get([[result.status]]), 'valid')
+    expect.equality(
+      child.lua_get([[
+        vim.tbl_map(function(module)
+          return {
+            identity = module.identity,
+            provides = module.provides,
+            requires = module.requires,
+            ordering_edges = module.ordering_edges,
+          }
+        end, M.inspect('modules'))
+      ]]),
+      {
+        { identity = 'editor', provides = { 'editor' }, requires = {}, ordering_edges = {} },
+        { identity = 'language', provides = { 'language' }, requires = {}, ordering_edges = {} },
+        {
+          identity = 'completion',
+          provides = { 'completion' },
+          requires = { 'language' },
+          ordering_edges = { 'language' },
+        },
+        { identity = 'formatting', provides = { 'formatting' }, requires = {}, ordering_edges = { 'language' } },
+        { identity = 'tooling', provides = { 'tooling' }, requires = {}, ordering_edges = {} },
+        {
+          identity = 'lang.lua',
+          provides = { 'lang.lua' },
+          requires = { 'formatting', 'language', 'tooling' },
+          ordering_edges = { 'completion', 'formatting', 'language', 'tooling' },
+        },
+        {
+          identity = 'lang.typescript',
+          provides = { 'lang.typescript' },
+          requires = { 'formatting', 'language', 'tooling' },
+          ordering_edges = { 'completion', 'formatting', 'language', 'tooling' },
+        },
+      }
+    )
+    expect.equality(
+      child.lua_get([[
+        vim.tbl_map(function(capability)
+          return {
+            identity = capability.identity,
+            activator = capability.activator,
+            cardinality = capability.cardinality,
+            dependents = capability.dependents,
+          }
+        end, M.inspect('capabilities'))
+      ]]),
+      {
+        {
+          identity = 'completion',
+          activator = 'completion',
+          cardinality = 'exclusive',
+          dependents = { 'lang.lua', 'lang.typescript' },
+        },
+        { identity = 'editor', activator = 'editor', cardinality = 'exclusive', dependents = {} },
+        {
+          identity = 'formatting',
+          activator = 'formatting',
+          cardinality = 'exclusive',
+          dependents = { 'lang.lua', 'lang.typescript' },
+        },
+        { identity = 'lang.lua', activator = 'lang.lua', cardinality = 'exclusive', dependents = {} },
+        {
+          identity = 'lang.typescript',
+          activator = 'lang.typescript',
+          cardinality = 'exclusive',
+          dependents = {},
+        },
+        {
+          identity = 'language',
+          activator = 'language',
+          cardinality = 'exclusive',
+          dependents = { 'completion', 'formatting', 'lang.lua', 'lang.typescript' },
+        },
+        {
+          identity = 'tooling',
+          activator = 'tooling',
+          cardinality = 'exclusive',
+          dependents = { 'lang.lua', 'lang.typescript' },
+        },
+      }
+    )
+  end)
+
+  it('produces identical semantics for selection permutations', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'tooling', 'lang.lua', 'formatting', 'language' })
+      first = config:validate()
+    ]])
+    local first_plan = without_provenance(child.lua_get([[first.plan]]))
+    local first_modules = child.lua_get([[M.inspect('modules')]])
+    local first_capabilities = child.lua_get([[M.inspect('capabilities')]])
+
+    child.setup()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'language', 'formatting' })
+      config:select({ 'lang.lua', 'tooling' })
+      second = config:validate()
+    ]])
+
+    expect.equality(child.lua_get([[second.status]]), 'valid')
+    expect.equality(without_provenance(child.lua_get([[second.plan]])), first_plan)
+    expect.equality(
+      child.lua_get([[vim.tbl_map(function(module) return module.identity end, M.inspect('modules'))]]),
+      vim.tbl_map(function(module) return module.identity end, first_modules)
+    )
+    expect.equality(child.lua_get([[M.inspect('capabilities')]]), first_capabilities)
+  end)
+
+  it('produces identical semantics for declaration and table iteration permutations', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'editor' })
+      config:configure({ editor = { wrap = true } })
+      config:configure({ editor = { indentation = { width = 4, style = 'spaces' } } })
+      first = config:validate()
+    ]])
+    local first_plan = without_provenance(child.lua_get([[first.plan]]))
+
+    child.setup()
+    child.lua([[
+      local indentation = {}
+      indentation.style = 'spaces'
+      indentation.width = 4
+      local config = M.config()
+      config:select({ 'editor' })
+      config:configure({ editor = { indentation = indentation } })
+      config:configure({ editor = { wrap = true } })
+      second = config:validate()
+    ]])
+
+    expect.equality(child.lua_get([[second.status]]), 'valid')
+    expect.equality(without_provenance(child.lua_get([[second.plan]])), first_plan)
+  end)
+
+  it('coalesces duplicate selections and retains every source reason', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'editor', 'editor' })
+      config:select({ 'editor' })
+      result = config:validate()
+    ]])
+
+    expect.equality(child.lua_get([[result.status]]), 'valid')
+    expect.equality(child.lua_get([[#M.inspect('modules')]]), 1)
+    expect.equality(child.lua_get([[#M.inspect('capabilities')]]), 1)
+    expect.equality(child.lua_get([[M.inspect('modules', 'editor').selection_sources]]), {
+      { file = '<nvim>', line = 2, path = 'select[1]' },
+      { file = '<nvim>', line = 2, path = 'select[2]' },
+      { file = '<nvim>', line = 3, path = 'select[1]' },
+    })
+  end)
+
+  it('allows optional interactions to be absent without activating capabilities', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'formatting' })
+      result = config:validate()
+    ]])
+
+    expect.equality(child.lua_get([[result.status]]), 'valid')
+    expect.equality(child.lua_get([[M.inspect('modules', 'formatting').ordering_edges]]), {})
+    expect.equality(
+      child.lua_get([[vim.tbl_map(function(capability) return capability.identity end, M.inspect('capabilities'))]]),
+      { 'formatting' }
+    )
   end)
 
   it('returns detached inspection records', function()

@@ -31,70 +31,51 @@ local function source(path)
   }
 end
 
---- Resolve the canonical editor-only effective plan.
+--- Resolve the canonical effective plan for selected built-in modules.
 ---@param configuration table
----@param selection_sources table[]
+---@param resolution table
 ---@return table
-local function plan_for(configuration, selection_sources)
-  local modules = {
-    {
-      identity = 'editor',
-      state = 'active',
-      selection_sources = vim.deepcopy(selection_sources),
-      provides = { 'editor' },
-      requires = {},
-      ordering_edges = {},
-      contributions = { 'editor.configuration' },
-    },
-  }
-  local capabilities = {
-    {
-      identity = 'editor',
-      state = 'active',
-      activator = 'editor',
-      cardinality = 'exclusive',
-      responsible_integration = 'editor/native',
-      dependents = {},
-      providers = {},
-      configuration = configuration,
-      contributions = { 'editor.configuration' },
-      actions = { 'editor.clear_search', 'editor.focus', 'editor.save' },
-      degradation_reasons = {},
-    },
-  }
-  local effects = {
-    {
-      identity = 'editor/native-options',
-      stage = 3,
-      responsible_capability = 'editor',
-      provider = nil,
-      dependencies = {},
-      state = 'pending',
-      sources = vim.deepcopy(selection_sources),
-      error = nil,
-    },
-    {
-      identity = 'editor/actions',
-      stage = 4,
-      responsible_capability = 'editor',
-      provider = nil,
-      dependencies = { 'editor/native-options' },
-      state = 'pending',
-      sources = vim.deepcopy(selection_sources),
-      error = nil,
-    },
-    {
-      identity = 'editor/mappings',
-      stage = 4,
-      responsible_capability = 'editor',
-      provider = nil,
-      dependencies = { 'editor/actions' },
-      state = 'pending',
-      sources = vim.deepcopy(selection_sources),
-      error = nil,
-    },
-  }
-  if configuration.yank_highlight then
+local function plan_for(configuration, resolution)
+  local effects = {}
+  local editor
+  for _, module in ipairs(resolution.modules) do
+    if module.identity == 'editor' then editor = module end
+  end
+  if editor then
+    effects = {
+      {
+        identity = 'editor/native-options',
+        stage = 3,
+        responsible_capability = 'editor',
+        provider = nil,
+        dependencies = {},
+        state = 'pending',
+        sources = vim.deepcopy(editor.selection_sources),
+        error = nil,
+      },
+      {
+        identity = 'editor/actions',
+        stage = 4,
+        responsible_capability = 'editor',
+        provider = nil,
+        dependencies = { 'editor/native-options' },
+        state = 'pending',
+        sources = vim.deepcopy(editor.selection_sources),
+        error = nil,
+      },
+      {
+        identity = 'editor/mappings',
+        stage = 4,
+        responsible_capability = 'editor',
+        provider = nil,
+        dependencies = { 'editor/actions' },
+        state = 'pending',
+        sources = vim.deepcopy(editor.selection_sources),
+        error = nil,
+      },
+    }
+  end
+  if editor and configuration.yank_highlight then
     effects[#effects + 1] = {
       identity = 'editor/yank-highlight',
       stage = 4,
@@ -102,14 +83,14 @@ local function plan_for(configuration, selection_sources)
       provider = nil,
       dependencies = { 'editor/native-options' },
       state = 'pending',
-      sources = vim.deepcopy(selection_sources),
+      sources = vim.deepcopy(editor.selection_sources),
       error = nil,
     }
   end
   return {
     snapshot_state = 'validated',
-    modules = modules,
-    capabilities = capabilities,
+    modules = resolution.modules,
+    capabilities = resolution.capabilities,
     effects = effects,
     packages = {},
     tools = {},
@@ -250,11 +231,11 @@ end
 function Collector:validate()
   local selections, selection_sources = combine_selections(self.selection_calls, self.collector_source)
   local declaration, configuration_source = combine_configuration(self.configuration_calls, self.collector_source)
-  local configuration, diagnostics =
+  local configuration, resolution, diagnostics =
     validation.validate(selections, selection_sources, declaration, configuration_source, schema.editor)
   vim.list_extend(diagnostics, vim.deepcopy(state.bootstrap_diagnostics))
   validation.sort_diagnostics(diagnostics)
-  if not configuration then
+  if not configuration or not resolution or #diagnostics > 0 then
     state.snapshot = vim.deepcopy({
       modules = {},
       capabilities = {},
@@ -274,7 +255,7 @@ function Collector:validate()
       tools = {},
     })
   end
-  local plan = plan_for(configuration, selection_sources)
+  local plan = plan_for(configuration, resolution)
   local semantic_plan = vim.deepcopy(plan)
   semantic_plan.snapshot_state = nil
   for _, module in ipairs(semantic_plan.modules) do

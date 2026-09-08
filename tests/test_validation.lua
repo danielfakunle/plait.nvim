@@ -150,8 +150,67 @@ describe('configuration validation', function()
     expect.equality(child.lua_get([[diagnostic.related_sources]]), {})
     expect.equality(child.lua_get([[diagnostic.details]]), {
       path = 'select[1]',
-      expected = 'one of "editor"',
+      expected = 'one of "completion", "editor", "formatting", "lang.lua", "lang.typescript", "language", "tooling"',
       observed = '"missing"',
+    })
+  end)
+
+  it('aggregates missing dependencies without implicitly selecting modules', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'lang.lua', 'completion' })
+      result = config:validate()
+    ]])
+
+    expect.equality(child.lua_get([[result.status]]), 'invalid')
+    expect.equality(child.lua_get([[result.plan]]), vim.NIL)
+    expect.equality(child.lua_get([[result.modules]]), {})
+    expect.equality(child.lua_get([[result.capabilities]]), {})
+    expect.equality(
+      child.lua_get([[
+        vim.tbl_map(function(item)
+          return { code = item.code, details = item.details, source = item.source }
+        end, result.diagnostics)
+      ]]),
+      {
+        {
+          code = 'dependency.missing',
+          details = { module = 'lang.lua', capability = 'formatting' },
+          source = { file = '<nvim>', line = 2, path = 'select[1]' },
+        },
+        {
+          code = 'dependency.missing',
+          details = { module = 'lang.lua', capability = 'language' },
+          source = { file = '<nvim>', line = 2, path = 'select[1]' },
+        },
+        {
+          code = 'dependency.missing',
+          details = { module = 'lang.lua', capability = 'tooling' },
+          source = { file = '<nvim>', line = 2, path = 'select[1]' },
+        },
+        {
+          code = 'dependency.missing',
+          details = { module = 'completion', capability = 'language' },
+          source = { file = '<nvim>', line = 2, path = 'select[2]' },
+        },
+      }
+    )
+  end)
+
+  it('retains dependency errors independent of invalid selections', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'missing', 'completion' })
+      result = config:validate()
+    ]])
+
+    expect.equality(
+      child.lua_get([[vim.tbl_map(function(item) return item.code end, result.diagnostics)]]),
+      { 'config.invalid', 'dependency.missing' }
+    )
+    expect.equality(child.lua_get([[result.diagnostics[2].details]]), {
+      module = 'completion',
+      capability = 'language',
     })
   end)
 

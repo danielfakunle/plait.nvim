@@ -1,4 +1,5 @@
 local canonical = require('plait.canonical')
+local modules = require('plait.modules')
 local text = require('plait.text')
 
 local M = {}
@@ -140,13 +141,13 @@ end
 ---@param selections any
 ---@param declaration_sources table[]
 ---@param diagnostics table[]
----@return boolean
+---@return string[]|nil, table[]|nil
 local function validate_selections(selections, declaration_sources, diagnostics)
   local declaration_source = declaration_sources[1]
   if type(selections) ~= 'table' or getmetatable(selections) ~= nil then
     diagnostics[#diagnostics + 1] =
       diagnostic('select', 'a dense one-based array of module selections', selections, declaration_source)
-    return false
+    return nil, nil
   end
   local count = 0
   local maximum = 0
@@ -156,7 +157,7 @@ local function validate_selections(selections, declaration_sources, diagnostics)
       diagnostics[#diagnostics + 1] =
         diagnostic('select', 'a dense one-based array of module selections', selections, declaration_source)
       diagnostics[#diagnostics].details.observed = 'mixed or sparse table'
-      return false
+      return nil, nil
     end
     maximum = math.max(maximum, key)
   end
@@ -164,22 +165,24 @@ local function validate_selections(selections, declaration_sources, diagnostics)
     diagnostics[#diagnostics + 1] =
       diagnostic('select', 'a dense one-based array of module selections', selections, declaration_source)
     diagnostics[#diagnostics].details.observed = 'mixed or sparse table'
-    return false
+    return nil, nil
   end
-  local selected = false
+  local valid_selections = {}
+  local valid_sources = {}
   for index = 1, count do
-    if selections[index] == 'editor' then
-      selected = true
+    if modules.is_builtin(selections[index]) then
+      valid_selections[#valid_selections + 1] = selections[index]
+      valid_sources[#valid_sources + 1] = declaration_sources[index]
     else
-      diagnostics[#diagnostics + 1] =
-        diagnostic('select[' .. index .. ']', 'one of "editor"', selections[index], declaration_sources[index])
+      diagnostics[#diagnostics + 1] = diagnostic(
+        'select[' .. index .. ']',
+        modules.expected_identity(),
+        selections[index],
+        declaration_sources[index]
+      )
     end
   end
-  if not selected and #diagnostics == 0 then
-    diagnostics[#diagnostics + 1] = diagnostic('select', 'an array containing "editor"', selections, declaration_source)
-    diagnostics[#diagnostics].details.observed = 'empty array'
-  end
-  return selected
+  return valid_selections, valid_sources
 end
 
 --- Sort diagnostics using the canonical public ordering.
@@ -220,17 +223,24 @@ end
 ---@param declaration any
 ---@param configuration_source table
 ---@param editor_schema table
----@return table|nil, table[]
+---@return table|nil, table|nil, table[]
 function M.validate(selections, selection_sources, declaration, configuration_source, editor_schema)
   local diagnostics = {}
-  local selected = validate_selections(selections, selection_sources, diagnostics)
+  local valid_selections, valid_selection_sources = validate_selections(selections, selection_sources, diagnostics)
   local root_schema = { type = 'map', fields = { editor = editor_schema } }
   local collected_declaration = declaration == nil and {} or declaration
   local configuration =
     validate_node(root_schema, collected_declaration, 'configure', configuration_source, diagnostics, {})
+  local resolution
+  if valid_selections and valid_selection_sources then
+    local dependency_diagnostics
+    resolution, dependency_diagnostics =
+      modules.resolve(valid_selections, valid_selection_sources, configuration.editor)
+    vim.list_extend(diagnostics, dependency_diagnostics)
+  end
   M.sort_diagnostics(diagnostics)
-  if #diagnostics > 0 or not selected then return nil, diagnostics end
-  return configuration.editor, diagnostics
+  if #diagnostics > 0 then return nil, nil, diagnostics end
+  return configuration.editor, resolution, diagnostics
 end
 
 return M
