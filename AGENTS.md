@@ -1,54 +1,37 @@
-## Agent skills
+# Repository Guide
 
-### Issue tracker
+## Plugin
 
-Issues for this repo live in Linear under the `My Projects` team and `Plait.nvim` project. See `docs/agents/issue-tracker.md`.
+- `lua/plait/init.lua` is the public `require('plait')` entrypoint. Tests in `tests/test_*.lua` use
+  mini.test and exercise the plugin inside a clean child Neovim configured by `scripts/minimal_init.lua`.
+- Run plugin commands from the repository root; the test harness relies on the current working directory.
+- `make install` clones the ignored `deps/mini.nvim` test dependency. It does not install the required
+  executables: `nvim`, `stylua`, `luacheck`, and `lua-language-server`.
+- `make check` runs, in order, formatting checks, lint, LuaLS type checking, and all tests.
+- Run one test file with `make test_file FILE=tests/test_plait.lua`. Other focused checks are `make format`,
+  `make lint`, `make typecheck`, and `make test`; use `make format_fix` to rewrite Lua formatting.
+- New production functions require LuaDoc descriptions and appropriate LuaLS annotations. Comments should
+  explain non-obvious decisions or Neovim API constraints, not restate code.
 
-### Triage labels
+## Documentation Site
 
-Use the repo's title-case triage labels: `Needs Triage`, `Needs Info`, `Ready for Agent`, `Ready for Human`, and `Won't Fix`. See `docs/agents/triage-labels.md`.
+- `site/` is a separate pnpm 11.24.0 project using Vite+, TanStack Start, and Fumadocs. Run its commands
+  from the repository root as `vp -C site ...`.
+- Vite+ built-ins and package scripts are distinct. Use `vp -C site run dev` for the scripted port 3000
+  server and `vp -C site run build` for the production build; use `vp -C site check` for format, lint, and
+  type checks.
+- Run `vp -C site install` after dependency changes or a fresh checkout. Its postinstall regenerates the
+  tracked `site/src/routeTree.gen.ts` and ignored Fumadocs types under `site/.source/`. The explicit generators
+  are `vp -C site run generate-routes` and `vp -C site run generate-mdx-types`.
+- The site currently has no tests; `vp -C site test` exits unsuccessfully and is not a verification step.
+- Author docs in `site/content/` with `title` and `description` frontmatter. Navigation is explicit in
+  `site/content/meta.json`; its `pages` array accepts page paths and group markers such as `"---Guides---"`.
+  Keep MDX to standard Markdown, fenced code blocks (`title` and `tab` metadata are supported), and step
+  headings such as `#### Install [step]`.
 
-### Domain docs
+## Project Context
 
-This is a single-context repo. See `docs/agents/domain.md`.
-
-## Code documentation
-
-New production code must include appropriate LuaLS annotations and concise comments. Every function needs a LuaDoc description of its behavior; document its parameters and return value when they are not self-evident. Comments should explain non-obvious decisions and native API constraints rather than restating code.
-
-## Documentation site
-
-`site/` is a TanStack Start documentation app built on a limited Fumadocs integration.
-
-- Author pages in `site/content/` with `title` and `description` frontmatter.
-- Define navigation in `site/content/meta.json`. Its `pages` array supports page paths and group markers such as `"---Guides---"`.
-- Use standard Markdown, fenced code blocks (including `title` and `tab` metadata), and step headings such as `#### Install [step]`.
-- Keep MDX within this supported surface.
-
-<!--VITE PLUS START-->
-
-This docs site is using Vite+, a unified toolchain built on top of Vite, Rolldown, Vitest, tsdown,
-Oxlint, Oxfmt, and Vite Task. Vite+ wraps runtime management, package management, and frontend
-tooling in a single global CLI called `vp`. Vite+ is distinct from Vite, and it invokes Vite through
-`vp dev` and `vp build`. Run `vp help` to print a list of commands and `vp <command> --help` for
-information about a specific command.
-
-Docs are local at `site/node_modules/vite-plus/docs` or online at https://viteplus.dev/guide/.
-
-### Built-in Commands vs Scripts
-
-Run Vite+ from the docs project with `vp -C site <name>`. `vp -C site <name>` runs a built-in command. `vp -C site run <name>` runs a `package.json` script or a
-`vite.config.ts` task. Scripts cannot overwrite built-ins, so `vp -C site dev` and `vp -C site run dev` may do
-different things. Check `package.json` and `vite.config.ts` first, and run `vp -C site run <name>` when the
-project defines a script or task with that name.
-
-### Review Checklist
-
-- [ ] Run `vp -C site install` after pulling remote changes and before getting started.
-- [ ] Run `vp -C site check` and `vp -C site test` to format, lint, type check and test changes.
-- [ ] Check if there are `vite.config.ts` tasks or `package.json` scripts necessary for validation,
-      run via `vp -C site run <script>`.
-- [ ] If setup, runtime, or package-manager behavior looks wrong, run `vp env doctor` and include
-      its output when asking for help.
-
-<!--VITE PLUS END-->
+- Before domain work, read `CONTEXT.md` and any relevant ADR under `docs/adr/`; use the glossary's terms
+  rather than introducing synonyms. See `docs/agents/domain.md` for the domain-doc convention.
+- Issues belong to Linear team `My Projects`, project `Plait.nvim`. Tracker workflows and the exact triage
+  labels are documented in `docs/agents/issue-tracker.md` and `docs/agents/triage-labels.md`.
