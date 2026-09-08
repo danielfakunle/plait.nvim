@@ -1,10 +1,14 @@
+local application = require('plait.application')
 local canonical = require('plait.canonical')
+local editor = require('plait.editor')
 local plan = require('plait.plan')
 local schema = require('plait.schema_generated')
+local snapshot = require('plait.snapshot')
 local state = require('plait.state')
+local startup = require('plait.startup')
 local validation = require('plait.validation')
 
-local M = {}
+local M = { actions = { editor = editor.actions } }
 
 local inspection_sections = {
   modules = true,
@@ -39,6 +43,7 @@ end
 ---@field override_calls table[]
 ---@field provider_calls table[]
 ---@field sealed boolean
+---@field owner_init function|nil
 local Collector = {}
 Collector.__index = Collector
 
@@ -204,27 +209,29 @@ local function combine_configuration(calls, fallback_source)
   return configuration, calls[1].source, sources
 end
 
---- Validate collected declarations and publish an effective-plan snapshot.
----@return table
-function Collector:validate()
-  local selections, selection_sources = combine_selections(self.selection_calls, self.collector_source)
+--- Resolve the currently collected declarations.
+---@param collector PlaitCollector
+---@return table|nil, table[]
+local function resolve(collector)
+  local selections, selection_sources = combine_selections(collector.selection_calls, collector.collector_source)
   local declaration, configuration_source, configuration_sources =
-    combine_configuration(self.configuration_calls, self.collector_source)
+    combine_configuration(collector.configuration_calls, collector.collector_source)
   local configuration, resolution, diagnostics =
     validation.validate(selections, selection_sources, declaration, configuration_source, configuration_sources, schema)
   local semantic_diagnostic_count = #diagnostics
   vim.list_extend(diagnostics, vim.deepcopy(state.bootstrap_diagnostics))
+  vim.list_extend(diagnostics, vim.deepcopy(state.operation_diagnostics))
   validation.sort_diagnostics(diagnostics)
-  if not configuration or not resolution or semantic_diagnostic_count > 0 then
-    state.snapshot = vim.deepcopy({
-      modules = {},
-      capabilities = {},
-      effects = {},
-      packages = {},
-      tools = {},
-      diagnostics = diagnostics,
-      operations = {},
-    })
+  if not configuration or not resolution or semantic_diagnostic_count > 0 then return nil, diagnostics end
+  return plan.build(configuration, resolution), diagnostics
+end
+
+--- Validate collected declarations and publish an effective-plan snapshot.
+---@return table
+function Collector:validate()
+  local effective_plan, diagnostics = resolve(self)
+  if not effective_plan then
+    snapshot.publish_empty('invalid', diagnostics)
     return vim.deepcopy({
       status = 'invalid',
       diagnostics = diagnostics,
@@ -235,27 +242,25 @@ function Collector:validate()
       tools = {},
     })
   end
-  local effective_plan = plan.build(configuration, resolution)
   local plan_id = plan.id(effective_plan, schema)
-  state.snapshot = vim.deepcopy({
-    modules = effective_plan.modules,
-    capabilities = effective_plan.capabilities,
-    effects = effective_plan.effects,
-    packages = effective_plan.packages,
-    tools = effective_plan.tools,
-    diagnostics = diagnostics,
-    operations = {},
-  })
+  snapshot.publish(effective_plan, diagnostics)
   return vim.deepcopy({ status = 'valid', diagnostics = diagnostics, plan = effective_plan, plan_id = plan_id })
 end
 
---- Seal this collector at the first apply entry.
---- Managed effect application is introduced by the capability application slices.
+--- Seal, re-resolve, and synchronously apply the effective editor plan.
 ---@param ... any
+---@return table
 function Collector:apply(...)
   if self.sealed then misuse('apply may only be called once') end
   self.sealed = true
   if select('#', ...) > 0 then misuse('apply expects no arguments') end
+  if not startup.is_synchronous_init(self.owner_init) then
+    misuse('apply is only available during synchronous init.lua startup')
+  end
+
+  local effective_plan, diagnostics = resolve(self)
+  if not effective_plan then return application.invalid(diagnostics) end
+  return application.run(effective_plan, diagnostics, schema)
 end
 
 --- Create the process-wide Plait configuration collector.
@@ -269,6 +274,7 @@ function M.config()
     override_calls = {},
     provider_calls = {},
     sealed = false,
+    owner_init = startup.owner_init(),
   }, Collector)
   return state.collector
 end

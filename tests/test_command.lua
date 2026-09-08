@@ -52,7 +52,7 @@ describe('Plait command', function()
     child.lua([[
       local config = M.config()
       config:select({ 'editor' })
-      config:apply()
+      pcall(function() config:apply('seal') end)
     ]])
 
     local output = child.cmd_capture('Plait validate')
