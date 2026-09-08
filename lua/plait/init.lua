@@ -5,6 +5,16 @@ local validation = require('plait.validation')
 
 local M = {}
 
+local inspection_sections = {
+  modules = true,
+  capabilities = true,
+  effects = true,
+  packages = true,
+  tools = true,
+  diagnostics = true,
+  operations = true,
+}
+
 --- Raise a public API misuse error.
 ---@param message string
 local function misuse(message) error('plait: ' .. message, 3) end
@@ -110,13 +120,23 @@ end
 ---@field collector_source table
 ---@field selection_calls table[]
 ---@field configuration_calls table[]
+---@field override_calls table[]
+---@field provider_calls table[]
+---@field sealed boolean
 local Collector = {}
 Collector.__index = Collector
+
+--- Reject collection after the first apply entry.
+---@param collector PlaitCollector
+local function ensure_collecting(collector)
+  if collector.sealed then misuse('configuration collector is sealed') end
+end
 
 --- Select modules for this Plait configuration.
 ---@param entries string[]
 ---@return PlaitCollector
 function Collector:select(entries)
+  ensure_collecting(self)
   self.selection_calls[#self.selection_calls + 1] = { value = vim.deepcopy(entries), source = source('select[1]') }
   return self
 end
@@ -125,8 +145,27 @@ end
 ---@param declaration { editor?: PlaitEditorConfiguration }
 ---@return PlaitCollector
 function Collector:configure(declaration)
+  ensure_collecting(self)
   self.configuration_calls[#self.configuration_calls + 1] =
     { value = vim.deepcopy(declaration), source = source('configure') }
+  return self
+end
+
+--- Add owner overrides to this Plait configuration.
+---@param declaration table
+---@return PlaitCollector
+function Collector:override(declaration)
+  ensure_collecting(self)
+  self.override_calls[#self.override_calls + 1] = { value = vim.deepcopy(declaration), source = source('override') }
+  return self
+end
+
+--- Add provider escape-hatch declarations to this Plait configuration.
+---@param declaration table
+---@return PlaitCollector
+function Collector:providers(declaration)
+  ensure_collecting(self)
+  self.provider_calls[#self.provider_calls + 1] = { value = vim.deepcopy(declaration), source = source('providers') }
   return self
 end
 
@@ -216,7 +255,7 @@ function Collector:validate()
   vim.list_extend(diagnostics, vim.deepcopy(state.bootstrap_diagnostics))
   validation.sort_diagnostics(diagnostics)
   if not configuration then
-    state.snapshot = {
+    state.snapshot = vim.deepcopy({
       modules = {},
       capabilities = {},
       effects = {},
@@ -224,7 +263,7 @@ function Collector:validate()
       tools = {},
       diagnostics = diagnostics,
       operations = {},
-    }
+    })
     return vim.deepcopy({
       status = 'invalid',
       diagnostics = diagnostics,
@@ -247,7 +286,7 @@ function Collector:validate()
     effect.error = nil
   end
   local plan_id = vim.fn.sha256(canonical.encode(semantic_plan))
-  state.snapshot = {
+  state.snapshot = vim.deepcopy({
     modules = plan.modules,
     capabilities = plan.capabilities,
     effects = plan.effects,
@@ -255,8 +294,17 @@ function Collector:validate()
     tools = plan.tools,
     diagnostics = diagnostics,
     operations = {},
-  }
+  })
   return vim.deepcopy({ status = 'valid', diagnostics = diagnostics, plan = plan, plan_id = plan_id })
+end
+
+--- Seal this collector at the first apply entry.
+--- Managed effect application is introduced by the capability application slices.
+---@param ... any
+function Collector:apply(...)
+  if self.sealed then misuse('apply may only be called once') end
+  self.sealed = true
+  if select('#', ...) > 0 then misuse('apply expects no arguments') end
 end
 
 --- Create the process-wide Plait configuration collector.
@@ -267,6 +315,9 @@ function M.config()
     collector_source = source('config'),
     selection_calls = {},
     configuration_calls = {},
+    override_calls = {},
+    provider_calls = {},
+    sealed = false,
   }, Collector)
   return state.collector
 end
@@ -281,8 +332,8 @@ function M.inspect(section, identity)
     misuse('inspection identity must be a non-empty string')
   end
   if not state.snapshot then misuse('inspection requires a completed snapshot') end
+  if not inspection_sections[section] then misuse('unknown inspection section') end
   local records = state.snapshot[section]
-  if not records then misuse('unknown inspection section ' .. tostring(section)) end
   if identity == nil then return vim.deepcopy(records) end
   if section == 'diagnostics' then
     local matches = {}
@@ -290,13 +341,13 @@ function M.inspect(section, identity)
       if record.code == identity then matches[#matches + 1] = record end
     end
     if #matches > 0 then return vim.deepcopy(matches) end
-    misuse('inspection identity not found: ' .. identity)
+    misuse('inspection identity not found')
     return {}
   end
   for _, record in ipairs(records) do
     if record.identity == identity then return vim.deepcopy(record) end
   end
-  misuse('inspection identity not found: ' .. identity)
+  misuse('inspection identity not found')
   return {}
 end
 
