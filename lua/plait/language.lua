@@ -11,6 +11,19 @@ local requests = {
   code_action = { method = 'textDocument/codeAction', invoke = function() vim.lsp.buf.code_action() end },
 }
 
+--- Return whether one attached client supports a method in a buffer.
+---@param buffer integer
+---@param method string
+---@param clients? table[]
+---@return boolean
+local function supports_method(buffer, method, clients)
+  clients = clients or vim.lsp.get_clients({ bufnr = buffer })
+  for _, client in ipairs(clients) do
+    if client:supports_method(method, buffer) then return true end
+  end
+  return false
+end
+
 --- Return the current zero-based buffer position.
 ---@return table
 local function position()
@@ -80,14 +93,7 @@ local function request(name)
   if #clients == 0 then
     return { status = 'unavailable', operation = operation_name, reason = 'no_client', details = details }
   end
-  local supported = false
-  for _, client in ipairs(clients) do
-    if client:supports_method(requests[name].method, buffer) then
-      supported = true
-      break
-    end
-  end
-  if not supported then
+  if not supports_method(buffer, requests[name].method, clients) then
     return { status = 'unavailable', operation = operation_name, reason = 'client_unsupported', details = details }
   end
 
@@ -171,14 +177,9 @@ end
 function M.attach(buffer, mappings)
   local clients = vim.lsp.get_clients({ bufnr = buffer })
   for name, descriptor in pairs(requests) do
-    local supported = false
-    for _, client in ipairs(clients) do
-      if client:supports_method(descriptor.method, buffer) then
-        supported = true
-        break
-      end
+    if supports_method(buffer, descriptor.method, clients) then
+      map(name == 'code_action' and { 'n', 'x' } or 'n', mappings[name], M.actions[name], buffer)
     end
-    if supported then map(name == 'code_action' and { 'n', 'x' } or 'n', mappings[name], M.actions[name], buffer) end
   end
 end
 
@@ -190,26 +191,26 @@ function M.preflight_effect(identity, configuration)
   if identity ~= 'language/actions-and-mappings' then return {} end
   local buffer = vim.api.nvim_get_current_buf()
   local mappings = {
-    { { 'n' }, configuration.mappings.previous_diagnostic },
-    { { 'n' }, configuration.mappings.next_diagnostic },
+    { modes = { 'n' }, lhs = configuration.mappings.previous_diagnostic },
+    { modes = { 'n' }, lhs = configuration.mappings.next_diagnostic },
   }
   local clients = vim.lsp.get_clients({ bufnr = buffer })
   for name, descriptor in pairs(requests) do
-    for _, client in ipairs(clients) do
-      if client:supports_method(descriptor.method, buffer) then
-        mappings[#mappings + 1] = { name == 'code_action' and { 'n', 'x' } or { 'n' }, configuration.mappings[name] }
-        break
-      end
+    if supports_method(buffer, descriptor.method, clients) then
+      mappings[#mappings + 1] = {
+        modes = name == 'code_action' and { 'n', 'x' } or { 'n' },
+        lhs = configuration.mappings[name],
+      }
     end
   end
   local collisions = {}
   for _, mapping in ipairs(mappings) do
-    if mapping[2] ~= false then
-      for _, mode in ipairs(mapping[1]) do
-        local observed = vim.fn.maparg(mapping[2], mode, false, true)
+    if mapping.lhs ~= false then
+      for _, mode in ipairs(mapping.modes) do
+        local observed = vim.fn.maparg(mapping.lhs, mode, false, true)
         if next(observed) and observed.buffer == 1 then
           collisions[#collisions + 1] = {
-            identity = 'mapping:' .. mode .. ':' .. mapping[2] .. ':buffer:' .. buffer,
+            identity = 'mapping:' .. mode .. ':' .. mapping.lhs .. ':buffer:' .. buffer,
             observed_owner = 'mapping',
           }
         end
