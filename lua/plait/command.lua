@@ -37,6 +37,25 @@ local function inspect(arguments)
   print(table.concat(lines, '\n'))
 end
 
+--- Render a closed action result for the command line.
+---@param result table
+local function render_result(result)
+  if result.status == 'started' then
+    print(('plait: %s started (%s)'):format(result.operation, result.operation_id))
+  elseif result.status == 'performed' then
+    print(('plait: %s performed'):format(result.operation))
+  else
+    local fields = {}
+    local keys = vim.tbl_keys(result.details)
+    table.sort(keys)
+    for _, key in ipairs(keys) do
+      fields[#fields + 1] = key .. '=' .. canonical.encode(result.details[key])
+    end
+    local suffix = #fields > 0 and ('\n' .. table.concat(fields, '\n')) or ''
+    print(('plait: %s unavailable (%s)%s'):format(result.operation, result.reason, suffix))
+  end
+end
+
 --- Dispatch the process-wide Plait command.
 ---@param arguments string[]
 function M.dispatch(arguments)
@@ -45,6 +64,8 @@ function M.dispatch(arguments)
     validate()
   elseif subcommand == 'inspect' then
     inspect(arguments)
+  elseif subcommand == 'packages' and (arguments[1] == 'sync' or arguments[1] == 'sync!') and #arguments == 1 then
+    render_result(plait.actions.packages.sync(arguments[1] == 'sync!' and true or nil))
   else
     fail('unknown or invalid command')
   end

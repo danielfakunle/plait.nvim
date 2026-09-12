@@ -76,4 +76,15 @@ describe('Plait command', function()
     expect.equality(output:find('packages: []', 1, true) ~= nil, true)
     expect.equality(output:find('operations: []', 1, true) ~= nil, true)
   end)
+
+  it('routes package sync bang through the public package action', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'editor' })
+      config:validate()
+    ]])
+
+    expect.equality(child.cmd_capture('Plait packages sync!'), 'plait: packages.sync performed')
+    expect.equality(child.lua_get([[M.inspect('operations')]]), {})
+  end)
 end)

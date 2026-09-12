@@ -15,7 +15,12 @@ local states = {
     summary = 'Package %s has a source collision.',
     apply_reason = 'package_source_collision',
   },
-  drifted = { priority = 3, repair = 'Run package sync, then restart.', summary = 'Package %s has drifted.' },
+  drifted = {
+    priority = 3,
+    repair = 'Run package sync, then restart.',
+    summary = 'Package %s has drifted.',
+    apply_reason = 'package_drifted',
+  },
   restart_required = {
     priority = 4,
     repair = 'Restart Neovim.',
@@ -180,6 +185,30 @@ local function observe(requirement, sources, locks)
   }
 end
 
+--- Activate exact provider requirements in one native package call and verify them.
+---@param records table[]
+---@return boolean, string|nil
+local function activate(records)
+  if #records == 0 then return true end
+  local specs = {}
+  for _, record in ipairs(records) do
+    specs[#specs + 1] = { name = record.identity, src = record.source, version = record.required_commit }
+  end
+  local ok = pcall(vim.pack.add, specs, { load = false })
+  if not ok then return false, 'Provider package activation failed.' end
+  local locks = lock_entries()
+  for _, record in ipairs(records) do
+    local observed = observe({
+      identity = record.identity,
+      source = record.source,
+      commit = record.required_commit,
+      capabilities = record.responsible_capabilities,
+    }, record.sources, locks)
+    if observed.state ~= 'satisfied' then return false, 'Provider package verification failed.' end
+  end
+  return true
+end
+
 local function coalesce_requirements()
   local by_identity = {}
   for _, requirement in ipairs(compatibility.providers) do
@@ -270,5 +299,245 @@ end
 ---@param identity string
 ---@param evidence { operation_id?: string, message?: string }
 function M.mark_interrupted(identity, evidence) state_store.package_interrupted[identity] = vim.deepcopy(evidence) end
+
+--- Install wholly absent packages synchronously for interactive startup apply.
+---@param records table[]
+---@return boolean, string|nil
+function M.install_for_apply(records)
+  local absent = {}
+  for _, record in ipairs(records) do
+    if record.state ~= 'satisfied' then
+      if record.state ~= 'absent' then return false, M.apply_reason(record.state) end
+      absent[#absent + 1] = record
+    end
+  end
+  if #absent == 0 then return true end
+  if vim.fn.has('ttyin') ~= 1 then return false, 'package_absent' end
+  if vim.fn.confirm('Install required Plait provider packages?', '&Install\n&Cancel', 2) ~= 1 then
+    return false, 'consent_denied'
+  end
+  -- One normalized activation call includes both reusable satisfied packages
+  -- and the wholly absent set being installed.
+  local ok = activate(records)
+  if not ok then
+    for _, record in ipairs(absent) do
+      M.mark_interrupted(record.identity, { operation_id = 'apply', message = 'Provider package verification failed.' })
+    end
+    return false, 'partial_unknown'
+  end
+  for _, record in ipairs(absent) do
+    record.state = 'satisfied'
+    record.active_source = record.source
+    record.active_commit = record.required_commit
+    record.inconsistency = vim.NIL
+    record.repair = ''
+  end
+  return true
+end
+
+--- Activate already-satisfied requirements without loading plugin entrypoints.
+---@param records table[]
+---@return boolean, string|nil
+function M.activate_for_apply(records)
+  local ok, message = activate(records)
+  if ok then return true end
+  for _, record in ipairs(records) do
+    M.mark_interrupted(record.identity, { operation_id = 'apply', message = message })
+  end
+  return false, 'partial_unknown'
+end
+
+--- Return a UTC RFC 3339 timestamp with millisecond precision.
+---@return string
+local function timestamp()
+  local seconds, microseconds = vim.uv.gettimeofday()
+  return os.date('!%Y-%m-%dT%H:%M:%S', seconds) .. ('.%03dZ'):format(math.floor(microseconds / 1000))
+end
+
+--- Project package records to their closed state map.
+---@param records table[]
+---@return table<string, string>
+local function state_map(records)
+  local result = {}
+  for _, record in ipairs(records) do
+    result[record.identity] = record.state
+  end
+  return result
+end
+
+--- Build an unavailable package synchronization result.
+---@param reason string
+---@param records table[]
+---@return table
+local function unavailable(reason, records)
+  local identities = {}
+  for _, record in ipairs(records) do
+    identities[#identities + 1] = record.identity
+  end
+  return {
+    status = 'unavailable',
+    operation = 'packages.sync',
+    reason = reason,
+    details = { packages = identities, states = state_map(records) },
+  }
+end
+
+--- Publish one terminal operation diagnostic to process and snapshot state.
+---@param operation table
+---@param succeeded boolean
+---@param message? string
+local function publish_operation_diagnostic(operation, succeeded, message)
+  local code = succeeded and 'operation.succeeded' or 'operation.failed'
+  local details = {
+    operation_id = operation.identity,
+    operation = operation.operation,
+    targets = vim.deepcopy(operation.targets),
+  }
+  if message then details.message = message end
+  local item = {
+    code = code,
+    severity = succeeded and 'info' or 'error',
+    summary = succeeded and ('Operation ' .. operation.identity .. ' succeeded.')
+      or ('Operation ' .. operation.identity .. ' failed.'),
+    repair = succeeded and '' or 'Repair the reported target/environment and invoke a new operation.',
+    source = nil,
+    related_sources = {},
+    details = details,
+  }
+  state_store.operation_diagnostics[#state_store.operation_diagnostics + 1] = vim.deepcopy(item)
+  if state_store.snapshot then
+    state_store.snapshot.diagnostics[#state_store.snapshot.diagnostics + 1] = vim.deepcopy(item)
+  end
+end
+
+--- Replace stale package diagnostics with interrupted-mutation evidence.
+---@param records table[]
+---@param targets string[]
+---@param operation_id string
+---@param message string
+local function publish_interrupted_diagnostics(records, targets, operation_id, message)
+  if not state_store.snapshot then return end
+  local retained = {}
+  for _, item in ipairs(state_store.snapshot.diagnostics) do
+    local package = item.details and item.details.package
+    if not (item.code:match('^package%.') and package and vim.list_contains(targets, package)) then
+      retained[#retained + 1] = item
+    end
+  end
+  state_store.snapshot.diagnostics = retained
+  for _, record in ipairs(records) do
+    if vim.list_contains(targets, record.identity) then
+      state_store.snapshot.diagnostics[#state_store.snapshot.diagnostics + 1] = {
+        code = 'package.partial_unknown',
+        severity = 'error',
+        summary = 'Package state is partially unknown.',
+        repair = states.partial_unknown.repair,
+        source = nil,
+        related_sources = {},
+        details = {
+          packages = { record.identity },
+          inconsistency = 'interrupted_mutation',
+          operation_id = operation_id,
+          message = message,
+        },
+      }
+    end
+  end
+end
+
+--- Synchronize the provider packages in the latest effective snapshot.
+---@param consent? boolean
+---@return table
+function M.sync(consent)
+  if consent ~= nil and type(consent) ~= 'boolean' then error('plait: packages.sync consent must be boolean', 2) end
+  if not state_store.snapshot then error('plait: package synchronization requires a completed snapshot', 2) end
+  local records = state_store.snapshot.packages
+  local aggregate = M.aggregate(records)
+  if aggregate == 'satisfied' then
+    return { status = 'performed', operation = 'packages.sync', details = { changed = {}, states = state_map(records) } }
+  end
+  for _, record in ipairs(records) do
+    if record.state == 'source_collision' then return unavailable('package_source_collision', records) end
+    if record.state == 'restart_required' then return unavailable('restart_required', records) end
+  end
+  if aggregate == 'partial_unknown' and not consent then return unavailable('consent_required', records) end
+  if not consent then
+    if vim.fn.has('ttyin') ~= 1 then return unavailable('consent_required', records) end
+    if vim.fn.confirm('Synchronize Plait provider packages?', '&Synchronize\n&Cancel', 2) ~= 1 then
+      return unavailable('consent_denied', records)
+    end
+  end
+
+  local targets = {}
+  local mutable = {}
+  for _, record in ipairs(records) do
+    if record.state ~= 'satisfied' then
+      targets[#targets + 1] = record.identity
+      mutable[#mutable + 1] = vim.deepcopy(record)
+    end
+  end
+  state_store.next_operation_id = state_store.next_operation_id + 1
+  local operation_id = ('op-%08d'):format(state_store.next_operation_id)
+  local operation = {
+    identity = operation_id,
+    operation = 'packages.sync',
+    state = 'pending',
+    started_at = timestamp(),
+    completed_at = vim.NIL,
+    targets = vim.deepcopy(targets),
+    result = vim.NIL,
+    error = vim.NIL,
+    diagnostic_codes = {},
+  }
+  state_store.operations[#state_store.operations + 1] = operation
+  state_store.snapshot.operations = state_store.operations
+  vim.schedule(function()
+    local ok, message = activate(mutable)
+    operation.completed_at = timestamp()
+    if ok then
+      M.mark_restart_required(targets)
+      operation.state = 'succeeded'
+      operation.error = vim.NIL
+      operation.diagnostic_codes = { 'operation.succeeded' }
+      for _, record in ipairs(records) do
+        if vim.list_contains(targets, record.identity) then
+          record.state = 'restart_required'
+          record.inconsistency = vim.NIL
+          record.repair = states.restart_required.repair
+        end
+      end
+      operation.result = {
+        status = 'performed',
+        operation = 'packages.sync',
+        details = { changed = vim.deepcopy(targets), states = state_map(records) },
+      }
+      publish_operation_diagnostic(operation, true)
+      vim.notify('Plait package synchronization succeeded (' .. operation_id .. ')', vim.log.levels.INFO)
+    else
+      message = message or 'Provider package synchronization failed.'
+      operation.state = 'failed'
+      operation.result = vim.NIL
+      operation.error = { reason = 'execution_failed', message = message }
+      operation.diagnostic_codes = { 'operation.failed' }
+      for _, record in ipairs(records) do
+        if vim.list_contains(targets, record.identity) then
+          M.mark_interrupted(record.identity, { operation_id = operation_id, message = message })
+          record.state = 'partial_unknown'
+          record.inconsistency = 'interrupted_mutation'
+          record.repair = states.partial_unknown.repair
+        end
+      end
+      publish_interrupted_diagnostics(records, targets, operation_id, message)
+      publish_operation_diagnostic(operation, false, message)
+      vim.notify('Plait package synchronization failed (' .. operation_id .. ')', vim.log.levels.ERROR)
+    end
+  end)
+  return {
+    status = 'started',
+    operation = 'packages.sync',
+    operation_id = operation_id,
+    details = { packages = vim.deepcopy(targets) },
+  }
+end
 
 return M

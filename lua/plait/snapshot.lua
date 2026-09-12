@@ -16,7 +16,7 @@ local function build(snapshot_state, effective_plan, diagnostics)
     packages = effective_plan.packages,
     tools = effective_plan.tools,
     diagnostics = diagnostics,
-    operations = {},
+    operations = state.operations,
   }
 end
 

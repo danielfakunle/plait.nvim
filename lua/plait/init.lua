@@ -10,7 +10,7 @@ local state = require('plait.state')
 local startup = require('plait.startup')
 local validation = require('plait.validation')
 
-local M = { actions = { editor = editor.actions } }
+local M = { actions = { editor = editor.actions, packages = { sync = packages.sync } } }
 
 local inspection_sections = {
   modules = true,
@@ -287,8 +287,22 @@ function Collector:apply(...)
     return application.unavailable(effective_plan, diagnostics, 'environment_unavailable', environment_codes)
   end
   local package_state = packages.aggregate(effective_plan.packages)
-  if package_state ~= 'satisfied' then
+  if package_state == 'absent' then
+    local installed, reason = packages.install_for_apply(effective_plan.packages)
+    if not installed then
+      if reason == 'partial_unknown' then
+        effective_plan, diagnostics = resolve(self)
+        if not effective_plan then return application.invalid(diagnostics) end
+      end
+      return application.unavailable(effective_plan, diagnostics, reason or 'partial_unknown')
+    end
+    effective_plan, diagnostics = resolve(self)
+    if not effective_plan then return application.invalid(diagnostics) end
+  elseif package_state ~= 'satisfied' then
     return application.unavailable(effective_plan, diagnostics, packages.apply_reason(package_state))
+  else
+    local activated, reason = packages.activate_for_apply(effective_plan.packages)
+    if not activated then return application.unavailable(effective_plan, diagnostics, reason or 'partial_unknown') end
   end
   local preflight_diagnostics = application.preflight(effective_plan)
   if #preflight_diagnostics > 0 then

@@ -80,3 +80,72 @@ describe('provider package observation', function()
     expect.equality(child.lua_get([[result.diagnostics[1].code]]), 'package.restart_required')
   end)
 end)
+
+describe('provider package synchronization', function()
+  it('starts one exact activation and publishes a terminal operation', function()
+    child.lua([[
+      local data_path = vim.fn.stdpath('data')
+      local config_path = vim.fn.tempname()
+      local checkout_path = config_path .. '/pack/plait/opt/nvim-lspconfig'
+      vim.fn.mkdir(checkout_path, 'p')
+      vim.fn.stdpath = function(kind)
+        if kind == 'config' then return config_path end
+        return data_path
+      end
+      local installed = false
+      local checkout_returned = false
+      vim.fn.globpath = function(_, pattern)
+        if installed and not checkout_returned and pattern:find('nvim%-lspconfig$') then
+          checkout_returned = true
+          return { checkout_path }
+        end
+        return {}
+      end
+      local original_system = vim.system
+      vim.system = function(arguments)
+        if arguments[1] == 'git' and arguments[4] == 'remote' then
+          return { wait = function() return { code = 0, stdout = 'https://github.com/neovim/nvim-lspconfig\n' } end }
+        end
+        if arguments[1] == 'git' and arguments[4] == 'rev-parse' then
+          return { wait = function() return { code = 0, stdout = '615d7b2712efb2f530a83a9d0466acafba6b1d6f\n' } end }
+        end
+        return original_system(arguments)
+      end
+      pack_calls = {}
+      vim.pack.add = function(specs, options)
+        pack_calls[#pack_calls + 1] = { specs = vim.deepcopy(specs), options = vim.deepcopy(options) }
+        installed = true
+        vim.fn.writefile({ vim.json.encode({ plugins = { ['nvim-lspconfig'] = {
+          source = 'https://github.com/neovim/nvim-lspconfig',
+          commit = '615d7b2712efb2f530a83a9d0466acafba6b1d6f',
+        } } }) }, config_path .. '/nvim-pack-lock.json')
+      end
+      local config = M.config()
+      config:select({ 'language' })
+      config:validate()
+      sync_result = M.actions.packages.sync(true)
+    ]])
+
+    expect.equality(child.lua_get([[sync_result]]), {
+      status = 'started',
+      operation = 'packages.sync',
+      operation_id = 'op-00000001',
+      details = { packages = { 'nvim-lspconfig' } },
+    })
+    expect.equality(child.lua_get([[pack_calls]]), {
+      {
+        specs = {
+          {
+            name = 'nvim-lspconfig',
+            src = 'https://github.com/neovim/nvim-lspconfig',
+            version = '615d7b2712efb2f530a83a9d0466acafba6b1d6f',
+          },
+        },
+        options = { load = false },
+      },
+    })
+    child.lua([[vim.wait(1000, function() return M.inspect('operations')[1].state ~= 'pending' end)]])
+    expect.equality(child.lua_get([[M.inspect('operations')[1].state]]), 'succeeded')
+    expect.equality(child.lua_get([[M.inspect('packages')[1].state]]), 'restart_required')
+  end)
+end)
