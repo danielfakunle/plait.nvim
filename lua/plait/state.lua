@@ -7,6 +7,8 @@
 ---@field applied_effects table|nil
 ---@field editor_active boolean
 ---@field operation_diagnostics table[]
+---@field package_restart_required table<string, boolean>
+---@field package_interrupted table<string, { operation_id?: string, message?: string }>
 local state = {
   collector = nil,
   snapshot = nil,
@@ -16,6 +18,8 @@ local state = {
   applied_effects = nil,
   editor_active = false,
   operation_diagnostics = {},
+  package_restart_required = {},
+  package_interrupted = {},
 }
 
 return state

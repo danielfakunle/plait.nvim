@@ -1,4 +1,5 @@
 local canonical = require('plait.canonical')
+local packages = require('plait.packages')
 
 local M = {}
 
@@ -31,7 +32,7 @@ end
 --- Build the canonical effective plan for resolved built-in modules.
 ---@param configuration table
 ---@param resolution table
----@return table
+---@return table, table[]
 function M.build(configuration, resolution)
   local effects = {}
   local editor
@@ -84,14 +85,16 @@ function M.build(configuration, resolution)
       error = nil,
     }
   end
+  local package_records, package_diagnostics = packages.resolve(resolution)
   return {
     snapshot_state = 'validated',
     modules = resolution.modules,
     capabilities = resolution.capabilities,
     effects = effects,
-    packages = {},
+    packages = package_records,
     tools = {},
-  }
+  },
+    package_diagnostics
 end
 
 --- Compute the semantic identity of an effective plan.

@@ -1,6 +1,8 @@
 local application = require('plait.application')
 local canonical = require('plait.canonical')
 local editor = require('plait.editor')
+local environment = require('plait.environment')
+local packages = require('plait.packages')
 local plan = require('plait.plan')
 local schema = require('plait.schema_generated')
 local snapshot = require('plait.snapshot')
@@ -232,7 +234,10 @@ local function resolve(collector)
   vim.list_extend(diagnostics, vim.deepcopy(state.operation_diagnostics))
   validation.sort_diagnostics(diagnostics)
   if not configuration or not resolution or semantic_diagnostic_count > 0 then return nil, diagnostics end
-  return plan.build(configuration, resolution), diagnostics
+  local effective_plan, package_diagnostics = plan.build(configuration, resolution)
+  vim.list_extend(diagnostics, package_diagnostics)
+  validation.sort_diagnostics(diagnostics)
+  return effective_plan, diagnostics
 end
 
 --- Validate collected declarations and publish an effective-plan snapshot.
@@ -269,6 +274,22 @@ function Collector:apply(...)
 
   local effective_plan, diagnostics = resolve(self)
   if not effective_plan then return application.invalid(diagnostics) end
+  local environment_diagnostics = environment.observe(#effective_plan.packages > 0)
+  vim.list_extend(diagnostics, environment_diagnostics)
+  validation.sort_diagnostics(diagnostics)
+  local environment_codes = {}
+  for _, item in ipairs(environment_diagnostics) do
+    if environment.blocking(item) and not vim.list_contains(environment_codes, item.code) then
+      environment_codes[#environment_codes + 1] = item.code
+    end
+  end
+  if #environment_codes > 0 then
+    return application.unavailable(effective_plan, diagnostics, 'environment_unavailable', environment_codes)
+  end
+  local package_state = packages.aggregate(effective_plan.packages)
+  if package_state ~= 'satisfied' then
+    return application.unavailable(effective_plan, diagnostics, packages.apply_reason(package_state))
+  end
   local preflight_diagnostics = application.preflight(effective_plan)
   if #preflight_diagnostics > 0 then
     vim.list_extend(diagnostics, preflight_diagnostics)

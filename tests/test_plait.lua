@@ -43,6 +43,9 @@ local function without_provenance(plan)
   for _, capability in ipairs(semantic.capabilities) do
     capability.configuration.sources = nil
   end
+  for _, package in ipairs(semantic.packages) do
+    package.sources = nil
+  end
   return semantic
 end
 

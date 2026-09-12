@@ -23,6 +23,29 @@ function M.invalid(diagnostics)
   }
 end
 
+--- Publish a valid but inapplicable plan without performing managed effects.
+---@param effective_plan table
+---@param diagnostics table[]
+---@param reason string
+---@param diagnostic_codes? string[]
+---@return table
+function M.unavailable(effective_plan, diagnostics, reason, diagnostic_codes)
+  effective_plan.snapshot_state = 'unavailable'
+  snapshot.publish(effective_plan, diagnostics)
+  local details = {}
+  if diagnostic_codes then
+    details.diagnostic_codes = vim.deepcopy(diagnostic_codes)
+  else
+    details.packages = {}
+    details.states = {}
+    for _, package in ipairs(effective_plan.packages) do
+      details.packages[#details.packages + 1] = package.identity
+      details.states[package.identity] = package.state
+    end
+  end
+  return { status = 'unavailable', operation = 'apply', reason = reason, details = details }
+end
+
 --- Return a bounded failure message without reflecting provider or environment data.
 ---@param _ any
 ---@return string

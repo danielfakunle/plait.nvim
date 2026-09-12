@@ -9,26 +9,34 @@ local M = {
     Darwin = { arm64 = true, x86_64 = true },
     Linux = { arm64 = true, x86_64 = true, libc = 'glibc' },
   },
+  node = {
+    tsc = { constraint = '>=16.20.0', minimum = { 16, 20, 0 } },
+    oxfmt = { constraint = '^20.19.0 || >=22.12.0', alternatives = { { 20, 19, 0 }, { 22, 12, 0 } } },
+  },
   providers = {
     {
       identity = 'nvim-lspconfig',
       source = 'https://github.com/neovim/nvim-lspconfig',
       commit = '615d7b2712efb2f530a83a9d0466acafba6b1d6f',
+      capabilities = { 'language' },
     },
     {
       identity = 'blink.cmp',
       source = 'https://github.com/Saghen/blink.cmp',
       commit = '78336bc89ee5365633bcf754d93df01678b5c08f',
+      capabilities = { 'completion' },
     },
     {
       identity = 'conform.nvim',
       source = 'https://github.com/stevearc/conform.nvim',
       commit = '016802de402556da54c36bd7359b441266b01cdd',
+      capabilities = { 'formatting' },
     },
     {
       identity = 'mason.nvim',
       source = 'https://github.com/mason-org/mason.nvim',
       commit = '2a6940af80375532e5e9e7c1f2fc6319a1b7a69d',
+      capabilities = { 'tooling' },
     },
   },
   registry = {
@@ -66,6 +74,64 @@ local M = {
       constraint = '>=22.12.0 (covers tsc and oxfmt)',
       minimum = { 22, 12, 0 },
     },
+  },
+  guards = {
+    ['vim.lsp'] = {
+      prefixes = {
+        'cmd',
+        'filetypes',
+        'name',
+        'reuse_client',
+        'root_dir',
+        'root_markers',
+        'workspace_folders',
+        'workspace_required',
+      },
+      leaves = {
+        'capabilities.textDocument.completion.completionItem.snippetSupport',
+        'capabilities.textDocument.completion.completionItem.commitCharactersSupport',
+        'capabilities.textDocument.completion.completionItem.documentationFormat',
+        'capabilities.textDocument.completion.completionItem.deprecatedSupport',
+        'capabilities.textDocument.completion.completionItem.preselectSupport',
+        'capabilities.textDocument.completion.completionItem.tagSupport.valueSet',
+        'capabilities.textDocument.completion.completionItem.insertReplaceSupport',
+        'capabilities.textDocument.completion.completionItem.resolveSupport.properties',
+        'capabilities.textDocument.completion.completionItem.insertTextModeSupport.valueSet',
+        'capabilities.textDocument.completion.completionItem.labelDetailsSupport',
+        'capabilities.textDocument.completion.completionList.itemDefaults',
+        'capabilities.textDocument.completion.contextSupport',
+        'capabilities.textDocument.completion.insertTextMode',
+      },
+      targets = {
+        lua_ls = {
+          leaves = {
+            'settings.Lua.runtime.version',
+            'settings.Lua.workspace.checkThirdParty',
+            'settings.Lua.workspace.library',
+            'settings.Lua.telemetry.enable',
+          },
+        },
+      },
+    },
+    ['blink.cmp'] = {
+      prefixes = { 'keymap', 'sources.default', 'sources.per_filetype' },
+      leaves = {
+        'enabled',
+        'completion.menu.enabled',
+        'completion.menu.auto_show',
+        'completion.trigger.show_on_keyword',
+        'completion.trigger.show_on_trigger_character',
+        'completion.documentation.auto_show',
+        'signature.enabled',
+        'sources.providers.{lsp,path,snippets,buffer}.{module,enabled,fallbacks,score_offset}',
+      },
+    },
+    ['conform.nvim'] = {
+      prefixes = { 'default_format_opts', 'format_after_save', 'format_on_save', 'formatters', 'formatters_by_ft' },
+      leaves = { 'notify_on_error', 'notify_no_formatters' },
+      formatter_leaves = { 'command', 'format', 'inherit' },
+    },
+    ['mason.nvim'] = { leaves = { 'PATH', 'firewall.auto_managed' } },
   },
 }
 
