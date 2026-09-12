@@ -143,6 +143,14 @@ function M.id(effective_plan, configuration_schema)
     }
   end
   for index, capability in ipairs(effective_plan.capabilities) do
+    local provider_configuration = canonical.mark_array({})
+    for provider_index, provider in ipairs(capability.configuration.providers or {}) do
+      provider_configuration[provider_index] = {
+        identity = provider.identity,
+        target = provider.target,
+        value = vim.deepcopy(provider.value),
+      }
+    end
     semantic.capabilities[index] = {
       identity = capability.identity,
       activator = capability.activator,
@@ -151,6 +159,7 @@ function M.id(effective_plan, configuration_schema)
       dependents = array(capability.dependents),
       providers = array(capability.providers),
       configuration = configuration_value(configuration_schema[capability.identity], capability.configuration.values),
+      provider_configuration = provider_configuration,
       contributions = array(capability.contributions),
       actions = array(capability.actions),
     }

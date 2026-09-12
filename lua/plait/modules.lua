@@ -658,7 +658,25 @@ function M.resolve(selections, selection_sources, configuration, configuration_s
   for _, module in ipairs(modules) do
     module.definition = nil
   end
-  return { modules = modules, capabilities = capabilities }, diagnostics
+  local effective_contributions = {}
+  local seen_contributions = {}
+  for _, module in ipairs(modules) do
+    for _, contribution in ipairs(module.contributions) do
+      if contributed[contribution] == nil and not seen_contributions[contribution] then
+        effective_contributions[#effective_contributions + 1] = contribution
+        seen_contributions[contribution] = true
+      end
+    end
+  end
+  for target, peers in pairs(contributed) do
+    if #peers > 0 and not seen_contributions[target] then
+      effective_contributions[#effective_contributions + 1] = target
+      seen_contributions[target] = true
+    end
+  end
+  table.sort(effective_contributions)
+  return { modules = modules, capabilities = capabilities, effective_contributions = effective_contributions },
+    diagnostics
 end
 
 return M

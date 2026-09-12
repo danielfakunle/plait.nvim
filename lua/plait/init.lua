@@ -5,6 +5,7 @@ local language = require('plait.language')
 local environment = require('plait.environment')
 local packages = require('plait.packages')
 local plan = require('plait.plan')
+local providers = require('plait.providers')
 local schema = require('plait.schema_generated')
 local snapshot = require('plait.snapshot')
 local state = require('plait.state')
@@ -235,6 +236,10 @@ local function resolve(collector)
   vim.list_extend(diagnostics, vim.deepcopy(state.operation_diagnostics))
   validation.sort_diagnostics(diagnostics)
   if not configuration or not resolution or semantic_diagnostic_count > 0 then return nil, diagnostics end
+  local provider_diagnostics = providers.resolve(collector.provider_calls, resolution)
+  vim.list_extend(diagnostics, provider_diagnostics)
+  validation.sort_diagnostics(diagnostics)
+  if #provider_diagnostics > 0 then return nil, diagnostics end
   local effective_plan, package_diagnostics = plan.build(configuration, resolution)
   vim.list_extend(diagnostics, package_diagnostics)
   validation.sort_diagnostics(diagnostics)
@@ -356,18 +361,38 @@ function M.inspect(section, identity)
   if not state.snapshot then misuse('inspection requires a completed snapshot') end
   if not inspection_sections[section] then misuse('unknown inspection section') end
   local records = state.snapshot[section]
-  if identity == nil then return vim.deepcopy(records) end
+  --- Copy an inspection value while replacing functions with source descriptors.
+  ---@param value any
+  ---@param ancestors? table<table, boolean>
+  ---@return any
+  local function inspectable(value, ancestors)
+    if type(value) == 'function' then
+      local info = debug.getinfo(value, 'Sl') or {}
+      return { kind = 'function', source = info.source or 'unknown', line = info.linedefined or 0 }
+    end
+    if type(value) ~= 'table' then return value end
+    ancestors = ancestors or {}
+    if ancestors[value] then return nil end
+    ancestors[value] = true
+    local result = {}
+    for key, child in pairs(value) do
+      result[key] = inspectable(child, ancestors)
+    end
+    ancestors[value] = nil
+    return result
+  end
+  if identity == nil then return assert(inspectable(records)) end
   if section == 'diagnostics' then
     local matches = {}
     for _, record in ipairs(records) do
       if record.code == identity then matches[#matches + 1] = record end
     end
-    if #matches > 0 then return vim.deepcopy(matches) end
+    if #matches > 0 then return assert(inspectable(matches)) end
     misuse('inspection identity not found')
     return {}
   end
   for _, record in ipairs(records) do
-    if record.identity == identity then return vim.deepcopy(record) end
+    if record.identity == identity then return assert(inspectable(record)) end
   end
   misuse('inspection identity not found')
   return {}
