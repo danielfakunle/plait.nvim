@@ -640,4 +640,30 @@ describe('effective plan', function()
       'plait: inspection identity must be a non-empty string'
     )
   end)
+
+  it('composes selected local modules and lets an owner settle peer contributions', function()
+    child.lua([[
+      local first = M.module({
+        name = 'local.format.first', provides = { 'local.format.first' }, requires = { 'formatting' },
+        contribute = { formatting = { formatters = { localfmt = { tool = 'one' } }, by_filetype = {} } },
+      })
+      local second = M.module({
+        name = 'local.format.second', provides = { 'local.format.second' }, requires = { 'formatting' },
+        contribute = { formatting = { formatters = { localfmt = { tool = 'two' } }, by_filetype = {} } },
+      })
+      local config = M.config()
+      config:select({ 'formatting', first, second })
+      conflicted = config:validate()
+      config:override({ formatting = { formatters = { localfmt = M.replace({ tool = 'owner' }) } } })
+      settled = config:validate()
+    ]])
+
+    expect.equality(child.lua_get([[conflicted.status]]), 'invalid')
+    expect.equality(child.lua_get([[conflicted.diagnostics[1].code]]), 'contribution.conflict')
+    expect.equality(child.lua_get([[settled.status]]), 'valid')
+    expect.equality(
+      child.lua_get([[vim.tbl_map(function(module) return module.identity end, settled.plan.modules)]]),
+      { 'formatting', 'local.format.first', 'local.format.second' }
+    )
+  end)
 end)

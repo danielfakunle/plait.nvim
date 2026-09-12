@@ -58,7 +58,9 @@ end
 ---@return PlaitCollector
 function Collector:select(entries)
   ensure_collecting(self)
-  self.selection_calls[#self.selection_calls + 1] = { value = vim.deepcopy(entries), source = source('select[1]') }
+  -- Local modules are opaque handles.  Copying them would discard their
+  -- private marker and turn a valid declaration into an arbitrary table.
+  self.selection_calls[#self.selection_calls + 1] = { value = entries, source = source('select[1]') }
   return self
 end
 
@@ -216,8 +218,15 @@ local function resolve(collector)
   local selections, selection_sources = combine_selections(collector.selection_calls, collector.collector_source)
   local declaration, configuration_source, configuration_sources =
     combine_configuration(collector.configuration_calls, collector.collector_source)
-  local configuration, resolution, diagnostics =
-    validation.validate(selections, selection_sources, declaration, configuration_source, configuration_sources, schema)
+  local configuration, resolution, diagnostics = validation.validate(
+    selections,
+    selection_sources,
+    declaration,
+    configuration_source,
+    configuration_sources,
+    schema,
+    collector.override_calls
+  )
   local semantic_diagnostic_count = #diagnostics
   vim.list_extend(diagnostics, vim.deepcopy(state.bootstrap_diagnostics))
   vim.list_extend(diagnostics, vim.deepcopy(state.operation_diagnostics))
@@ -278,6 +287,20 @@ function M.config()
   }, Collector)
   return state.collector
 end
+
+--- Declare a constrained owner-local module.
+---@param declaration table
+---@return table
+function M.module(declaration) return require('plait.modules').create_local(declaration, source('module')) end
+
+--- Replace one supported contribution identity.
+---@param value any
+---@return table
+function M.replace(value) return { kind = 'replace', value = vim.deepcopy(value) } end
+
+--- Disable one supported contribution identity.
+---@return table
+function M.disable() return { kind = 'disable' } end
 
 --- Inspect the latest completed Plait snapshot.
 ---@param section string

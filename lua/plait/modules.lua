@@ -2,6 +2,30 @@ local text = require('plait.text')
 
 local M = {}
 
+-- A local module is deliberately an opaque value: it can be selected, but is
+-- not a second public declaration grammar that callers can manufacture.
+local local_module_marker = {}
+
+--- Create a local module declaration.
+---@param declaration table
+---@param declaration_source table
+---@return table
+function M.create_local(declaration, declaration_source)
+  return setmetatable({ declaration = vim.deepcopy(declaration), source = vim.deepcopy(declaration_source) }, {
+    __metatable = local_module_marker,
+  })
+end
+
+---@param value any
+---@return boolean
+function M.is_local(value) return type(value) == 'table' and getmetatable(value) == local_module_marker end
+
+---@param value any
+---@return table|nil
+function M.local_declaration(value)
+  if M.is_local(value) then return value.declaration end
+end
+
 local module_catalog = {
   editor = {
     provides = { 'editor' },
@@ -138,6 +162,14 @@ end
 ---@return boolean
 function M.is_builtin(identity) return type(identity) == 'string' and module_catalog[identity] ~= nil end
 
+--- Return the identity offered by a selected module value when it is known.
+---@param value any
+---@return string|nil
+function M.identity(value)
+  if M.is_builtin(value) then return value end
+  if M.is_local(value) and type(value.declaration.name) == 'string' then return value.declaration.name end
+end
+
 --- Sort source reasons independently of collection order.
 ---@param sources table[]
 local function sort_sources(sources)
@@ -273,12 +305,36 @@ end
 ---@param configuration table
 ---@param configuration_sources table<string, table[]>
 ---@return table|nil, table[]
-function M.resolve(selections, selection_sources, configuration, configuration_sources)
+function M.resolve(selections, selection_sources, configuration, configuration_sources, override_calls)
   local selected = {}
-  for index, identity in ipairs(selections) do
+  for index, entry in ipairs(selections) do
+    local identity = M.identity(entry)
+    if not identity then return nil, {} end
     local module = selected[identity]
     if not module then
       local definition = module_catalog[identity]
+      if not definition then
+        local declaration = M.local_declaration(entry) or {}
+        definition = {
+          provides = vim.deepcopy(declaration.provides),
+          requires = vim.deepcopy(declaration.requires),
+          optional = {},
+          contributions = {},
+          local_declaration = declaration,
+        }
+        for seam, values in pairs(declaration.contribute) do
+          for category, entries in pairs(values) do
+            for contribution_identity in pairs(entries) do
+              definition.contributions[#definition.contributions + 1] = seam
+                .. '.'
+                .. category
+                .. '.'
+                .. contribution_identity
+            end
+          end
+        end
+        table.sort(definition.contributions)
+      end
       module = {
         identity = identity,
         state = 'active',
@@ -287,6 +343,7 @@ function M.resolve(selections, selection_sources, configuration, configuration_s
         requires = vim.deepcopy(definition.requires),
         ordering_edges = {},
         contributions = vim.deepcopy(definition.contributions),
+        definition = definition,
       }
       selected[identity] = module
     end
@@ -313,6 +370,12 @@ function M.resolve(selections, selection_sources, configuration, configuration_s
   local diagnostics = {}
   for capability, identities in pairs(activators) do
     local definition = capability_catalog[capability]
+      or {
+        cardinality = 'exclusive',
+        responsible_integration = capability,
+        providers = {},
+        actions = {},
+      }
     if definition.cardinality == 'exclusive' and #identities ~= 1 then
       local related_sources = {}
       for index = 2, #identities do
@@ -342,7 +405,7 @@ function M.resolve(selections, selection_sources, configuration, configuration_s
   end
 
   for identity, module in pairs(selected) do
-    local definition = module_catalog[identity]
+    local definition = module.definition
     for _, capability in ipairs(definition.requires) do
       local candidates = activators[capability] or {}
       if #candidates == 0 then
@@ -353,7 +416,10 @@ function M.resolve(selections, selection_sources, configuration, configuration_s
           { module = identity, capability = capability },
           module.selection_sources[1]
         )
-      elseif #candidates > 1 and capability_catalog[capability].cardinality == 'exclusive' then
+      elseif
+        #candidates > 1
+        and (capability_catalog[capability] or { cardinality = 'exclusive' }).cardinality == 'exclusive'
+      then
         diagnostics[#diagnostics + 1] = graph_diagnostic(
           'dependency.ambiguous',
           string.format('Capability %s has ambiguous activators.', text.normalize(capability)),
@@ -369,7 +435,10 @@ function M.resolve(selections, selection_sources, configuration, configuration_s
     end
     for _, capability in ipairs(definition.optional) do
       local candidates = activators[capability] or {}
-      if #candidates == 1 or capability_catalog[capability].cardinality == 'compositional' then
+      if
+        #candidates == 1
+        or (capability_catalog[capability] or { cardinality = 'exclusive' }).cardinality == 'compositional'
+      then
         for _, activator in ipairs(candidates) do
           add_edge(module, activator, capability)
         end
@@ -398,6 +467,144 @@ function M.resolve(selections, selection_sources, configuration, configuration_s
   end
   if #diagnostics > 0 then return nil, diagnostics end
 
+  -- Contributions are keyed declarations, never an ordered stream.  Collect
+  -- all peer values before considering owner operations so an override can
+  -- deliberately settle an otherwise ambiguous peer identity.
+  local contributed = {}
+  for identity, module in pairs(selected) do
+    local declaration = module.definition.local_declaration
+    if declaration then
+      for seam, categories in pairs(declaration.contribute) do
+        for category, entries in pairs(categories) do
+          for key, value in pairs(entries) do
+            local contribution = seam .. '.' .. category .. '.' .. key
+            contributed[contribution] = contributed[contribution] or {}
+            contributed[contribution][#contributed[contribution] + 1] = {
+              value = value,
+              source = module.selection_sources[1],
+              module = identity,
+            }
+          end
+        end
+      end
+    end
+  end
+
+  local operations = {}
+  local builtin_contributions = {
+    ['language.servers.lua_ls'] = true,
+    ['language.servers.tsc'] = true,
+    ['formatting.formatters.stylua'] = true,
+    ['formatting.formatters.oxfmt'] = true,
+    ['formatting.by_filetype.lua'] = true,
+    ['formatting.by_filetype.javascript'] = true,
+    ['formatting.by_filetype.javascriptreact'] = true,
+    ['formatting.by_filetype.typescript'] = true,
+    ['formatting.by_filetype.typescriptreact'] = true,
+    ['tooling.tools.lua-language-server'] = true,
+    ['tooling.tools.stylua'] = true,
+    ['tooling.tools.oxfmt'] = true,
+    ['tooling.tools.tsc'] = true,
+  }
+  local function collect_operations(value, prefix, source)
+    if type(value) ~= 'table' then
+      diagnostics[#diagnostics + 1] = graph_diagnostic(
+        'override.invalid',
+        'Owner override has an invalid shape.',
+        'Use one supported contribution seam.',
+        {},
+        source
+      )
+      return
+    end
+    for key, child in pairs(value) do
+      local path = prefix == '' and key or prefix .. '.' .. key
+      if type(key) ~= 'string' then
+        diagnostics[#diagnostics + 1] = graph_diagnostic(
+          'override.invalid',
+          'Owner override has an invalid shape.',
+          'Use string contribution identities.',
+          {},
+          source
+        )
+      elseif type(child) == 'table' and (child.kind == 'replace' or child.kind == 'disable') then
+        operations[path] = operations[path] or {}
+        operations[path][#operations[path] + 1] = { operation = child, source = source }
+      else
+        collect_operations(child, path, source)
+      end
+    end
+  end
+  for _, call in ipairs(override_calls or {}) do
+    collect_operations(call.value, '', call.source)
+  end
+
+  local supported = {
+    ['language.servers'] = true,
+    ['formatting.formatters'] = true,
+    ['formatting.by_filetype'] = true,
+    ['tooling.tools'] = true,
+  }
+  for target, owner_operations in pairs(operations) do
+    local prefix = target:match('^([^.]+%.[^.]+)')
+    if not supported[prefix] then
+      diagnostics[#diagnostics + 1] = graph_diagnostic(
+        'override.unsupported',
+        'Owner override targets an unsupported seam.',
+        'Use language.servers, formatting.formatters, formatting.by_filetype, or tooling.tools.',
+        { target = target },
+        owner_operations[1].source
+      )
+    elseif not contributed[target] and not builtin_contributions[target] then
+      diagnostics[#diagnostics + 1] = graph_diagnostic(
+        'override.stale',
+        'Owner override target does not exist.',
+        'Choose an existing contribution identity.',
+        { target = target },
+        owner_operations[1].source
+      )
+    else
+      local first = owner_operations[1]
+      for index = 2, #owner_operations do
+        local other = owner_operations[index]
+        if
+          first.operation.kind ~= other.operation.kind
+          or (first.operation.kind == 'replace' and not vim.deep_equal(first.operation.value, other.operation.value))
+        then
+          diagnostics[#diagnostics + 1] = graph_diagnostic(
+            'override.conflict',
+            'Owner overrides disagree for one contribution.',
+            'Keep one operation or make the operations equal.',
+            { target = target },
+            first.source,
+            { other.source }
+          )
+        end
+      end
+      contributed[target] = first.operation.kind == 'disable' and {}
+        or { { value = first.operation.value, source = first.source, module = 'owner' } }
+    end
+  end
+  for target, peers in pairs(contributed) do
+    if #peers > 1 then
+      local first = peers[1]
+      for index = 2, #peers do
+        if not vim.deep_equal(first.value, peers[index].value) then
+          diagnostics[#diagnostics + 1] = graph_diagnostic(
+            'contribution.conflict',
+            'Module contributions disagree for one identity.',
+            'Use plait.replace() or make the declarations equal.',
+            { target = target },
+            first.source,
+            { peers[index].source }
+          )
+          break
+        end
+      end
+    end
+  end
+  if #diagnostics > 0 then return nil, diagnostics end
+
   local indegree = {}
   local ready = {}
   for identity, module in pairs(selected) do
@@ -421,6 +628,12 @@ function M.resolve(selections, selection_sources, configuration, configuration_s
   local capabilities = {}
   for identity, identities in pairs(activators) do
     local definition = capability_catalog[identity]
+      or {
+        cardinality = 'exclusive',
+        responsible_integration = identity,
+        providers = {},
+        actions = {},
+      }
     local activator = identities[1]
     capabilities[#capabilities + 1] = {
       identity = identity,
@@ -440,6 +653,11 @@ function M.resolve(selections, selection_sources, configuration, configuration_s
     }
   end
   table.sort(capabilities, function(left, right) return left.identity < right.identity end)
+  -- `definition` is resolver-only metadata, never part of the closed public
+  -- module record.
+  for _, module in ipairs(modules) do
+    module.definition = nil
+  end
   return { modules = modules, capabilities = capabilities }, diagnostics
 end
 

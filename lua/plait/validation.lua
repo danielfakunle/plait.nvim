@@ -203,10 +203,69 @@ local function validate_selections(selections, declaration_sources, diagnostics)
     if modules.is_builtin(selections[index]) then
       valid_selections[#valid_selections + 1] = selections[index]
       valid_sources[#valid_sources + 1] = declaration_sources[index]
+    elseif modules.is_local(selections[index]) then
+      local declaration = selections[index].declaration
+      local valid = type(declaration) == 'table' and getmetatable(declaration) == nil
+      if valid then
+        local allowed = { name = true, provides = true, requires = true, contribute = true }
+        for key in pairs(declaration) do
+          if not allowed[key] then valid = false end
+        end
+      end
+      valid = valid and type(declaration.name) == 'string' and declaration.name:match('^local%.') ~= nil
+      valid = valid and type(declaration.provides) == 'table' and type(declaration.requires) == 'table'
+      valid = valid and type(declaration.contribute) == 'table'
+      if valid then
+        local seen = {}
+        for _, capability in ipairs(declaration.provides) do
+          if type(capability) ~= 'string' or not capability:match('^local%.') or seen[capability] then valid = false end
+          seen[capability] = true
+        end
+        if #declaration.provides == 0 then valid = false end
+        local builtins = { editor = true, language = true, completion = true, formatting = true, tooling = true }
+        seen = {}
+        for _, capability in ipairs(declaration.requires) do
+          if not builtins[capability] or seen[capability] then valid = false end
+          seen[capability] = true
+        end
+        for seam, values in pairs(declaration.contribute) do
+          if not ({ language = true, formatting = true, tooling = true })[seam] or type(values) ~= 'table' then
+            valid = false
+          end
+          if seam == 'language' then
+            valid = valid
+              and type(values.servers or {}) == 'table'
+              and next(vim.tbl_filter(function(k) return k ~= 'servers' end, vim.tbl_keys(values))) == nil
+          end
+          if seam == 'formatting' then
+            valid = valid and type(values.formatters or {}) == 'table' and type(values.by_filetype or {}) == 'table'
+            for key in pairs(values) do
+              if key ~= 'formatters' and key ~= 'by_filetype' then valid = false end
+            end
+          end
+          if seam == 'tooling' then
+            valid = valid and type(values.tools or {}) == 'table'
+            for key in pairs(values) do
+              if key ~= 'tools' then valid = false end
+            end
+          end
+        end
+      end
+      if valid then
+        valid_selections[#valid_selections + 1] = selections[index]
+        valid_sources[#valid_sources + 1] = declaration_sources[index]
+      else
+        diagnostics[#diagnostics + 1] = diagnostic(
+          'select[' .. index .. ']',
+          'a valid local module declaration',
+          declaration,
+          declaration_sources[index]
+        )
+      end
     else
       diagnostics[#diagnostics + 1] = diagnostic(
         'select[' .. index .. ']',
-        modules.expected_identity(),
+        modules.expected_identity() .. ' or a local module',
         selections[index],
         declaration_sources[index]
       )
@@ -278,6 +337,7 @@ end
 ---@param configuration_source table
 ---@param owner_sources table<string, table[]>
 ---@param configuration_schema table
+---@param override_calls? table[]
 ---@return table|nil, table|nil, table[]
 function M.validate(
   selections,
@@ -285,7 +345,8 @@ function M.validate(
   declaration,
   configuration_source,
   owner_sources,
-  configuration_schema
+  configuration_schema,
+  override_calls
 )
   local diagnostics = {}
   local valid_selections, valid_selection_sources = validate_selections(selections, selection_sources, diagnostics)
@@ -307,7 +368,7 @@ function M.validate(
     end
     local dependency_diagnostics
     resolution, dependency_diagnostics =
-      modules.resolve(valid_selections, valid_selection_sources, configuration, resolved_sources)
+      modules.resolve(valid_selections, valid_selection_sources, configuration, resolved_sources, override_calls or {})
     vim.list_extend(diagnostics, dependency_diagnostics)
   end
   M.sort_diagnostics(diagnostics)
