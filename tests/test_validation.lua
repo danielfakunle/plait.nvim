@@ -177,7 +177,7 @@ describe('configuration validation', function()
     expect.equality(child.lua_get([[diagnostic.related_sources]]), {})
     expect.equality(child.lua_get([[diagnostic.details]]), {
       path = 'select[1]',
-      expected = 'one of "completion", "editor", "formatting", "lang.lua", "lang.typescript", "language", "tooling"',
+      expected = 'one of "completion", "editor", "formatting", "lang.lua", "lang.typescript", "language", "tooling" or a local module',
       observed = '"missing"',
     })
   end)

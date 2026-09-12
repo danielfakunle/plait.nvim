@@ -122,6 +122,59 @@ describe('editor capability application', function()
     expect.equality(child.lua_get([[yank_opts]]), { higroup = 'IncSearch', timeout = 150 })
   end)
 
+  it('preflights external managed identities before applying any editor effect', function()
+    restart_with_init('tests/fixtures/editor_apply_collision/init.lua')
+
+    expect.equality(child.lua_get([[apply_result]]), {
+      status = 'unavailable',
+      operation = 'apply',
+      reason = 'invalid_plan',
+      details = { diagnostic_codes = { 'effect.collision' } },
+    })
+    expect.equality(child.lua_get([[M.inspect('effects')]]), {})
+    expect.equality(child.lua_get([[M.inspect('diagnostics', 'effect.collision')]]), {
+      {
+        code = 'effect.collision',
+        severity = 'error',
+        summary = 'Managed identity mapping:n:<leader>p already exists.',
+        repair = 'Remove or rename the external effect before apply.',
+        source = {
+          file = child.lua_get([[M.inspect('diagnostics', 'effect.collision')[1].source.file]]),
+          line = 8,
+          path = 'select[1]',
+        },
+        related_sources = {},
+        details = {
+          effect = 'editor/mappings',
+          identity = 'mapping:n:<leader>p',
+          observed_owner = 'mapping',
+        },
+      },
+    })
+    expect.equality(child.lua_get([[vim.fn.maparg('<leader>p', 'n')]]), '<Cmd>echo "external"<CR>')
+    expect.equality(child.lua_get([[vim.o.termguicolors]]), false)
+  end)
+
+  it('preflights an externally-owned yank-highlight autocmd group', function()
+    restart_with_init('tests/fixtures/editor_apply_autocmd_collision/init.lua')
+
+    expect.equality(child.lua_get([[apply_result.details.diagnostic_codes]]), { 'effect.collision' })
+    expect.equality(
+      child.lua_get(
+        [[vim.tbl_map(function(diagnostic) return diagnostic.details.identity end, M.inspect('diagnostics'))]]
+      ),
+      { 'augroup:plait.editor.yank_highlight' }
+    )
+    expect.equality(child.lua_get([[M.inspect('effects')]]), {})
+  end)
+
+  it('does not collide with an autocmd owned by another augroup', function()
+    restart_with_init('tests/fixtures/editor_apply_foreign_autocmd/init.lua')
+
+    expect.equality(child.lua_get([[apply_result.status]]), 'performed')
+    expect.equality(child.lua_get([[M.inspect('diagnostics')]]), {})
+  end)
+
   it('applies from a synchronously loaded init.lua descendant and exposes closed actions', function()
     restart_with_init('tests/fixtures/editor_apply_descendant/init.lua')
 
@@ -271,6 +324,39 @@ describe('editor capability application', function()
     expect.equality(child.lua_get([[M.actions.editor.focus('right').status]]), 'performed')
     child.lua([[config:validate()]])
     expect.equality(child.lua_get([[M.inspect('diagnostics', 'effect.failed')[1].code]]), 'effect.failed')
+  end)
+
+  it('partitions every remaining editor effect failure deterministically', function()
+    local cases = {
+      {
+        fixture = 'tests/fixtures/editor_apply_failure_native/init.lua',
+        completed = {},
+        failed = { 'editor/native-options' },
+        skipped = { 'editor/actions', 'editor/mappings', 'editor/yank-highlight' },
+      },
+      {
+        fixture = 'tests/fixtures/editor_apply_failure_actions/init.lua',
+        completed = { 'editor/native-options' },
+        failed = { 'editor/actions' },
+        skipped = { 'editor/mappings', 'editor/yank-highlight' },
+      },
+      {
+        fixture = 'tests/fixtures/editor_apply_failure_yank/init.lua',
+        completed = { 'editor/native-options', 'editor/actions', 'editor/mappings' },
+        failed = { 'editor/yank-highlight' },
+        skipped = {},
+      },
+    }
+    for _, case in ipairs(cases) do
+      restart_with_init(case.fixture)
+      expect.equality(child.lua_get([[apply_result.reason]]), 'execution_failed')
+      expect.equality(child.lua_get([[apply_result.details.effects]]), {
+        completed = case.completed,
+        failed = case.failed,
+        skipped = case.skipped,
+      })
+      expect.equality(child.lua_get([[vim.inspect(M.inspect('diagnostics')):find('SECRET', 1, true) == nil]]), true)
+    end
   end)
 
   it('rejects synchronous autocmd callback re-entry from the owner init stack', function()

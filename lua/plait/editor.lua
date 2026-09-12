@@ -148,6 +148,43 @@ local function apply_yank_highlight()
   })
 end
 
+--- Return the identity collisions that would be overwritten by one editor effect.
+---@param identity string
+---@param configuration table
+---@return table[]
+function M.preflight_effect(identity, configuration)
+  local collisions = {}
+  if identity == 'editor/mappings' then
+    local mappings = {
+      { { 'n', 'i', 'x', 's' }, configuration.mappings.save },
+      { { 'n' }, configuration.mappings.clear_search },
+      { { 'n' }, configuration.mappings.focus_left },
+      { { 'n' }, configuration.mappings.focus_down },
+      { { 'n' }, configuration.mappings.focus_up },
+      { { 'n' }, configuration.mappings.focus_right },
+    }
+    for _, mapping in ipairs(mappings) do
+      if mapping[2] ~= false then
+        for _, mode in ipairs(mapping[1]) do
+          local observed = vim.fn.maparg(mapping[2], mode, false, true)
+          -- Neovim's built-in mappings use a negative script ID. Positive IDs
+          -- identify mappings created by the configuration owner or a plugin.
+          if next(observed) and observed.sid > 0 then
+            collisions[#collisions + 1] =
+              { identity = 'mapping:' .. mode .. ':' .. mapping[2], observed_owner = 'mapping' }
+          end
+        end
+      end
+    end
+  elseif identity == 'editor/yank-highlight' then
+    local group = 'plait.editor.yank_highlight'
+    if vim.fn.exists('#' .. group) == 1 then
+      collisions[#collisions + 1] = { identity = 'augroup:' .. group, observed_owner = 'augroup' }
+    end
+  end
+  return collisions
+end
+
 --- Apply one editor effect by its stable identity.
 ---@param identity string
 ---@param configuration table

@@ -269,6 +269,12 @@ function Collector:apply(...)
 
   local effective_plan, diagnostics = resolve(self)
   if not effective_plan then return application.invalid(diagnostics) end
+  local preflight_diagnostics = application.preflight(effective_plan)
+  if #preflight_diagnostics > 0 then
+    vim.list_extend(diagnostics, preflight_diagnostics)
+    validation.sort_diagnostics(diagnostics)
+    return application.invalid(diagnostics)
+  end
   return application.run(effective_plan, diagnostics, schema)
 end
 

@@ -67,20 +67,97 @@ local function record_failure(effect, failure, partition, diagnostics)
   validation.sort_diagnostics(diagnostics)
 end
 
+--- Return the capability configuration for one effective plan.
+---@param effective_plan table
+---@param identity string
+---@return table|nil
+local function capability_configuration(effective_plan, identity)
+  for _, capability in ipairs(effective_plan.capabilities) do
+    if capability.identity == identity then return capability.configuration.values end
+  end
+end
+
+--- Preflight every externally-owned identity before any managed effect is applied.
+---@param effective_plan table
+---@return table[]
+function M.preflight(effective_plan)
+  local diagnostics = {}
+  for _, effect in ipairs(effective_plan.effects) do
+    local configuration = capability_configuration(effective_plan, effect.responsible_capability)
+    if effect.responsible_capability == 'editor' and configuration then
+      local collisions = editor.preflight_effect(effect.identity, configuration)
+      for _, collision in ipairs(collisions) do
+        diagnostics[#diagnostics + 1] = {
+          code = 'effect.collision',
+          severity = 'error',
+          summary = 'Managed identity ' .. collision.identity .. ' already exists.',
+          repair = 'Remove or rename the external effect before apply.',
+          source = vim.deepcopy(effect.sources[1]),
+          related_sources = {},
+          details = {
+            effect = effect.identity,
+            identity = collision.identity,
+            observed_owner = collision.observed_owner,
+          },
+        }
+      end
+    end
+  end
+  validation.sort_diagnostics(diagnostics)
+  return diagnostics
+end
+
+--- Order effects by strict stage barriers and dependency topology.
+---@param effects table[]
+---@return table[]
+local function ordered_effects(effects)
+  local result = {}
+  local by_identity = {}
+  local stages = {}
+  local emitted = {}
+  for _, effect in ipairs(effects) do
+    by_identity[effect.identity] = effect
+    stages[effect.stage] = stages[effect.stage] or {}
+    stages[effect.stage][#stages[effect.stage] + 1] = effect
+  end
+  for stage = 1, 5 do
+    local pending = stages[stage] or {}
+    while #pending > 0 do
+      local candidates = {}
+      for _, effect in ipairs(pending) do
+        local ready = true
+        for _, dependency in ipairs(effect.dependencies) do
+          if by_identity[dependency] and not emitted[dependency] then ready = false end
+        end
+        if ready then candidates[#candidates + 1] = effect end
+      end
+      table.sort(candidates, function(left, right) return left.identity < right.identity end)
+      local next_effect = candidates[1]
+      if not next_effect then error('plait: effective plan has cyclic effect dependencies') end
+      emitted[next_effect.identity] = true
+      result[#result + 1] = next_effect
+      for index, effect in ipairs(pending) do
+        if effect == next_effect then
+          table.remove(pending, index)
+          break
+        end
+      end
+    end
+  end
+  return result
+end
+
 --- Apply every planned editor effect in order and publish the completed snapshot.
 ---@param effective_plan table
 ---@param diagnostics table[]
 ---@param schema table
 ---@return table
 function M.run(effective_plan, diagnostics, schema)
-  local configuration
-  for _, capability in ipairs(effective_plan.capabilities) do
-    if capability.identity == 'editor' then configuration = capability.configuration.values end
-  end
+  local configuration = capability_configuration(effective_plan, 'editor')
   local partition = { completed = {}, failed = {}, skipped = {} }
   local failed_effect
   local failure
-  for _, effect in ipairs(effective_plan.effects) do
+  for _, effect in ipairs(ordered_effects(effective_plan.effects)) do
     if failed_effect then
       effect.state = 'skipped'
       partition.skipped[#partition.skipped + 1] = effect.identity
