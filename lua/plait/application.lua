@@ -1,4 +1,5 @@
 local editor = require('plait.editor')
+local language = require('plait.language')
 local plan = require('plait.plan')
 local snapshot = require('plait.snapshot')
 local state = require('plait.state')
@@ -47,9 +48,13 @@ function M.unavailable(effective_plan, diagnostics, reason, diagnostic_codes)
 end
 
 --- Return a bounded failure message without reflecting provider or environment data.
+---@param capability string
 ---@param _ any
 ---@return string
-local function failure_message(_) return 'Managed editor effect failed.' end
+local function failure_message(capability, _)
+  if capability == 'editor' then return 'Managed editor effect failed.' end
+  return 'Managed language effect failed.'
+end
 
 --- Publish the diagnostic and error projection for one failed effect.
 ---@param effect table
@@ -66,7 +71,7 @@ local function record_failure(effect, failure, partition, diagnostics)
     completed = vim.deepcopy(partition.completed),
     failed = vim.deepcopy(partition.failed),
     skipped = vim.deepcopy(partition.skipped),
-    message = failure_message(failure),
+    message = failure_message(effect.responsible_capability, failure),
   }
   local diagnostic = {
     code = 'effect.failed',
@@ -107,8 +112,9 @@ function M.preflight(effective_plan)
   local diagnostics = {}
   for _, effect in ipairs(effective_plan.effects) do
     local configuration = capability_configuration(effective_plan, effect.responsible_capability)
-    if effect.responsible_capability == 'editor' and configuration then
-      local collisions = editor.preflight_effect(effect.identity, configuration)
+    local integration = ({ editor = editor, language = language })[effect.responsible_capability]
+    if integration and configuration then
+      local collisions = integration.preflight_effect(effect.identity, configuration)
       for _, collision in ipairs(collisions) do
         diagnostics[#diagnostics + 1] = {
           code = 'effect.collision',
@@ -170,13 +176,14 @@ local function ordered_effects(effects)
   return result
 end
 
---- Apply every planned editor effect in order and publish the completed snapshot.
+--- Apply every planned managed effect in order and publish the completed snapshot.
 ---@param effective_plan table
 ---@param diagnostics table[]
 ---@param schema table
 ---@return table
 function M.run(effective_plan, diagnostics, schema)
-  local configuration = capability_configuration(effective_plan, 'editor')
+  local editor_configuration = capability_configuration(effective_plan, 'editor')
+  local language_configuration = capability_configuration(effective_plan, 'language')
   local partition = { completed = {}, failed = {}, skipped = {} }
   local failed_effect
   local failure
@@ -186,7 +193,10 @@ function M.run(effective_plan, diagnostics, schema)
       partition.skipped[#partition.skipped + 1] = effect.identity
     else
       local ok
-      ok, failure = pcall(editor.apply_effect, effect.identity, configuration)
+      local integration = effect.responsible_capability == 'language' and language or editor
+      local configuration = effect.responsible_capability == 'language' and language_configuration
+        or editor_configuration
+      ok, failure = pcall(integration.apply_effect, effect.identity, configuration)
       if ok then
         effect.state = 'completed'
         partition.completed[#partition.completed + 1] = effect.identity
@@ -202,10 +212,13 @@ function M.run(effective_plan, diagnostics, schema)
   effective_plan.snapshot_state = failed_effect and 'failed' or 'applied'
   if failed_effect then record_failure(failed_effect, failure, partition, diagnostics) end
   snapshot.publish(effective_plan, diagnostics)
-  if configuration and vim.list_contains(partition.completed, 'editor/actions') then
+  if editor_configuration and vim.list_contains(partition.completed, 'editor/actions') then
     state.applied_plan_id = plan_id
     state.applied_effects = vim.deepcopy(partition)
     state.editor_active = true
+  end
+  if language_configuration and vim.list_contains(partition.completed, 'language/actions-and-mappings') then
+    state.language_active = true
   end
   if failed_effect then
     return {

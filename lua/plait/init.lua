@@ -1,6 +1,7 @@
 local application = require('plait.application')
 local canonical = require('plait.canonical')
 local editor = require('plait.editor')
+local language = require('plait.language')
 local environment = require('plait.environment')
 local packages = require('plait.packages')
 local plan = require('plait.plan')
@@ -10,7 +11,7 @@ local state = require('plait.state')
 local startup = require('plait.startup')
 local validation = require('plait.validation')
 
-local M = { actions = { editor = editor.actions, packages = { sync = packages.sync } } }
+local M = { actions = { editor = editor.actions, language = language.actions, packages = { sync = packages.sync } } }
 
 local inspection_sections = {
   modules = true,

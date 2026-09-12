@@ -36,8 +36,10 @@ end
 function M.build(configuration, resolution)
   local effects = {}
   local editor
+  local language
   for _, module in ipairs(resolution.modules) do
     if module.identity == 'editor' then editor = module end
+    if module.identity == 'language' then language = module end
   end
   if editor then
     effects = {
@@ -82,6 +84,28 @@ function M.build(configuration, resolution)
       dependencies = { 'editor/native-options' },
       state = 'pending',
       sources = vim.deepcopy(editor.selection_sources),
+      error = nil,
+    }
+  end
+  if language then
+    effects[#effects + 1] = {
+      identity = 'language/native-diagnostics',
+      stage = 3,
+      responsible_capability = 'language',
+      provider = 'vim.diagnostic',
+      dependencies = {},
+      state = 'pending',
+      sources = vim.deepcopy(language.selection_sources),
+      error = nil,
+    }
+    effects[#effects + 1] = {
+      identity = 'language/actions-and-mappings',
+      stage = 4,
+      responsible_capability = 'language',
+      provider = 'vim.lsp',
+      dependencies = { 'language/native-diagnostics' },
+      state = 'pending',
+      sources = vim.deepcopy(language.selection_sources),
       error = nil,
     }
   end
