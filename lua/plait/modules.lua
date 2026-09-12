@@ -675,7 +675,16 @@ function M.resolve(selections, selection_sources, configuration, configuration_s
     end
   end
   table.sort(effective_contributions)
-  return { modules = modules, capabilities = capabilities, effective_contributions = effective_contributions },
+  local contribution_values = {}
+  for target, peers in pairs(contributed) do
+    if #peers == 1 then contribution_values[target] = vim.deepcopy(peers[1]) end
+  end
+  return {
+    modules = modules,
+    capabilities = capabilities,
+    effective_contributions = effective_contributions,
+    contribution_values = contribution_values,
+  },
     diagnostics
 end
 

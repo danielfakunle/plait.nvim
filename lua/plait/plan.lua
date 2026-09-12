@@ -1,5 +1,6 @@
 local canonical = require('plait.canonical')
 local packages = require('plait.packages')
+local tools = require('plait.tools')
 
 local M = {}
 
@@ -110,13 +111,29 @@ function M.build(configuration, resolution)
     }
   end
   local package_records, package_diagnostics = packages.resolve(resolution)
+  local tool_records, tool_diagnostics = tools.resolve(resolution)
+  for _, item in ipairs(tool_diagnostics) do
+    for _, operation in ipairs(item.details.affected_operations) do
+      local capability_identity = operation:match('^([^.]+)')
+      for _, capability in ipairs(resolution.capabilities) do
+        if capability.identity == capability_identity then
+          capability.state = 'degraded'
+          if not vim.list_contains(capability.degradation_reasons, item.code) then
+            capability.degradation_reasons[#capability.degradation_reasons + 1] = item.code
+            table.sort(capability.degradation_reasons)
+          end
+        end
+      end
+    end
+  end
+  vim.list_extend(package_diagnostics, tool_diagnostics)
   return {
     snapshot_state = 'validated',
     modules = resolution.modules,
     capabilities = resolution.capabilities,
     effects = effects,
     packages = package_records,
-    tools = {},
+    tools = tool_records,
   },
     package_diagnostics
 end

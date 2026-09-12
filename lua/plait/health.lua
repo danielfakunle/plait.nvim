@@ -1,5 +1,6 @@
 local compatibility = require('plait.compatibility')
 local state = require('plait.state')
+local tools = require('plait.tools')
 
 local M = {}
 
@@ -79,19 +80,6 @@ local function version_qualified(observed, requirement)
     return false
   end
   return true
-end
-
---- Parse the first complete semantic version from stdout, then stderr.
----@param output { stdout: string, stderr: string }
----@return integer[]|nil, string|nil
-local function parse_version(output)
-  for _, text in ipairs({ output.stdout, output.stderr }) do
-    local version = text:match('%f[%d](%d+%.%d+%.%d+)%f[^%d%.]')
-    if version then
-      local major, minor, patch = version:match('^(%d+)%.(%d+)%.(%d+)$')
-      return { tonumber(major), tonumber(minor), tonumber(patch) }, version
-    end
-  end
 end
 
 --- Report whether the running Neovim satisfies the manifest.
@@ -192,78 +180,37 @@ local function report_registry()
   )
 end
 
---- Add a tool path once while preserving source precedence.
----@param candidates table[]
----@param seen table<string, boolean>
----@param path string
----@param source string
-local function add_tool_candidate(candidates, seen, path, source)
-  if path == '' or seen[path] or vim.fn.executable(path) ~= 1 then return end
-  path = vim.fs.normalize(path)
-  if seen[path] then return end
-  seen[path] = true
-  candidates[#candidates + 1] = { path = path, source = source }
-end
-
---- Find workspace, Mason, then PATH candidates for one tool requirement.
----@param tool table
----@return table[]
-local function tool_candidates(tool)
-  local candidates = {}
-  local seen = {}
-  if tool.workspace then
-    local directory = vim.fs.normalize(vim.fn.getcwd())
-    while directory do
-      add_tool_candidate(candidates, seen, directory .. '/node_modules/.bin/' .. tool.executable, 'workspace')
-      local parent = vim.fs.dirname(directory)
-      if parent == directory then break end
-      directory = parent
-    end
-  end
-  if tool.mason then
-    add_tool_candidate(candidates, seen, vim.fn.stdpath('data') .. '/mason/bin/' .. tool.executable, 'mason')
-  end
-  add_tool_candidate(candidates, seen, vim.fn.exepath(tool.executable), 'PATH')
-  return candidates
-end
-
 --- Report authoritative local tool candidates and semantic-version qualification.
 local function report_tools()
+  local contributions = {}
   for _, tool in ipairs(compatibility.tools) do
-    local candidate = tool_candidates(tool)[1]
-    local output = candidate and command_output({ candidate.path, '--version' }) or nil
-    local parsed, version
-    if output then
-      parsed, version = parse_version(output)
-    end
-    if parsed and version and version_qualified(parsed, tool) then
+    contributions[#contributions + 1] = 'tooling.tools.' .. tool.identity
+  end
+  local records = tools.resolve({ effective_contributions = contributions, modules = {}, contribution_values = {} })
+  for _, tool in ipairs(records) do
+    if tool.state == 'satisfied' then
       vim.health.ok(
         ('Tool %s: version %s (%s, %s); required %s'):format(
           tool.identity,
-          version,
-          candidate.path,
-          candidate.source,
+          tool.version,
+          tool.path,
+          tool.source,
           tool.constraint
         )
       )
-    elseif parsed and version then
+    elseif tool.state == 'incompatible' then
       vim.health.warn(
         ('Tool %s: incompatible version %s (%s, %s); required %s'):format(
           tool.identity,
-          version,
-          candidate.path,
-          candidate.source,
+          tool.version,
+          tool.path,
+          tool.source,
           tool.constraint
         )
       )
-    elseif candidate then
+    elseif tool.state == 'unprobeable' then
       vim.health.warn(
-        ('Tool %s: unprobeable (%s, %s); required %s'):format(
-          tool.identity,
-          candidate.path,
-          candidate.source,
-          tool.constraint
-        )
+        ('Tool %s: unprobeable (%s, %s); required %s'):format(tool.identity, tool.path, tool.source, tool.constraint)
       )
     else
       vim.health.warn(('Tool %s: absent; required %s'):format(tool.identity, tool.constraint))

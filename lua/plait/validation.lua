@@ -1,6 +1,7 @@
 local canonical = require('plait.canonical')
 local modules = require('plait.modules')
 local text = require('plait.text')
+local tools = require('plait.tools')
 
 local M = {}
 
@@ -248,6 +249,14 @@ local function validate_selections(selections, declaration_sources, diagnostics)
             for key in pairs(values) do
               if key ~= 'tools' then valid = false end
             end
+            for identity, tool in pairs(values.tools or {}) do
+              local normalized = type(identity) == 'string' and tools.normalize_declaration(tool) or nil
+              if not normalized then
+                valid = false
+              else
+                values.tools[identity] = normalized
+              end
+            end
           end
         end
       end
@@ -349,6 +358,28 @@ function M.validate(
   override_calls
 )
   local diagnostics = {}
+  for _, call in ipairs(override_calls or {}) do
+    local declared = type(call.value) == 'table'
+        and type(call.value.tooling) == 'table'
+        and type(call.value.tooling.tools) == 'table'
+        and call.value.tooling.tools
+      or {}
+    for identity, operation in pairs(declared) do
+      if type(operation) == 'table' and operation.kind == 'replace' then
+        local normalized = tools.normalize_declaration(operation.value)
+        if normalized then
+          operation.value = normalized
+        else
+          diagnostics[#diagnostics + 1] = diagnostic(
+            'override.tooling.tools.' .. tostring(identity),
+            'a valid external-tool declaration',
+            operation.value,
+            call.source
+          )
+        end
+      end
+    end
+  end
   local valid_selections, valid_selection_sources = validate_selections(selections, selection_sources, diagnostics)
   local root_schema = { type = 'map', fields = configuration_schema }
   local collected_declaration = declaration == nil and {} or declaration
