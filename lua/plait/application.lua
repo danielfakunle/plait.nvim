@@ -1,5 +1,6 @@
 local editor = require('plait.editor')
 local language = require('plait.language')
+local tooling = require('plait.tooling')
 local plan = require('plait.plan')
 local snapshot = require('plait.snapshot')
 local state = require('plait.state')
@@ -23,6 +24,12 @@ local integrations = {
     failure_message = 'Managed language effect failed.',
     activation_effect = 'language/actions-and-mappings',
     activate = function() state.language_active = true end,
+  },
+  tooling = {
+    implementation = tooling,
+    failure_message = 'Managed tooling effect failed.',
+    activation_effect = 'tooling/actions',
+    activate = function() state.tooling_active = true end,
   },
 }
 
@@ -111,7 +118,11 @@ end
 ---@return table|nil
 local function capability_configuration(effective_plan, identity)
   for _, capability in ipairs(effective_plan.capabilities) do
-    if capability.identity == identity then return capability.configuration.values end
+    if capability.identity == identity then
+      local result = vim.deepcopy(capability.configuration.values)
+      result.providers = vim.deepcopy(capability.configuration.providers or {})
+      return result
+    end
   end
 end
 
@@ -205,8 +216,12 @@ function M.run(effective_plan, diagnostics, schema)
     else
       local ok
       local integration = assert(integrations[effect.responsible_capability])
-      ok =
-        pcall(integration.implementation.apply_effect, effect.identity, configurations[effect.responsible_capability])
+      ok = pcall(
+        integration.implementation.apply_effect,
+        effect.identity,
+        configurations[effect.responsible_capability],
+        effective_plan
+      )
       if ok then
         effect.state = 'completed'
         partition.completed[#partition.completed + 1] = effect.identity

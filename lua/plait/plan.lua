@@ -38,9 +38,11 @@ function M.build(configuration, resolution)
   local effects = {}
   local editor
   local language
+  local tooling
   for _, module in ipairs(resolution.modules) do
     if module.identity == 'editor' then editor = module end
     if module.identity == 'language' then language = module end
+    if module.identity == 'tooling' then tooling = module end
   end
   if editor then
     effects = {
@@ -109,6 +111,63 @@ function M.build(configuration, resolution)
       sources = vim.deepcopy(language.selection_sources),
       error = nil,
     }
+  end
+  if tooling then
+    local sources = vim.deepcopy(tooling.selection_sources)
+    vim.list_extend(effects, {
+      {
+        identity = 'tooling/package/mason.nvim',
+        stage = 2,
+        responsible_capability = 'tooling',
+        provider = 'vim.pack',
+        dependencies = {},
+        state = 'pending',
+        sources = vim.deepcopy(sources),
+        error = nil,
+      },
+      {
+        identity = 'tooling/provider-setup',
+        stage = 3,
+        responsible_capability = 'tooling',
+        provider = 'mason.nvim',
+        dependencies = { 'tooling/package/mason.nvim' },
+        state = 'pending',
+        sources = vim.deepcopy(sources),
+        error = nil,
+      },
+      {
+        identity = 'tooling/tool-resolution',
+        stage = 3,
+        responsible_capability = 'tooling',
+        provider = nil,
+        dependencies = { 'tooling/package/mason.nvim' },
+        state = 'pending',
+        sources = vim.deepcopy(sources),
+        error = nil,
+      },
+      {
+        identity = 'tooling/actions',
+        stage = 4,
+        responsible_capability = 'tooling',
+        provider = 'mason.nvim',
+        dependencies = { 'tooling/tool-resolution' },
+        state = 'pending',
+        sources = vim.deepcopy(sources),
+        error = nil,
+      },
+    })
+    if configuration.tooling.check_on_startup then
+      effects[#effects + 1] = {
+        identity = 'tooling/startup-check',
+        stage = 5,
+        responsible_capability = 'tooling',
+        provider = nil,
+        dependencies = { 'tooling/tool-resolution' },
+        state = 'pending',
+        sources = vim.deepcopy(sources),
+        error = nil,
+      }
+    end
   end
   local package_records, package_diagnostics = packages.resolve(resolution)
   local tool_records, tool_diagnostics = tools.resolve(resolution)

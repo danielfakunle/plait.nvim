@@ -378,9 +378,9 @@ local function probe(candidate)
     end
   end
   local ok
-  ok, process = pcall(vim.system, { candidate.path, '--version' }, {
+  ok, process = pcall(vim.system, { assert(candidate.real_path), '--version' }, {
     text = true,
-    cwd = vim.fs.dirname(candidate.path),
+    cwd = vim.fs.dirname(assert(candidate.real_path)),
     stdout = capture('stdout'),
     stderr = capture('stderr'),
   })
@@ -438,6 +438,7 @@ function M.resolve(resolution)
     end
   end
   local records, diagnostics = {}, {}
+  require('plait.state').tool_requirements = vim.deepcopy(requirements)
   local identities = vim.tbl_keys(requirements)
   table.sort(identities)
   for _, identity in ipairs(identities) do
@@ -487,6 +488,19 @@ function M.resolve(resolution)
     records[#records + 1] = record
   end
   return records, diagnostics
+end
+
+--- Derive a command from one satisfied tool's absolute resolved real path.
+---@param record table
+---@param arguments? string[]
+---@return string[]|nil
+function M.command(record, arguments)
+  if type(record) ~= 'table' or record.state ~= 'satisfied' or not record.authoritative_candidate then return nil end
+  local candidate = record.candidates[record.authoritative_candidate]
+  if not candidate or type(candidate.real_path) ~= 'string' or not vim.fs.isabs(candidate.real_path) then return nil end
+  local command = { candidate.real_path }
+  vim.list_extend(command, vim.deepcopy(arguments or {}))
+  return command
 end
 
 return M

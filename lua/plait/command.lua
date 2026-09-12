@@ -66,6 +66,14 @@ function M.dispatch(arguments)
     inspect(arguments)
   elseif subcommand == 'packages' and (arguments[1] == 'sync' or arguments[1] == 'sync!') and #arguments == 1 then
     render_result(plait.actions.packages.sync(arguments[1] == 'sync!' and true or nil))
+  elseif subcommand == 'tooling' and arguments[1] == 'check' and #arguments == 1 then
+    render_result(plait.actions.tooling.check())
+  elseif subcommand == 'tooling' and arguments[1] == 'ensure' and #arguments == 1 then
+    render_result(plait.actions.tooling.ensure())
+  elseif subcommand == 'tooling' and arguments[1] == 'install' and #arguments == 2 then
+    render_result(plait.actions.tooling.install(arguments[2]))
+  elseif subcommand == 'tooling' and arguments[1] == 'update' and #arguments <= 2 then
+    render_result(plait.actions.tooling.update(arguments[2]))
   else
     fail('unknown or invalid command')
   end

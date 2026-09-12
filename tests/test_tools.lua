@@ -70,3 +70,130 @@ describe('external tool resolution', function()
     expect.equality(child.lua_get([[result.diagnostics[#result.diagnostics].details.reason]]), 'not_executable')
   end)
 end)
+
+describe('tooling capability actions', function()
+  it('enforces not-configured, inactive, and invalid snapshot preconditions', function()
+    child.lua([[not_configured = M.actions.tooling.check()]])
+    expect.equality(child.lua_get([[not_configured]]), {
+      status = 'unavailable',
+      operation = 'tooling.check',
+      reason = 'not_configured',
+      details = {},
+    })
+
+    child.lua([[
+      local config = M.config()
+      config:select({ 'editor' })
+      config:validate()
+      inactive = M.actions.tooling.ensure()
+    ]])
+    expect.equality(child.lua_get([[inactive]]), {
+      status = 'unavailable',
+      operation = 'tooling.ensure',
+      reason = 'capability_inactive',
+      details = { capability = 'tooling' },
+    })
+  end)
+
+  it('checks effective tools and returns canonical state details', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'tooling' })
+      config:validate()
+      checked = M.actions.tooling.check()
+    ]])
+
+    expect.equality(child.lua_get([[checked.status]]), 'performed')
+    expect.equality(child.lua_get([[checked.operation]]), 'tooling.check')
+    expect.equality(child.lua_get([[checked.details.tools]]), {})
+    expect.equality(child.lua_get([[checked.details.states]]), {})
+  end)
+
+  it('rejects unknown install identities as misuse', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'tooling' })
+      config:validate()
+      install_ok, install_error = pcall(M.actions.tooling.install, 'missing')
+    ]])
+
+    expect.equality(child.lua_get([[install_ok]]), false)
+    expect.equality(child.lua_get([[install_error]]), 'plait: tooling.install requires an effective tool identity')
+  end)
+
+  it('applies the pinned Mason setup policy without refreshing a registry', function()
+    child.restart({ '--clean', '-u', 'tests/fixtures/tooling_apply/init.lua' })
+
+    expect.equality(child.lua_get([[tooling_apply_result.status]]), 'performed')
+    expect.equality(child.lua_get([[tooling_setup]]), {
+      PATH = 'skip',
+      registries = { 'github:mason-org/mason-registry@2026-09-07-abaft-pruner' },
+      firewall = { auto_managed = false },
+      ui = { border = 'single' },
+    })
+  end)
+
+  it('starts Mason repair through the process-lifetime operation ledger', function()
+    child.lua([[
+      local data_path = vim.fn.tempname()
+      vim.fn.mkdir(data_path, 'p')
+      local original_stdpath = vim.fn.stdpath
+      vim.fn.stdpath = function(kind)
+        if kind == 'data' then return data_path end
+        return original_stdpath(kind)
+      end
+      local demo = M.module({
+        name = 'local.tools.demo', provides = { 'local.tools.demo' }, requires = { 'tooling' },
+        contribute = { tooling = { tools = { demo = {
+          executable = 'demo', version = '=1.2.3', ownership = 'mason', mason = 'demo'
+        } } } },
+      })
+      local config = M.config()
+      config:select({ 'tooling', demo })
+      config:validate()
+      local original_executable = vim.fn.executable
+      vim.fn.executable = function(name)
+        if name == 'curl' or name == 'wget' then return 1 end
+        return original_executable(name)
+      end
+      vim.fn.filewritable = function() return 2 end
+      package.loaded['mason-registry'] = {
+        get_package = function(name)
+          mason_requested_package = name
+          return {
+            install = function()
+              return {
+                once = function(_, event, callback)
+                  mason_event = event
+                  local root = vim.fn.stdpath('data') .. '/mason'
+                  local executable = root .. '/packages/demo/bin/demo'
+                  vim.fn.mkdir(vim.fs.dirname(executable), 'p')
+                  vim.fn.mkdir(root .. '/bin', 'p')
+                  vim.fn.writefile({ '#!/bin/sh', 'printf "1.2.3\\n"' }, executable)
+                  vim.uv.fs_chmod(executable, 493)
+                  vim.uv.fs_symlink(executable, root .. '/bin/demo')
+                  callback()
+                end,
+              }
+            end,
+            is_installed = function() return true end,
+          }
+        end,
+      }
+      ensure_result = M.actions.tooling.ensure()
+      vim.wait(1000, function() return M.inspect('operations')[1].state ~= 'pending' end)
+      operation = M.inspect('operations')[1]
+    ]])
+
+    expect.equality(child.lua_get([[ensure_result]]), {
+      status = 'started',
+      operation = 'tooling.ensure',
+      operation_id = 'op-00000001',
+      details = { targets = { 'demo' } },
+    })
+    expect.equality(child.lua_get([[mason_requested_package]]), 'demo')
+    expect.equality(child.lua_get([[mason_event]]), 'closed')
+    expect.equality(child.lua_get([[operation.state]]), 'succeeded')
+    expect.equality(child.lua_get([[operation.result.details.targets]]), { 'demo' })
+  end)
+end)

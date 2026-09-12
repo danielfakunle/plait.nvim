@@ -1,5 +1,5 @@
+local operations = require('plait.operations')
 local state = require('plait.state')
-local validation = require('plait.validation')
 
 local M = {}
 
@@ -44,42 +44,6 @@ local function inactive(operation)
   }
 end
 
---- Return a UTC RFC 3339 timestamp with millisecond precision.
----@return string
-local function timestamp()
-  local seconds, microseconds = vim.uv.gettimeofday()
-  return os.date('!%Y-%m-%dT%H:%M:%S', seconds) .. ('.%03dZ'):format(math.floor(microseconds / 1000))
-end
-
---- Publish the terminal diagnostic for an accepted language action.
----@param operation table
----@param succeeded boolean
-local function publish_diagnostic(operation, succeeded)
-  local code = succeeded and 'operation.succeeded' or 'operation.failed'
-  local details = {
-    operation_id = operation.identity,
-    operation = operation.operation,
-    targets = vim.deepcopy(operation.targets),
-  }
-  if not succeeded then details.message = 'Language action failed.' end
-  local diagnostic = {
-    code = code,
-    severity = succeeded and 'info' or 'error',
-    summary = succeeded and ('Operation ' .. operation.identity .. ' succeeded.')
-      or ('Operation ' .. operation.identity .. ' failed.'),
-    repair = succeeded and '' or 'Repair the reported target/environment and invoke a new operation.',
-    source = nil,
-    related_sources = {},
-    details = details,
-  }
-  state.operation_diagnostics[#state.operation_diagnostics + 1] = vim.deepcopy(diagnostic)
-  validation.sort_diagnostics(state.operation_diagnostics)
-  if state.snapshot then
-    state.snapshot.diagnostics[#state.snapshot.diagnostics + 1] = vim.deepcopy(diagnostic)
-    validation.sort_diagnostics(state.snapshot.diagnostics)
-  end
-end
-
 --- Accept and track one asynchronous native LSP action.
 ---@param name string
 ---@return table
@@ -97,43 +61,10 @@ local function request(name)
     return { status = 'unavailable', operation = operation_name, reason = 'client_unsupported', details = details }
   end
 
-  state.next_operation_id = state.next_operation_id + 1
-  local operation_id = ('op-%08d'):format(state.next_operation_id)
-  local operation = {
-    identity = operation_id,
-    operation = operation_name,
-    state = 'pending',
-    started_at = timestamp(),
-    completed_at = vim.NIL,
-    targets = { 'buffer:' .. buffer },
-    result = vim.NIL,
-    error = vim.NIL,
-    diagnostic_codes = {},
-  }
-  state.operations[#state.operations + 1] = operation
-  if state.snapshot then state.snapshot.operations = state.operations end
-  vim.schedule(function()
+  return operations.start(operation_name, { 'buffer:' .. buffer }, function(done)
     local ok = pcall(vim.api.nvim_buf_call, buffer, requests[name].invoke)
-    operation.completed_at = timestamp()
-    if ok then
-      operation.state = 'succeeded'
-      operation.result = { status = 'performed', operation = operation_name, details = vim.deepcopy(details) }
-      operation.error = vim.NIL
-      operation.diagnostic_codes = { 'operation.succeeded' }
-    else
-      operation.state = 'failed'
-      operation.result = vim.NIL
-      operation.error = { reason = 'execution_failed', message = 'Language action failed.' }
-      operation.diagnostic_codes = { 'operation.failed' }
-    end
-    publish_diagnostic(operation, ok)
-  end)
-  return {
-    status = 'started',
-    operation = operation_name,
-    operation_id = operation_id,
-    details = vim.deepcopy(details),
-  }
+    done(ok, ok and nil or 'Language action failed.')
+  end, function() return vim.deepcopy(details) end, details)
 end
 
 --- Navigate to one native diagnostic.

@@ -7,6 +7,8 @@
 ---@field applied_effects table|nil
 ---@field editor_active boolean
 ---@field language_active boolean
+---@field tooling_active boolean
+---@field tool_requirements table<string, table>
 ---@field operation_diagnostics table[]
 ---@field package_restart_required table<string, boolean>
 ---@field package_interrupted table<string, { operation_id?: string, message?: string }>
@@ -21,6 +23,8 @@ local state = {
   applied_effects = nil,
   editor_active = false,
   language_active = false,
+  tooling_active = false,
+  tool_requirements = {},
   operation_diagnostics = {},
   package_restart_required = {},
   package_interrupted = {},

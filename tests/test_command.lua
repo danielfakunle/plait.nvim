@@ -87,4 +87,15 @@ describe('Plait command', function()
     expect.equality(child.cmd_capture('Plait packages sync!'), 'plait: packages.sync performed')
     expect.equality(child.lua_get([[M.inspect('operations')]]), {})
   end)
+
+  it('routes tooling commands through the public tooling actions', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'tooling' })
+      config:validate()
+    ]])
+
+    expect.equality(child.cmd_capture('Plait tooling check'), 'plait: tooling.check performed')
+    expect.equality(child.cmd_capture('Plait tooling ensure'), 'plait: tooling.ensure performed')
+  end)
 end)

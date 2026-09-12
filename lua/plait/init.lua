@@ -10,9 +10,17 @@ local schema = require('plait.schema_generated')
 local snapshot = require('plait.snapshot')
 local state = require('plait.state')
 local startup = require('plait.startup')
+local tooling = require('plait.tooling')
 local validation = require('plait.validation')
 
-local M = { actions = { editor = editor.actions, language = language.actions, packages = { sync = packages.sync } } }
+local M = {
+  actions = {
+    editor = editor.actions,
+    language = language.actions,
+    packages = { sync = packages.sync },
+    tooling = tooling.actions,
+  },
+}
 
 local inspection_sections = {
   modules = true,
