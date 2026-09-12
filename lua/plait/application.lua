@@ -25,12 +25,7 @@ local integrations = {
     activation_effect = 'language/actions-and-mappings',
     activate = function() state.language_active = true end,
   },
-  tooling = {
-    implementation = tooling,
-    failure_message = 'Managed tooling effect failed.',
-    activation_effect = 'tooling/actions',
-    activate = function() state.tooling_active = true end,
-  },
+  tooling = tooling.integration,
 }
 
 --- Return the closed apply result for an invalid re-resolution.

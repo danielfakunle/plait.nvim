@@ -410,7 +410,7 @@ local builtin_operations = {
 
 --- Resolve all effective tool requirements without network access.
 ---@param resolution table
----@return table[], table[]
+---@return table[], table[], table<string, table>
 function M.resolve(resolution)
   local requirements = {}
   for _, definition in ipairs(compatibility.tools) do
@@ -438,7 +438,6 @@ function M.resolve(resolution)
     end
   end
   local records, diagnostics = {}, {}
-  require('plait.state').tool_requirements = vim.deepcopy(requirements)
   local identities = vim.tbl_keys(requirements)
   table.sort(identities)
   for _, identity in ipairs(identities) do
@@ -487,7 +486,7 @@ function M.resolve(resolution)
     end
     records[#records + 1] = record
   end
-  return records, diagnostics
+  return records, diagnostics, requirements
 end
 
 --- Derive a command from one satisfied tool's absolute resolved real path.

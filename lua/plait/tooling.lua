@@ -6,6 +6,43 @@ local M = {}
 
 local registry_source = 'github:mason-org/mason-registry@' .. compatibility.registry.release
 
+--- Build one closed tooling effect record.
+---@param identity string
+---@param stage integer
+---@param provider string|nil
+---@param dependencies string[]
+---@param sources table[]
+---@return table
+local function effect(identity, stage, provider, dependencies, sources)
+  return {
+    identity = identity,
+    stage = stage,
+    responsible_capability = 'tooling',
+    provider = provider,
+    dependencies = dependencies,
+    state = 'pending',
+    sources = vim.deepcopy(sources),
+    error = nil,
+  }
+end
+
+--- Declare the complete effect family owned by the tooling capability.
+---@param configuration table
+---@param sources table[]
+---@return table[]
+function M.effects(configuration, sources)
+  local effects = {
+    effect('tooling/package/mason.nvim', 2, 'vim.pack', {}, sources),
+    effect('tooling/provider-setup', 3, 'mason.nvim', { 'tooling/package/mason.nvim' }, sources),
+    effect('tooling/tool-resolution', 3, nil, { 'tooling/package/mason.nvim' }, sources),
+    effect('tooling/actions', 4, 'mason.nvim', { 'tooling/tool-resolution' }, sources),
+  }
+  if configuration.check_on_startup then
+    effects[#effects + 1] = effect('tooling/startup-check', 5, nil, { 'tooling/tool-resolution' }, sources)
+  end
+  return effects
+end
+
 --- Return an unavailable action result.
 ---@param operation string
 ---@param reason string
@@ -266,5 +303,11 @@ end
 function M.preflight_effect() return {} end
 
 M.actions = { check = M.check, ensure = M.ensure, install = M.install, update = M.update }
+M.integration = {
+  implementation = M,
+  failure_message = 'Managed tooling effect failed.',
+  activation_effect = 'tooling/actions',
+  activate = function() state.tooling_active = true end,
+}
 
 return M

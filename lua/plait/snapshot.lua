@@ -1,4 +1,5 @@
 local state = require('plait.state')
+local plan = require('plait.plan')
 
 local M = {}
 
@@ -24,6 +25,7 @@ end
 ---@param effective_plan table
 ---@param diagnostics table[]
 function M.publish(effective_plan, diagnostics)
+  state.tool_requirements = plan.tool_requirements(effective_plan)
   state.snapshot = vim.deepcopy(build(effective_plan.snapshot_state, effective_plan, diagnostics))
 end
 
@@ -31,6 +33,7 @@ end
 ---@param snapshot_state "invalid"|"unavailable"
 ---@param diagnostics table[]
 function M.publish_empty(snapshot_state, diagnostics)
+  state.tool_requirements = {}
   state.snapshot = vim.deepcopy(build(snapshot_state, {
     modules = {},
     capabilities = {},

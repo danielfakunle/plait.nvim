@@ -1,8 +1,10 @@
 local canonical = require('plait.canonical')
 local packages = require('plait.packages')
+local tooling_integration = require('plait.tooling')
 local tools = require('plait.tools')
 
 local M = {}
+local private_tool_requirements = setmetatable({}, { __mode = 'k' })
 
 --- Copy a semantic array and preserve its declared array identity when empty.
 ---@param values table[]
@@ -113,64 +115,10 @@ function M.build(configuration, resolution)
     }
   end
   if tooling then
-    local sources = vim.deepcopy(tooling.selection_sources)
-    vim.list_extend(effects, {
-      {
-        identity = 'tooling/package/mason.nvim',
-        stage = 2,
-        responsible_capability = 'tooling',
-        provider = 'vim.pack',
-        dependencies = {},
-        state = 'pending',
-        sources = vim.deepcopy(sources),
-        error = nil,
-      },
-      {
-        identity = 'tooling/provider-setup',
-        stage = 3,
-        responsible_capability = 'tooling',
-        provider = 'mason.nvim',
-        dependencies = { 'tooling/package/mason.nvim' },
-        state = 'pending',
-        sources = vim.deepcopy(sources),
-        error = nil,
-      },
-      {
-        identity = 'tooling/tool-resolution',
-        stage = 3,
-        responsible_capability = 'tooling',
-        provider = nil,
-        dependencies = { 'tooling/package/mason.nvim' },
-        state = 'pending',
-        sources = vim.deepcopy(sources),
-        error = nil,
-      },
-      {
-        identity = 'tooling/actions',
-        stage = 4,
-        responsible_capability = 'tooling',
-        provider = 'mason.nvim',
-        dependencies = { 'tooling/tool-resolution' },
-        state = 'pending',
-        sources = vim.deepcopy(sources),
-        error = nil,
-      },
-    })
-    if configuration.tooling.check_on_startup then
-      effects[#effects + 1] = {
-        identity = 'tooling/startup-check',
-        stage = 5,
-        responsible_capability = 'tooling',
-        provider = nil,
-        dependencies = { 'tooling/tool-resolution' },
-        state = 'pending',
-        sources = vim.deepcopy(sources),
-        error = nil,
-      }
-    end
+    vim.list_extend(effects, tooling_integration.effects(configuration.tooling, tooling.selection_sources))
   end
   local package_records, package_diagnostics = packages.resolve(resolution)
-  local tool_records, tool_diagnostics = tools.resolve(resolution)
+  local tool_records, tool_diagnostics, tool_requirements = tools.resolve(resolution)
   for _, item in ipairs(tool_diagnostics) do
     for _, operation in ipairs(item.details.affected_operations) do
       local capability_identity = operation:match('^([^.]+)')
@@ -186,16 +134,22 @@ function M.build(configuration, resolution)
     end
   end
   vim.list_extend(package_diagnostics, tool_diagnostics)
-  return {
+  local effective_plan = {
     snapshot_state = 'validated',
     modules = resolution.modules,
     capabilities = resolution.capabilities,
     effects = effects,
     packages = package_records,
     tools = tool_records,
-  },
-    package_diagnostics
+  }
+  private_tool_requirements[effective_plan] = tool_requirements
+  return effective_plan, package_diagnostics
 end
+
+--- Return private tool requirements associated with one effective plan.
+---@param effective_plan table
+---@return table<string, table>
+function M.tool_requirements(effective_plan) return vim.deepcopy(private_tool_requirements[effective_plan] or {}) end
 
 --- Compute the semantic identity of an effective plan.
 ---@param effective_plan table
