@@ -213,13 +213,17 @@ function M.run(effective_plan, diagnostics, schema)
     else
       local ok
       local integration = assert(integrations[effect.responsible_capability])
-      ok = pcall(
+      local result
+      ok, result = pcall(
         integration.implementation.apply_effect,
         effect.identity,
         configurations[effect.responsible_capability],
         effective_plan
       )
-      if ok then
+      if ok and result == 'skipped' then
+        effect.state = 'skipped'
+        partition.skipped[#partition.skipped + 1] = effect.identity
+      elseif ok then
         effect.state = 'completed'
         partition.completed[#partition.completed + 1] = effect.identity
       else

@@ -1,7 +1,140 @@
 local operations = require('plait.operations')
 local state = require('plait.state')
+local tools = require('plait.tools')
 
 local M = {}
+
+local builtin_servers = {
+  lua_ls = { filetypes = { 'lua' }, tool = 'lua-language-server' },
+}
+
+local completion_capabilities = {
+  textDocument = {
+    completion = {
+      completionItem = {
+        snippetSupport = true,
+        commitCharactersSupport = true,
+        documentationFormat = { 'markdown', 'plaintext' },
+        deprecatedSupport = true,
+        preselectSupport = true,
+        tagSupport = { valueSet = { 1 } },
+        insertReplaceSupport = true,
+        resolveSupport = { properties = { 'documentation', 'detail', 'additionalTextEdits', 'command', 'data' } },
+        insertTextModeSupport = { valueSet = { 1, 2 } },
+        labelDetailsSupport = true,
+      },
+      completionList = {
+        itemDefaults = { 'commitCharacters', 'editRange', 'insertTextFormat', 'insertTextMode', 'data' },
+      },
+      contextSupport = true,
+      insertTextMode = 1,
+    },
+  },
+}
+
+--- Find one tool record in an effective plan.
+---@param effective_plan table
+---@param identity string
+---@return table|nil
+local function tool_record(effective_plan, identity)
+  for _, record in ipairs(effective_plan.tools) do
+    if record.identity == identity then return record end
+  end
+end
+
+--- Return whether one capability is active in an effective plan.
+---@param effective_plan table
+---@param identity string
+---@return boolean
+local function has_capability(effective_plan, identity)
+  for _, capability in ipairs(effective_plan.capabilities) do
+    if capability.identity == identity then return true end
+  end
+  return false
+end
+
+--- Merge accepted language provider payloads for one server.
+---@param configuration table
+---@param identity string
+---@return table
+local function provider_options(configuration, identity)
+  local result = {}
+  for _, provider in ipairs(configuration.providers or {}) do
+    if provider.identity == 'vim.lsp' and (provider.target == 'global' or provider.target == identity) then
+      result = vim.tbl_deep_extend('force', result, provider.value)
+    end
+  end
+  return result
+end
+
+--- Resolve language-server contributions for an effective plan.
+---@param resolution table
+---@return table<string, table>
+function M.resolve(resolution)
+  local result = {}
+  for identity, declaration in pairs(builtin_servers) do
+    if vim.list_contains(resolution.effective_contributions, 'language.servers.' .. identity) then
+      result[identity] = vim.deepcopy(declaration)
+    end
+  end
+  for target, peer in pairs(resolution.contribution_values or {}) do
+    local identity = target:match('^language%.servers%.(.+)$')
+    if identity then result[identity] = vim.deepcopy(peer.value) end
+  end
+  return result
+end
+
+--- Declare all language effects, including one definition and service per server.
+---@param resolution table
+---@param sources table[]
+---@return table[]
+function M.effects(resolution, sources)
+  local function effect(identity, stage, provider, dependencies)
+    return {
+      identity = identity,
+      stage = stage,
+      responsible_capability = 'language',
+      provider = provider,
+      dependencies = dependencies,
+      state = 'pending',
+      sources = vim.deepcopy(sources),
+      error = nil,
+    }
+  end
+  local servers = M.resolve(resolution)
+  local identities = vim.tbl_keys(servers)
+  table.sort(identities)
+  local native_dependencies = #identities > 0 and { 'language/package/nvim-lspconfig' } or {}
+  local effects = {
+    effect('language/native-diagnostics', 3, 'vim.diagnostic', native_dependencies),
+    effect('language/actions-and-mappings', 4, 'vim.lsp', { 'language/native-diagnostics' }),
+  }
+  if #identities > 0 then effects[#effects + 1] = effect('language/package/nvim-lspconfig', 2, 'vim.pack', {}) end
+  local completion = false
+  for _, capability in ipairs(resolution.capabilities) do
+    if capability.identity == 'completion' then completion = true end
+  end
+  for _, identity in ipairs(identities) do
+    local contribution = 'language.servers.' .. identity
+    local server_sources = {}
+    for _, module in ipairs(resolution.modules) do
+      if vim.list_contains(module.contributions, contribution) then
+        vim.list_extend(server_sources, vim.deepcopy(module.selection_sources))
+      end
+    end
+    if #server_sources == 0 then server_sources = sources end
+    effects[#effects + 1] = effect('language/server-definition/' .. identity, 3, 'vim.lsp', {
+      'language/package/nvim-lspconfig',
+      'tooling/tool-resolution',
+    })
+    effects[#effects].sources = vim.deepcopy(server_sources)
+    local dependencies = { 'language/server-definition/' .. identity, 'tooling/startup-check' }
+    if completion then dependencies[#dependencies + 1] = 'completion/provider-setup' end
+    effects[#effects + 1] = effect('language/service/' .. identity, 5, 'vim.lsp', dependencies)
+    effects[#effects].sources = vim.deepcopy(server_sources)
+  end
+  return effects
+end
 
 local requests = {
   definition = { method = 'textDocument/definition', invoke = function() vim.lsp.buf.definition() end },
@@ -10,6 +143,27 @@ local requests = {
   rename = { method = 'textDocument/rename', invoke = function() vim.lsp.buf.rename() end },
   code_action = { method = 'textDocument/codeAction', invoke = function() vim.lsp.buf.code_action() end },
 }
+
+--- Find the bytewise-first degraded managed server matching a buffer.
+---@param buffer integer
+---@return table|nil
+local function degraded_server(buffer)
+  local filetype = vim.bo[buffer].filetype
+  local identities = vim.tbl_keys(state.language_servers)
+  table.sort(identities)
+  for _, identity in ipairs(identities) do
+    local server = state.language_servers[identity]
+    if vim.list_contains(server.filetypes, filetype) and server.state ~= 'satisfied' then
+      return {
+        server = identity,
+        tool = server.tool,
+        state = server.state,
+        filetype = filetype,
+        language = server.language,
+      }
+    end
+  end
+end
 
 --- Return whether one attached client supports a method in a buffer.
 ---@param buffer integer
@@ -54,6 +208,22 @@ local function request(name)
   local buffer = vim.api.nvim_get_current_buf()
   local details = { buffer = buffer, position = position() }
   local clients = vim.lsp.get_clients({ bufnr = buffer })
+  local degraded = degraded_server(buffer)
+  if degraded then
+    return {
+      status = 'unavailable',
+      operation = operation_name,
+      reason = 'tool_' .. degraded.state,
+      details = vim.tbl_extend('force', details, {
+        capability = 'language',
+        language = degraded.language,
+        filetype = degraded.filetype,
+        server = degraded.server,
+        tool = degraded.tool,
+        state = degraded.state,
+      }),
+    }
+  end
   if #clients == 0 then
     return { status = 'unavailable', operation = operation_name, reason = 'no_client', details = details }
   end
@@ -155,7 +325,9 @@ end
 --- Apply one language effect by its stable identity.
 ---@param identity string
 ---@param configuration table
-function M.apply_effect(identity, configuration)
+---@param effective_plan table
+---@return 'skipped'|nil
+function M.apply_effect(identity, configuration, effective_plan)
   local buffer = vim.api.nvim_get_current_buf()
   if identity == 'language/native-diagnostics' then
     vim.diagnostic.config(vim.deepcopy(configuration.diagnostics))
@@ -164,6 +336,44 @@ function M.apply_effect(identity, configuration)
     map('n', configuration.mappings.previous_diagnostic, M.actions.previous_diagnostic, buffer)
     map('n', configuration.mappings.next_diagnostic, M.actions.next_diagnostic, buffer)
     M.attach(buffer, configuration.mappings)
+  elseif identity:match('^language/server%-definition/') then
+    local server_identity = assert(identity:match('^language/server%-definition/(.+)$'))
+    local declaration = require('plait.plan').language_requirements(effective_plan)[server_identity]
+    local record = declaration and tool_record(effective_plan, declaration.tool)
+    state.language_servers[server_identity] = {
+      filetypes = vim.deepcopy(declaration.filetypes),
+      tool = declaration.tool,
+      state = record and record.state or 'absent',
+      language = server_identity == 'lua_ls' and 'lang.lua' or 'lang.' .. server_identity,
+    }
+    if not record or record.state ~= 'satisfied' then return 'skipped' end
+    local qualified = vim.deepcopy(vim.lsp.config[server_identity])
+    if type(qualified) ~= 'table' then error('qualified LSP server definition is unavailable') end
+    local options = vim.tbl_deep_extend('force', qualified, provider_options(configuration, server_identity))
+    options.cmd = assert(tools.command(record))
+    options.filetypes = vim.deepcopy(declaration.filetypes)
+    if server_identity == 'lua_ls' then
+      options.settings = vim.tbl_deep_extend('force', options.settings or {}, {
+        Lua = {
+          runtime = { version = 'LuaJIT' },
+          workspace = {
+            library = { vim.fs.normalize(vim.fn.fnamemodify(vim.env.VIMRUNTIME, ':p')) },
+            checkThirdParty = false,
+          },
+          telemetry = { enable = false },
+        },
+      })
+    end
+    if has_capability(effective_plan, 'completion') then
+      options.capabilities =
+        vim.tbl_deep_extend('force', options.capabilities or {}, vim.deepcopy(completion_capabilities))
+    end
+    vim.lsp.config(server_identity, options)
+  elseif identity:match('^language/service/') then
+    local server_identity = assert(identity:match('^language/service/(.+)$'))
+    local server = state.language_servers[server_identity]
+    if not server or server.state ~= 'satisfied' then return 'skipped' end
+    vim.lsp.enable(server_identity)
   end
 end
 

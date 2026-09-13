@@ -7,6 +7,7 @@ local tools = require('plait.tools')
 local M = {}
 local private_tool_requirements = setmetatable({}, { __mode = 'k' })
 local private_formatting_requirements = setmetatable({}, { __mode = 'k' })
+local private_language_requirements = setmetatable({}, { __mode = 'k' })
 
 --- Copy a semantic array and preserve its declared array identity when empty.
 ---@param values table[]
@@ -32,6 +33,37 @@ local function configuration_value(node, value)
     result[name] = configuration_value(child, value[name])
   end
   return result
+end
+
+--- Sort effects by stage, dependency topology, and bytewise identity.
+---@param effects table[]
+local function sort_effects(effects)
+  local by_identity, emitted, ordered = {}, {}, {}
+  for _, effect in ipairs(effects) do
+    by_identity[effect.identity] = effect
+  end
+  while #ordered < #effects do
+    local candidates = {}
+    for _, effect in ipairs(effects) do
+      if not emitted[effect.identity] then
+        local ready = true
+        for _, dependency in ipairs(effect.dependencies) do
+          if by_identity[dependency] and not emitted[dependency] then ready = false end
+        end
+        if ready then candidates[#candidates + 1] = effect end
+      end
+    end
+    table.sort(candidates, function(left, right)
+      if left.stage ~= right.stage then return left.stage < right.stage end
+      return left.identity < right.identity
+    end)
+    local selected = assert(candidates[1], 'effective plan has cyclic effect dependencies')
+    emitted[selected.identity] = true
+    ordered[#ordered + 1] = selected
+  end
+  for index, effect in ipairs(ordered) do
+    effects[index] = effect
+  end
 end
 
 --- Build the canonical effective plan for resolved built-in modules.
@@ -97,26 +129,7 @@ function M.build(configuration, resolution)
     }
   end
   if language then
-    effects[#effects + 1] = {
-      identity = 'language/native-diagnostics',
-      stage = 3,
-      responsible_capability = 'language',
-      provider = 'vim.diagnostic',
-      dependencies = {},
-      state = 'pending',
-      sources = vim.deepcopy(language.selection_sources),
-      error = nil,
-    }
-    effects[#effects + 1] = {
-      identity = 'language/actions-and-mappings',
-      stage = 4,
-      responsible_capability = 'language',
-      provider = 'vim.lsp',
-      dependencies = { 'language/native-diagnostics' },
-      state = 'pending',
-      sources = vim.deepcopy(language.selection_sources),
-      error = nil,
-    }
+    vim.list_extend(effects, require('plait.language').effects(resolution, language.selection_sources))
   end
   if formatting then vim.list_extend(effects, formatting_integration.effects(formatting.selection_sources)) end
   if tooling then
@@ -139,6 +152,7 @@ function M.build(configuration, resolution)
     end
   end
   vim.list_extend(package_diagnostics, tool_diagnostics)
+  sort_effects(effects)
   local effective_plan = {
     snapshot_state = 'validated',
     modules = resolution.modules,
@@ -149,6 +163,7 @@ function M.build(configuration, resolution)
   }
   private_tool_requirements[effective_plan] = tool_requirements
   private_formatting_requirements[effective_plan] = formatting_integration.resolve(resolution)
+  private_language_requirements[effective_plan] = require('plait.language').resolve(resolution)
   return effective_plan, package_diagnostics
 end
 
@@ -162,6 +177,13 @@ function M.tool_requirements(effective_plan) return vim.deepcopy(private_tool_re
 ---@return table
 function M.formatting_requirements(effective_plan)
   return vim.deepcopy(private_formatting_requirements[effective_plan] or { formatters = {}, by_filetype = {} })
+end
+
+--- Return private language-server requirements associated with one effective plan.
+---@param effective_plan table
+---@return table<string, table>
+function M.language_requirements(effective_plan)
+  return vim.deepcopy(private_language_requirements[effective_plan] or {})
 end
 
 --- Compute the semantic identity of an effective plan.

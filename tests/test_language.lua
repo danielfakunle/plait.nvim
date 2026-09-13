@@ -15,6 +15,98 @@ local function activate_language()
 end
 
 describe('language capability facade', function()
+  it('plans the canonical Lua language integration', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'language', 'formatting', 'tooling', 'lang.lua' })
+      result = config:validate()
+      modules = M.inspect('modules')
+      effects = vim.tbl_map(function(effect) return {
+        identity = effect.identity,
+        stage = effect.stage,
+        dependencies = effect.dependencies,
+      } end, M.inspect('effects'))
+      tools = vim.tbl_map(function(tool) return {
+        identity = tool.identity,
+        constraint = tool.constraint,
+        affected_operations = tool.affected_operations,
+      } end, M.inspect('tools'))
+      lua_definition_source = M.inspect('effects', 'language/server-definition/lua_ls').sources[1]
+    ]])
+
+    expect.equality(child.lua_get([[result.status]]), 'valid')
+    expect.equality(child.lua_get([[modules[4].identity]]), 'lang.lua')
+    expect.equality(child.lua_get([[modules[4].contributions]]), {
+      'formatting.by_filetype.lua',
+      'formatting.formatters.stylua',
+      'language.servers.lua_ls',
+      'tooling.tools.lua-language-server',
+      'tooling.tools.stylua',
+    })
+    expect.equality(child.lua_get([[effects]]), {
+      { identity = 'formatting/package/conform.nvim', stage = 2, dependencies = {} },
+      { identity = 'language/package/nvim-lspconfig', stage = 2, dependencies = {} },
+      { identity = 'tooling/package/mason.nvim', stage = 2, dependencies = {} },
+      {
+        identity = 'language/native-diagnostics',
+        stage = 3,
+        dependencies = { 'language/package/nvim-lspconfig' },
+      },
+      {
+        identity = 'tooling/provider-setup',
+        stage = 3,
+        dependencies = { 'tooling/package/mason.nvim' },
+      },
+      {
+        identity = 'tooling/tool-resolution',
+        stage = 3,
+        dependencies = { 'tooling/package/mason.nvim' },
+      },
+      {
+        identity = 'formatting/provider-setup',
+        stage = 3,
+        dependencies = { 'formatting/package/conform.nvim', 'tooling/tool-resolution' },
+      },
+      {
+        identity = 'language/server-definition/lua_ls',
+        stage = 3,
+        dependencies = { 'language/package/nvim-lspconfig', 'tooling/tool-resolution' },
+      },
+      {
+        identity = 'formatting/actions-and-mapping',
+        stage = 4,
+        dependencies = { 'formatting/provider-setup' },
+      },
+      {
+        identity = 'language/actions-and-mappings',
+        stage = 4,
+        dependencies = { 'language/native-diagnostics' },
+      },
+      { identity = 'tooling/actions', stage = 4, dependencies = { 'tooling/tool-resolution' } },
+      { identity = 'tooling/startup-check', stage = 5, dependencies = { 'tooling/tool-resolution' } },
+      {
+        identity = 'language/service/lua_ls',
+        stage = 5,
+        dependencies = { 'language/server-definition/lua_ls', 'tooling/startup-check' },
+      },
+    })
+    expect.equality(child.lua_get([[tools]]), {
+      {
+        identity = 'lua-language-server',
+        constraint = '=3.19.1',
+        affected_operations = {
+          'language.code_action',
+          'language.definition',
+          'language.hover',
+          'language.references',
+          'language.rename',
+        },
+      },
+      { identity = 'stylua', constraint = '=2.5.2', affected_operations = { 'formatting.lua' } },
+    })
+    expect.equality(child.lua_get([[lua_definition_source.path]]), 'select[4]')
+  end)
+
   it('keeps generic language valid without a contributed server', function()
     child.lua([[
       local config = M.config()
@@ -34,6 +126,73 @@ describe('language capability facade', function()
     ]]),
       {}
     )
+  end)
+
+  it('defines and activates LuaLS from the qualified provider definition', function()
+    child.restart({ '--clean', '-u', 'tests/fixtures/language_apply/init.lua' })
+
+    expect.equality(child.lua_get([[language_apply_result.status]]), 'performed')
+    expect.equality(child.lua_get([[enabled_server]]), 'lua_ls')
+    expect.equality(child.lua_get([[lua_ls_config.cmd]]), { vim.uv.fs_realpath(vim.fn.exepath('lua-language-server')) })
+    expect.equality(child.lua_get([[lua_ls_config.filetypes]]), { 'lua' })
+    expect.equality(child.lua_get([[lua_ls_config.root_markers]]), { '.luarc.json', '.git' })
+    expect.equality(child.lua_get([[lua_ls_config.settings]]), {
+      Lua = {
+        hint = { enable = true, setType = true },
+        runtime = { version = 'LuaJIT' },
+        workspace = { library = { vim.env.VIMRUNTIME }, checkThirdParty = false },
+        telemetry = { enable = false },
+      },
+    })
+    expect.equality(child.lua_get([[lua_ls_config.capabilities.textDocument.completion]]), {
+      completionItem = {
+        snippetSupport = true,
+        commitCharactersSupport = true,
+        documentationFormat = { 'markdown', 'plaintext' },
+        deprecatedSupport = true,
+        preselectSupport = true,
+        tagSupport = { valueSet = { 1 } },
+        insertReplaceSupport = true,
+        resolveSupport = {
+          properties = { 'documentation', 'detail', 'additionalTextEdits', 'command', 'data' },
+        },
+        insertTextModeSupport = { valueSet = { 1, 2 } },
+        labelDetailsSupport = true,
+      },
+      completionList = {
+        itemDefaults = { 'commitCharacters', 'editRange', 'insertTextFormat', 'insertTextMode', 'data' },
+      },
+      contextSupport = true,
+      insertTextMode = 1,
+    })
+  end)
+
+  it('reports matching LuaLS tool degradation before no_client for all requests', function()
+    activate_language()
+    child.lua([[
+      vim.bo.filetype = 'lua'
+      require('plait.state').language_servers = {
+        lua_ls = { filetypes = { 'lua' }, tool = 'lua-language-server', state = 'unprobeable', language = 'lang.lua' },
+      }
+      degraded = {}
+      for _, name in ipairs({ 'definition', 'references', 'hover', 'rename', 'code_action' }) do
+        degraded[name] = M.actions.language[name]()
+      end
+    ]])
+
+    for _, name in ipairs({ 'definition', 'references', 'hover', 'rename', 'code_action' }) do
+      expect.equality(child.lua_get('degraded.' .. name .. '.reason'), 'tool_unprobeable')
+      expect.equality(child.lua_get('degraded.' .. name .. '.details'), {
+        buffer = 1,
+        position = { line = 0, character = 0 },
+        capability = 'language',
+        language = 'lang.lua',
+        filetype = 'lua',
+        server = 'lua_ls',
+        tool = 'lua-language-server',
+        state = 'unprobeable',
+      })
+    end
   end)
 
   it('distinguishes native diagnostic navigation from no diagnostics', function()

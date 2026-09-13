@@ -7,6 +7,7 @@
 ---@field applied_effects table|nil
 ---@field editor_active boolean
 ---@field language_active boolean
+---@field language_servers table<string, table>
 ---@field formatting_active boolean
 ---@field formatting_configuration table
 ---@field formatting_formatters table<string, table>
@@ -27,6 +28,7 @@ local state = {
   applied_effects = nil,
   editor_active = false,
   language_active = false,
+  language_servers = {},
   formatting_active = false,
   formatting_configuration = {},
   formatting_formatters = {},

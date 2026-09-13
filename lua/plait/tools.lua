@@ -397,7 +397,13 @@ local function probe(candidate)
 end
 
 local builtin_operations = {
-  ['lua-language-server'] = { 'language.lua' },
+  ['lua-language-server'] = {
+    'language.code_action',
+    'language.definition',
+    'language.hover',
+    'language.references',
+    'language.rename',
+  },
   stylua = { 'formatting.lua' },
   tsc = { 'language.typescript' },
   oxfmt = {
