@@ -54,6 +54,24 @@ local function has_capability(effective_plan, identity)
   return false
 end
 
+--- Replace only the executable in a qualified static server command.
+---@param definition table
+---@param record table
+---@param qualification table
+---@return string[]
+local function qualified_command(definition, record, qualification)
+  if qualification.command == 'managed' then return assert(tools.command(record, qualification.arguments)) end
+  if type(definition.cmd) ~= 'table' or type(definition.cmd[1]) ~= 'string' then
+    error('qualified LSP server command must be a static array')
+  end
+  if definition.cmd[1] ~= record.executable then error('qualified LSP server executable does not match its tool') end
+  local arguments = {}
+  for index = 2, #definition.cmd do
+    arguments[#arguments + 1] = definition.cmd[index]
+  end
+  return assert(tools.command(record, arguments))
+end
+
 --- Merge accepted language provider payloads for one server.
 ---@param configuration table
 ---@param identity string
@@ -342,7 +360,8 @@ function M.apply_effect(identity, configuration, effective_plan)
     local qualified = vim.deepcopy(vim.lsp.config[server_identity])
     if type(qualified) ~= 'table' then error('qualified LSP server definition is unavailable') end
     local options = vim.tbl_deep_extend('force', qualified, provider_options(configuration, server_identity))
-    options.cmd = assert(tools.command(record))
+    local qualification = assert(require('plait.compatibility').qualified_definitions.language[server_identity])
+    options.cmd = qualified_command(qualified, record, qualification)
     options.filetypes = vim.deepcopy(declaration.filetypes)
     if server_identity == 'lua_ls' then
       options.settings = vim.tbl_deep_extend('force', options.settings or {}, {

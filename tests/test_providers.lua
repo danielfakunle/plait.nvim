@@ -311,6 +311,124 @@ T['provider escape hatches']['reject targets for inactive capabilities'] = funct
   expect.equality(child.lua_get([[result.diagnostics[1].code]]), 'config.invalid')
 end
 
+T['provider escape hatches']['qualify effective local server and formatter definitions'] = function()
+  child.lua([[
+    local python = M.module({
+      name = 'local.lang.python', provides = { 'local.lang.python' },
+      requires = { 'language', 'formatting', 'tooling' },
+      contribute = {
+        language = { servers = { basedpyright = { filetypes = { 'python' }, tool = 'basedpyright' } } },
+        formatting = {
+          formatters = { ruff = { tool = 'ruff' } },
+          by_filetype = { python = { 'ruff' } },
+        },
+        tooling = { tools = {
+          basedpyright = {
+            executable = 'basedpyright-langserver', version = '>=1.0.0,<2.0.0',
+            ownership = 'mason', mason = 'basedpyright',
+          },
+          ruff = {
+            executable = 'ruff', version = '>=0.13.0,<0.14.0', ownership = 'mason', mason = 'ruff',
+          },
+        } },
+      },
+    })
+    local config = M.config()
+    config:select({ 'language', 'formatting', 'tooling', python })
+    config:providers({ language = { ['vim.lsp'] = { servers = { basedpyright = {
+      settings = { basedpyright = { analysis = { typeCheckingMode = 'basic' } } },
+    } } } } })
+    result = config:validate()
+  ]])
+
+  expect.equality(child.lua_get([[result.status]]), 'valid')
+  expect.equality(child.lua_get([[vim.tbl_map(function(item) return item.identity end, result.plan.tools)]]), {
+    'basedpyright',
+    'ruff',
+  })
+end
+
+T['provider escape hatches']['reject unqualified dynamic local definitions with actionable diagnostics'] = function()
+  child.lua([[
+    local unsupported = M.module({
+      name = 'local.lang.unsupported', provides = { 'local.lang.unsupported' },
+      requires = { 'language', 'formatting', 'tooling' },
+      contribute = {
+        language = { servers = { dynamic_server = { filetypes = { 'python' }, tool = 'server-tool' } } },
+        formatting = {
+          formatters = { dynamic_formatter = { tool = 'formatter-tool' } },
+          by_filetype = { python = { 'dynamic_formatter' } },
+        },
+        tooling = { tools = {
+          ['server-tool'] = {
+            executable = 'server-tool', version = '=1.0.0', ownership = 'mason', mason = 'server-tool',
+          },
+          ['formatter-tool'] = {
+            executable = 'formatter-tool', version = '=1.0.0', ownership = 'mason', mason = 'formatter-tool',
+          },
+        } },
+      },
+    })
+    local config = M.config()
+    config:select({ 'language', 'formatting', 'tooling', unsupported })
+    result = config:validate()
+  ]])
+
+  expect.equality(child.lua_get([[result.status]]), 'invalid')
+  expect.equality(child.lua_get([[vim.tbl_map(function(item) return item.code end, result.diagnostics)]]), {
+    'provider.unqualified_definition',
+    'provider.unqualified_definition',
+  })
+  expect.equality(
+    child.lua_get([[result.diagnostics[1].repair]]),
+    'Use a static definition qualified by the compatibility manifest.'
+  )
+end
+
+T['provider escape hatches']['require every qualified local definition to reference an effective tool'] = function()
+  child.lua([[
+    local server = M.module({
+      name = 'local.server', provides = { 'local.server' }, requires = { 'language', 'tooling' },
+      contribute = {
+        language = { servers = { basedpyright = { filetypes = { 'python' }, tool = 'missing' } } },
+      },
+    })
+    local config = M.config()
+    config:select({ 'language', 'tooling', server })
+    result = config:validate()
+  ]])
+
+  expect.equality(child.lua_get([[result.status]]), 'invalid')
+  expect.equality(child.lua_get([[result.diagnostics[1].code]]), 'provider.tool_requirement_missing')
+  expect.equality(child.lua_get([[result.diagnostics[1].details.tool]]), 'missing')
+end
+
+T['provider escape hatches']['reject qualified definitions wired to mismatched executables'] = function()
+  child.lua([[
+    local python = M.module({
+      name = 'local.lang.python', provides = { 'local.lang.python' },
+      requires = { 'language', 'formatting', 'tooling' },
+      contribute = {
+        language = { servers = { basedpyright = { filetypes = { 'python' }, tool = 'ruff' } } },
+        formatting = { formatters = { ruff = { tool = 'basedpyright' } }, by_filetype = { python = { 'ruff' } } },
+        tooling = { tools = {
+          basedpyright = { executable = 'basedpyright-langserver', version = '>=1.0.0,<2.0.0', ownership = 'mason', mason = 'basedpyright' },
+          ruff = { executable = 'ruff', version = '>=0.13.0,<0.14.0', ownership = 'mason', mason = 'ruff' },
+        } },
+      },
+    })
+    local config = M.config()
+    config:select({ 'language', 'formatting', 'tooling', python })
+    result = config:validate()
+  ]])
+
+  expect.equality(child.lua_get([[result.status]]), 'invalid')
+  expect.equality(child.lua_get([[vim.tbl_map(function(item) return item.code end, result.diagnostics)]]), {
+    'provider.tool_requirement_mismatch',
+    'provider.tool_requirement_mismatch',
+  })
+end
+
 T['provider escape hatches']['reject guarded descendants and ancestors'] = function()
   child.lua([[
     local config = M.config()
@@ -358,6 +476,34 @@ T['provider escape hatches']['reject every guarded path directly and through a r
       validate_guard(case, replacing_path)
     end
   end
+end
+
+T['provider escape hatches']['guard every effective local server and formatter through wildcard metadata'] = function()
+  child.lua([[
+    local python = M.module({
+      name = 'local.lang.python', provides = { 'local.lang.python' },
+      requires = { 'language', 'formatting', 'tooling' },
+      contribute = {
+        language = { servers = { basedpyright = { filetypes = { 'python' }, tool = 'basedpyright' } } },
+        formatting = { formatters = { ruff = { tool = 'ruff' } }, by_filetype = { python = { 'ruff' } } },
+        tooling = { tools = {
+          basedpyright = { executable = 'basedpyright-langserver', version = '>=1.0.0,<2.0.0', ownership = 'mason', mason = 'basedpyright' },
+          ruff = { executable = 'ruff', version = '>=0.13.0,<0.14.0', ownership = 'mason', mason = 'ruff' },
+        } },
+      },
+    })
+    local config = M.config()
+    config:select({ 'language', 'formatting', 'tooling', python })
+    config:providers({ language = { ['vim.lsp'] = { servers = { basedpyright = { cmd = true } } } } })
+    config:providers({ language = { ['vim.lsp'] = { servers = { basedpyright = { cmd = { extra = true } } } } } })
+    config:providers({ language = { ['vim.lsp'] = { servers = { basedpyright = { capabilities = true } } } } })
+    config:providers({ formatting = { ['conform.nvim'] = { formatters = { ruff = { command = 'other' } } } } })
+    config:providers({ formatting = { ['conform.nvim'] = { formatters = { ruff = { command = { extra = true } } } } } })
+    config:providers({ formatting = { ['conform.nvim'] = { formatters = { ruff = true } } } })
+    result = config:validate()
+  ]])
+
+  expect.equality(child.lua_get([[#M.inspect('diagnostics', 'provider.guarded_path')]]), 6)
 end
 
 T['provider escape hatches']['accept representative disjoint siblings beside every guard family'] = function()

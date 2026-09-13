@@ -2,6 +2,7 @@ local operations = require('plait.operations')
 local state = require('plait.state')
 local tools = require('plait.tools')
 local effect_record = require('plait.effects')
+local compatibility = require('plait.compatibility')
 
 local M = {}
 
@@ -269,8 +270,13 @@ local function setup_options(configuration, effective_plan)
     local record = tool_record(effective_plan, declaration.tool)
     local command = record and tools.command(record) or nil
     if command then
-      local qualified = require('conform.formatters.' .. identity)
-      if type(qualified) == 'function' then qualified = qualified(0) end
+      record = assert(record)
+      local qualification = assert(compatibility.qualified_definitions.formatting[identity])
+      local qualified = require('conform.formatters.' .. qualification.definition)
+      if type(qualified) ~= 'table' or type(qualified.command) ~= 'string' then
+        error('qualified formatter definition must have a static command')
+      end
+      if qualified.command ~= record.executable then error('qualified formatter executable does not match its tool') end
       definitions[identity] = vim.tbl_deep_extend('force', vim.deepcopy(qualified), formatter_payloads[identity] or {})
       definitions[identity].command = command[1]
     end

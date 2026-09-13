@@ -271,10 +271,11 @@ local function guarded(provider, target_name, path_parts)
   if not metadata then return nil end
   local prefixes, leaves = vim.deepcopy(metadata.prefixes or {}), vim.deepcopy(metadata.leaves or {})
   if provider == 'vim.lsp' and target_name ~= 'global' then
-    local target = metadata.targets[target_name]
+    local target = metadata.targets[target_name] or metadata.targets['*']
     if target then vim.list_extend(leaves, target.leaves or {}) end
   elseif provider == 'conform.nvim' and target_name ~= 'setup' then
-    leaves = metadata.formatter_leaves or {}
+    local target = metadata.formatter_targets[target_name] or metadata.formatter_targets['*']
+    leaves = target and metadata.formatter_leaves or {}
     prefixes = {}
   end
   for _, guard in ipairs(prefixes) do
@@ -309,6 +310,7 @@ end
 ---@return table[]
 function M.resolve(calls, resolution)
   local diagnostics, records = {}, {}
+  vim.list_extend(diagnostics, require('plait.provider_qualification').validate(resolution, diagnostic))
   local effective = effective_targets(resolution)
   local by_key = {}
   for _, call in ipairs(calls) do
@@ -370,12 +372,34 @@ function M.resolve(calls, resolution)
                     local valid_identity = not dynamic or effective[category][target_name]
                     local base = 'providers.' .. capability .. '.' .. provider .. '.' .. category
                     if dynamic then base = base .. '.' .. tostring(target_name) end
+                    local replacement_guard = dynamic and guarded(provider, target_name, {}) or nil
                     if type(target_name) ~= 'string' or not valid_identity then
                       diagnostics[#diagnostics + 1] = diagnostic(
                         'config.invalid',
                         'Invalid provider target.',
                         'Target an effective server or formatter identity.',
                         { target = base },
+                        call.source,
+                        base
+                      )
+                    elseif
+                      (type(payload) ~= 'table' or getmetatable(payload) ~= nil or table_kind(payload) ~= 'map')
+                      and dynamic
+                      and replacement_guard
+                    then
+                      diagnostics[#diagnostics + 1] = diagnostic(
+                        'provider.guarded_path',
+                        'Provider payload replaces a target containing guarded paths.',
+                        'Remove the replacement and configure disjoint provider settings instead.',
+                        {
+                          target = provider .. '.' .. target_name,
+                          path = '',
+                          generated_source = {
+                            file = 'plait:v0.1/' .. provider,
+                            line = 0,
+                            path = replacement_guard,
+                          },
+                        },
                         call.source,
                         base
                       )

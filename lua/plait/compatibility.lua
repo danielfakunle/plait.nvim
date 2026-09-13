@@ -43,6 +43,18 @@ local M = {
     release = '2026-09-07-abaft-pruner',
     commit = '93b6e9e56b647c1aa6a2ae529e50e0ae3367a885',
   },
+  qualified_definitions = {
+    language = {
+      basedpyright = { command = 'static', executable = 'basedpyright-langserver' },
+      lua_ls = { command = 'static', executable = 'lua-language-server' },
+      tsc = { command = 'managed', executable = 'tsc', arguments = { '--lsp', '--stdio' }, local_definition = false },
+    },
+    formatting = {
+      oxfmt = { definition = 'oxfmt', command = 'static', executable = 'oxfmt' },
+      ruff = { definition = 'ruff_format', command = 'static', executable = 'ruff' },
+      stylua = { definition = 'stylua', command = 'static', executable = 'stylua' },
+    },
+  },
   tools = {
     {
       identity = 'lua-language-server',
@@ -138,6 +150,7 @@ local M = {
             'settings.Lua.telemetry.enable',
           },
         },
+        ['*'] = {},
       },
     },
     ['blink.cmp'] = {
@@ -157,6 +170,7 @@ local M = {
       prefixes = { 'default_format_opts', 'format_after_save', 'format_on_save', 'formatters', 'formatters_by_ft' },
       leaves = { 'notify_on_error', 'notify_no_formatters' },
       formatter_leaves = { 'command', 'format', 'inherit' },
+      formatter_targets = { ['*'] = true },
     },
     ['mason.nvim'] = { leaves = { 'PATH', 'firewall.auto_managed' } },
   },

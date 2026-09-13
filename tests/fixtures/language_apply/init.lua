@@ -15,7 +15,11 @@ package.preload['blink.cmp'] = function()
 end
 
 -- luacheck: push ignore 122
-vim.lsp.config.lua_ls = { root_markers = { '.luarc.json', '.git' }, settings = { Lua = { hint = { enable = true } } } }
+vim.lsp.config.lua_ls = {
+  cmd = { 'lua-language-server' },
+  root_markers = { '.luarc.json', '.git' },
+  settings = { Lua = { hint = { enable = true } } },
+}
 local enable = vim.lsp.enable
 vim.lsp.enable = function(name)
   _G.enabled_server = name
