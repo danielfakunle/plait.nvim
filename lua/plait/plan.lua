@@ -1,4 +1,5 @@
 local canonical = require('plait.canonical')
+local completion_integration = require('plait.completion')
 local formatting_integration = require('plait.formatting')
 local packages = require('plait.packages')
 local tooling_integration = require('plait.tooling')
@@ -73,11 +74,13 @@ end
 function M.build(configuration, resolution)
   local effects = {}
   local editor
+  local completion
   local language
   local formatting
   local tooling
   for _, module in ipairs(resolution.modules) do
     if module.identity == 'editor' then editor = module end
+    if module.identity == 'completion' then completion = module end
     if module.identity == 'language' then language = module end
     if module.identity == 'formatting' then formatting = module end
     if module.identity == 'tooling' then tooling = module end
@@ -131,6 +134,7 @@ function M.build(configuration, resolution)
   if language then
     vim.list_extend(effects, require('plait.language').effects(resolution, language.selection_sources))
   end
+  if completion then vim.list_extend(effects, completion_integration.effects(completion.selection_sources)) end
   if formatting then vim.list_extend(effects, formatting_integration.effects(formatting.selection_sources)) end
   if tooling then
     vim.list_extend(effects, tooling_integration.effects(configuration.tooling, tooling.selection_sources))

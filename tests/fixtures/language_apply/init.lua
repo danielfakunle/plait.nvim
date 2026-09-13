@@ -10,6 +10,9 @@ end
 package.preload.mason = function()
   return { setup = function() end }
 end
+package.preload['blink.cmp'] = function()
+  return { setup = function() end }
+end
 
 -- luacheck: push ignore 122
 vim.lsp.config.lua_ls = { root_markers = { '.luarc.json', '.git' }, settings = { Lua = { hint = { enable = true } } } }

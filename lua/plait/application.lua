@@ -1,4 +1,5 @@
 local editor = require('plait.editor')
+local completion = require('plait.completion')
 local formatting = require('plait.formatting')
 local language = require('plait.language')
 local tooling = require('plait.tooling')
@@ -10,6 +11,7 @@ local validation = require('plait.validation')
 local M = {}
 
 local integrations = {
+  completion = completion.integration,
   editor = {
     implementation = editor,
     failure_message = 'Managed editor effect failed.',

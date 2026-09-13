@@ -1,5 +1,6 @@
 local application = require('plait.application')
 local canonical = require('plait.canonical')
+local completion = require('plait.completion')
 local editor = require('plait.editor')
 local formatting = require('plait.formatting')
 local language = require('plait.language')
@@ -16,6 +17,7 @@ local validation = require('plait.validation')
 
 local M = {
   actions = {
+    completion = completion.actions,
     editor = editor.actions,
     formatting = formatting.actions,
     language = language.actions,

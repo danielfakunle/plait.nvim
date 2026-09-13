@@ -8,6 +8,7 @@
 ---@field editor_active boolean
 ---@field language_active boolean
 ---@field language_servers table<string, table>
+---@field completion_active boolean
 ---@field formatting_active boolean
 ---@field formatting_configuration table
 ---@field formatting_formatters table<string, table>
@@ -29,6 +30,7 @@ local state = {
   editor_active = false,
   language_active = false,
   language_servers = {},
+  completion_active = false,
   formatting_active = false,
   formatting_configuration = {},
   formatting_formatters = {},
