@@ -1,6 +1,7 @@
 local operations = require('plait.operations')
 local state = require('plait.state')
 local tools = require('plait.tools')
+local effect_record = require('plait.effects')
 
 local M = {}
 
@@ -42,16 +43,7 @@ end
 ---@return table[]
 function M.effects(sources)
   local function effect(identity, stage, provider, dependencies)
-    return {
-      identity = identity,
-      stage = stage,
-      responsible_capability = 'formatting',
-      provider = provider,
-      dependencies = dependencies,
-      state = 'pending',
-      sources = vim.deepcopy(sources),
-      error = nil,
-    }
+    return effect_record.new('formatting', identity, stage, provider, dependencies, sources)
   end
   return {
     effect('formatting/package/conform.nvim', 2, 'vim.pack', {}),

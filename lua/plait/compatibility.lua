@@ -51,6 +51,13 @@ local M = {
       exact = { 3, 19, 1 },
       ownership = 'mason',
       mason = 'lua-language-server',
+      affected_operations = {
+        'language.code_action',
+        'language.definition',
+        'language.hover',
+        'language.references',
+        'language.rename',
+      },
     },
     {
       identity = 'stylua',
@@ -59,6 +66,7 @@ local M = {
       exact = { 2, 5, 2 },
       ownership = 'mason',
       mason = 'stylua',
+      affected_operations = { 'formatting.lua' },
     },
     {
       identity = 'tsc',
@@ -68,6 +76,7 @@ local M = {
       maximum_exclusive = { 8, 0, 0 },
       ownership = 'project',
       workspace_paths = { 'node_modules/.bin/tsc' },
+      affected_operations = { 'language.typescript' },
     },
     {
       identity = 'oxfmt',
@@ -77,6 +86,12 @@ local M = {
       ownership = 'hybrid',
       mason = 'oxfmt',
       workspace_paths = { 'node_modules/.bin/oxfmt' },
+      affected_operations = {
+        'formatting.javascript',
+        'formatting.javascriptreact',
+        'formatting.typescript',
+        'formatting.typescriptreact',
+      },
     },
     {
       identity = 'node',

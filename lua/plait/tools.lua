@@ -396,24 +396,6 @@ local function probe(candidate)
   return { parsed = parsed, text = token }
 end
 
-local builtin_operations = {
-  ['lua-language-server'] = {
-    'language.code_action',
-    'language.definition',
-    'language.hover',
-    'language.references',
-    'language.rename',
-  },
-  stylua = { 'formatting.lua' },
-  tsc = { 'language.typescript' },
-  oxfmt = {
-    'formatting.javascript',
-    'formatting.javascriptreact',
-    'formatting.typescript',
-    'formatting.typescriptreact',
-  },
-}
-
 --- Resolve all effective tool requirements without network access.
 ---@param resolution table
 ---@return table[], table[], table<string, table>
@@ -422,7 +404,7 @@ function M.resolve(resolution)
   for _, definition in ipairs(compatibility.tools) do
     if vim.list_contains(resolution.effective_contributions, 'tooling.tools.' .. definition.identity) then
       local value = vim.deepcopy(definition)
-      value.affected_operations = builtin_operations[value.identity] or {}
+      value.affected_operations = value.affected_operations or {}
       value.sources = {}
       for _, module in ipairs(resolution.modules) do
         if vim.list_contains(module.contributions, 'tooling.tools.' .. value.identity) then

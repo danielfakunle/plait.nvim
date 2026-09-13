@@ -1,6 +1,7 @@
 local operations = require('plait.operations')
 local state = require('plait.state')
 local tools = require('plait.tools')
+local effect_record = require('plait.effects')
 
 local M = {}
 
@@ -90,16 +91,7 @@ end
 ---@return table[]
 function M.effects(resolution, sources)
   local function effect(identity, stage, provider, dependencies)
-    return {
-      identity = identity,
-      stage = stage,
-      responsible_capability = 'language',
-      provider = provider,
-      dependencies = dependencies,
-      state = 'pending',
-      sources = vim.deepcopy(sources),
-      error = nil,
-    }
+    return effect_record.new('language', identity, stage, provider, dependencies, sources)
   end
   local servers = M.resolve(resolution)
   local identities = vim.tbl_keys(servers)

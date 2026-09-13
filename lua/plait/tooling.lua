@@ -1,6 +1,7 @@
 local compatibility = require('plait.compatibility')
 local operations = require('plait.operations')
 local state = require('plait.state')
+local effect_record = require('plait.effects')
 
 local M = {}
 
@@ -14,16 +15,7 @@ local registry_source = 'github:mason-org/mason-registry@' .. compatibility.regi
 ---@param sources table[]
 ---@return table
 local function effect(identity, stage, provider, dependencies, sources)
-  return {
-    identity = identity,
-    stage = stage,
-    responsible_capability = 'tooling',
-    provider = provider,
-    dependencies = dependencies,
-    state = 'pending',
-    sources = vim.deepcopy(sources),
-    error = nil,
-  }
+  return effect_record.new('tooling', identity, stage, provider, dependencies, sources)
 end
 
 --- Declare the complete effect family owned by the tooling capability.
