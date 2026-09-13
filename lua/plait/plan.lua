@@ -1,10 +1,12 @@
 local canonical = require('plait.canonical')
+local formatting_integration = require('plait.formatting')
 local packages = require('plait.packages')
 local tooling_integration = require('plait.tooling')
 local tools = require('plait.tools')
 
 local M = {}
 local private_tool_requirements = setmetatable({}, { __mode = 'k' })
+local private_formatting_requirements = setmetatable({}, { __mode = 'k' })
 
 --- Copy a semantic array and preserve its declared array identity when empty.
 ---@param values table[]
@@ -40,10 +42,12 @@ function M.build(configuration, resolution)
   local effects = {}
   local editor
   local language
+  local formatting
   local tooling
   for _, module in ipairs(resolution.modules) do
     if module.identity == 'editor' then editor = module end
     if module.identity == 'language' then language = module end
+    if module.identity == 'formatting' then formatting = module end
     if module.identity == 'tooling' then tooling = module end
   end
   if editor then
@@ -114,6 +118,7 @@ function M.build(configuration, resolution)
       error = nil,
     }
   end
+  if formatting then vim.list_extend(effects, formatting_integration.effects(formatting.selection_sources)) end
   if tooling then
     vim.list_extend(effects, tooling_integration.effects(configuration.tooling, tooling.selection_sources))
   end
@@ -143,6 +148,7 @@ function M.build(configuration, resolution)
     tools = tool_records,
   }
   private_tool_requirements[effective_plan] = tool_requirements
+  private_formatting_requirements[effective_plan] = formatting_integration.resolve(resolution)
   return effective_plan, package_diagnostics
 end
 
@@ -150,6 +156,13 @@ end
 ---@param effective_plan table
 ---@return table<string, table>
 function M.tool_requirements(effective_plan) return vim.deepcopy(private_tool_requirements[effective_plan] or {}) end
+
+--- Return private formatting requirements associated with one effective plan.
+---@param effective_plan table
+---@return table
+function M.formatting_requirements(effective_plan)
+  return vim.deepcopy(private_formatting_requirements[effective_plan] or { formatters = {}, by_filetype = {} })
+end
 
 --- Compute the semantic identity of an effective plan.
 ---@param effective_plan table

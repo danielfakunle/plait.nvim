@@ -496,7 +496,7 @@ end
 function M.command(record, arguments)
   if type(record) ~= 'table' or record.state ~= 'satisfied' or not record.authoritative_candidate then return nil end
   local candidate = record.candidates[record.authoritative_candidate]
-  if not candidate or type(candidate.real_path) ~= 'string' or not vim.fs.isabs(candidate.real_path) then return nil end
+  if not candidate or type(candidate.real_path) ~= 'string' or candidate.real_path:sub(1, 1) ~= '/' then return nil end
   local command = { candidate.real_path }
   vim.list_extend(command, vim.deepcopy(arguments or {}))
   return command

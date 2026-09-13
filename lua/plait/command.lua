@@ -58,7 +58,8 @@ end
 
 --- Dispatch the process-wide Plait command.
 ---@param arguments string[]
-function M.dispatch(arguments)
+---@param command? table
+function M.dispatch(arguments, command)
   local subcommand = table.remove(arguments, 1)
   if subcommand == 'validate' and #arguments == 0 then
     validate()
@@ -74,6 +75,16 @@ function M.dispatch(arguments)
     render_result(plait.actions.tooling.install(arguments[2]))
   elseif subcommand == 'tooling' and arguments[1] == 'update' and #arguments <= 2 then
     render_result(plait.actions.tooling.update(arguments[2]))
+  elseif subcommand == 'format' and #arguments == 0 then
+    local range
+    if command and command.range > 0 then
+      local line = vim.api.nvim_buf_get_lines(0, command.line2 - 1, command.line2, true)[1] or ''
+      range = {
+        start = { line = command.line1 - 1, character = 0 },
+        end_ = { line = command.line2 - 1, character = #line },
+      }
+    end
+    render_result(plait.actions.formatting.format(range and { range = range } or nil))
   else
     fail('unknown or invalid command')
   end

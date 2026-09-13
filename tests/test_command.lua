@@ -98,4 +98,25 @@ describe('Plait command', function()
     expect.equality(child.cmd_capture('Plait tooling check'), 'plait: tooling.check performed')
     expect.equality(child.cmd_capture('Plait tooling ensure'), 'plait: tooling.ensure performed')
   end)
+
+  it('routes command ranges through the shared formatting action', function()
+    child.lua([[
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'one', 'second', 'three' })
+      M.actions.formatting.format = function(options)
+        command_format_options = vim.deepcopy(options)
+        return {
+          status = 'started', operation = 'formatting.format', operation_id = 'op-00000009',
+          details = { buffer = 1, range = options.range, chain = { 'demo' } },
+        }
+      end
+    ]])
+
+    expect.equality(child.cmd_capture('2,3Plait format'), 'plait: formatting.format started (op-00000009)')
+    expect.equality(child.lua_get([[command_format_options]]), {
+      range = {
+        start = { line = 1, character = 0 },
+        end_ = { line = 2, character = 5 },
+      },
+    })
+  end)
 end)

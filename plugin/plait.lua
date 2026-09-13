@@ -6,8 +6,8 @@ state.bootstrap_initialized = true
 if vim.fn.exists(':Plait') == 0 then
   vim.api.nvim_create_user_command(
     'Plait',
-    function(command) require('plait.command').dispatch(command.fargs) end,
-    { nargs = '+' }
+    function(command) require('plait.command').dispatch(command.fargs, command) end,
+    { nargs = '+', range = true }
   )
 else
   state.bootstrap_diagnostics = {

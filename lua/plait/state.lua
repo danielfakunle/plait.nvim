@@ -7,6 +7,10 @@
 ---@field applied_effects table|nil
 ---@field editor_active boolean
 ---@field language_active boolean
+---@field formatting_active boolean
+---@field formatting_configuration table
+---@field formatting_formatters table<string, table>
+---@field formatting_by_filetype table<string, string[]>
 ---@field tooling_active boolean
 ---@field tool_requirements table<string, table>
 ---@field operation_diagnostics table[]
@@ -23,6 +27,10 @@ local state = {
   applied_effects = nil,
   editor_active = false,
   language_active = false,
+  formatting_active = false,
+  formatting_configuration = {},
+  formatting_formatters = {},
+  formatting_by_filetype = {},
   tooling_active = false,
   tool_requirements = {},
   operation_diagnostics = {},

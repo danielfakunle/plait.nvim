@@ -1,4 +1,5 @@
 local editor = require('plait.editor')
+local formatting = require('plait.formatting')
 local language = require('plait.language')
 local tooling = require('plait.tooling')
 local plan = require('plait.plan')
@@ -25,6 +26,7 @@ local integrations = {
     activation_effect = 'language/actions-and-mappings',
     activate = function() state.language_active = true end,
   },
+  formatting = formatting.integration,
   tooling = tooling.integration,
 }
 
