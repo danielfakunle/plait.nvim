@@ -15,6 +15,34 @@ local function activate_language()
 end
 
 describe('language capability facade', function()
+  it('plans the canonical TypeScript language integration', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'language', 'formatting', 'tooling', 'lang.typescript' })
+      result = config:validate()
+      server_effects = vim.tbl_filter(function(effect)
+        return effect.identity:find('/tsc', 1, true) ~= nil
+      end, M.inspect('effects'))
+      typescript = M.inspect('capabilities', 'lang.typescript')
+    ]])
+
+    expect.equality(child.lua_get([[result.status]]), 'valid')
+    expect.equality(child.lua_get([[typescript.contributions]]), {
+      'formatting.by_filetype.javascript',
+      'formatting.by_filetype.javascriptreact',
+      'formatting.by_filetype.typescript',
+      'formatting.by_filetype.typescriptreact',
+      'formatting.formatters.oxfmt',
+      'language.servers.tsc',
+      'tooling.tools.oxfmt',
+      'tooling.tools.tsc',
+    })
+    expect.equality(child.lua_get([[vim.tbl_map(function(effect) return effect.identity end, server_effects)]]), {
+      'language/server-definition/tsc',
+      'language/service/tsc',
+    })
+  end)
+
   it('plans the canonical Lua language integration', function()
     child.lua([[
       local config = M.config()
@@ -193,6 +221,36 @@ describe('language capability facade', function()
         state = 'unprobeable',
       })
     end
+  end)
+
+  it('reports matching TypeScript tool degradation for all LSP requests', function()
+    activate_language()
+    child.lua([[
+      vim.bo.filetype = 'typescriptreact'
+      require('plait.state').language_servers = {
+        tsc = {
+          filetypes = { 'javascript', 'javascriptreact', 'typescript', 'typescriptreact' },
+          tool = 'tsc', state = 'absent', language = 'lang.typescript',
+        },
+      }
+      degraded = {}
+      for _, name in ipairs({ 'definition', 'references', 'hover', 'rename', 'code_action' }) do
+        degraded[name] = M.actions.language[name]()
+      end
+      local state = require('plait.state')
+      state.completion_active = true
+      package.loaded['blink.cmp'] = { show = function() return true end }
+      vim.api.nvim_get_mode = function() return { mode = 'i' } end
+      completion_result = M.actions.completion.trigger()
+    ]])
+
+    for _, name in ipairs({ 'definition', 'references', 'hover', 'rename', 'code_action' }) do
+      expect.equality(child.lua_get('degraded.' .. name .. '.reason'), 'tool_absent')
+      expect.equality(child.lua_get('degraded.' .. name .. '.details.language'), 'lang.typescript')
+      expect.equality(child.lua_get('degraded.' .. name .. '.details.server'), 'tsc')
+      expect.equality(child.lua_get('degraded.' .. name .. '.details.filetype'), 'typescriptreact')
+    end
+    expect.equality(child.lua_get([[completion_result.status]]), 'performed')
   end)
 
   it('distinguishes native diagnostic navigation from no diagnostics', function()

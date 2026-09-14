@@ -69,6 +69,140 @@ describe('external tool resolution', function()
     expect.equality(child.lua_get([[tool.authoritative_candidate]]), 1)
     expect.equality(child.lua_get([[result.diagnostics[#result.diagnostics].details.reason]]), 'not_executable')
   end)
+
+  it('degrades TypeScript tools independently when their Node requirement is incompatible', function()
+    child.lua([[
+      local root = vim.fn.tempname()
+      local project_bin = root .. '/node_modules/.bin'
+      local path_bin = root .. '/path-bin'
+      vim.fn.mkdir(project_bin, 'p')
+      vim.fn.mkdir(path_bin, 'p')
+      vim.fn.writefile({ '#!/bin/sh', 'echo "Version 7.0.2"' }, project_bin .. '/tsc')
+      vim.fn.writefile({ '#!/bin/sh', 'echo "oxfmt 0.66.0"' }, project_bin .. '/oxfmt')
+      vim.fn.writefile({ '#!/bin/sh', 'echo "v18.0.0"' }, path_bin .. '/node')
+      vim.fn.setfperm(project_bin .. '/tsc', 'rwxr-xr-x')
+      vim.fn.setfperm(project_bin .. '/oxfmt', 'rwxr-xr-x')
+      vim.fn.setfperm(path_bin .. '/node', 'rwxr-xr-x')
+      vim.env.PATH = path_bin
+      vim.cmd.cd(root)
+      local config = M.config()
+      config:select({ 'language', 'formatting', 'tooling', 'lang.typescript' })
+      result = config:validate()
+      tsc = M.inspect('tools', 'tsc')
+      oxfmt = M.inspect('tools', 'oxfmt')
+    ]])
+
+    expect.equality(child.lua_get([[tsc.state]]), 'satisfied')
+    expect.equality(child.lua_get([[oxfmt.state]]), 'incompatible')
+    expect.equality(
+      child.lua_get([[vim.tbl_contains(vim.tbl_map(function(d) return d.code end,
+      result.diagnostics), 'tool.incompatible')]]),
+      true
+    )
+  end)
+
+  it('keeps a present incompatible workspace oxfmt authoritative over Mason', function()
+    child.lua([[
+      local root = vim.fn.tempname()
+      local workspace = root .. '/node_modules/.bin'
+      local data = root .. '/data'
+      local mason_package = data .. '/mason/packages/oxfmt'
+      local runtime = root .. '/runtime'
+      vim.fn.mkdir(workspace, 'p')
+      vim.fn.mkdir(mason_package, 'p')
+      vim.fn.mkdir(data .. '/mason/bin', 'p')
+      vim.fn.mkdir(runtime, 'p')
+      vim.fn.writefile({ '#!/bin/sh', 'echo "oxfmt 0.65.0"' }, workspace .. '/oxfmt')
+      vim.fn.writefile({ '#!/bin/sh', 'echo "oxfmt 0.66.0"' }, mason_package .. '/oxfmt')
+      vim.fn.writefile({ '#!/bin/sh', 'echo "v22.12.0"' }, runtime .. '/node')
+      vim.fn.setfperm(workspace .. '/oxfmt', 'rwxr-xr-x')
+      vim.fn.setfperm(mason_package .. '/oxfmt', 'rwxr-xr-x')
+      vim.fn.setfperm(runtime .. '/node', 'rwxr-xr-x')
+      vim.uv.fs_symlink(mason_package .. '/oxfmt', data .. '/mason/bin/oxfmt')
+      local original_stdpath = vim.fn.stdpath
+      vim.fn.stdpath = function(kind)
+        if kind == 'data' then return data end
+        return original_stdpath(kind)
+      end
+      vim.fn.setenv('PATH', runtime)
+      vim.cmd.cd(root)
+      local config = M.config()
+      config:select({ 'language', 'formatting', 'tooling', 'lang.typescript' })
+      config:validate()
+      oxfmt = M.inspect('tools', 'oxfmt')
+    ]])
+
+    expect.equality(child.lua_get([[oxfmt.state]]), 'incompatible')
+    expect.equality(child.lua_get([[oxfmt.source]]), 'workspace')
+    expect.equality(child.lua_get([[oxfmt.authoritative_candidate]]), 1)
+    expect.equality(child.lua_get([[oxfmt.candidates[2].source]]), 'workspace')
+    expect.equality(
+      child.lua_get([[vim.tbl_contains(vim.tbl_map(function(item) return item.source end,
+      oxfmt.candidates), 'mason')]]),
+      true
+    )
+  end)
+
+  it('falls through an absent workspace oxfmt candidate to Mason', function()
+    child.lua([[
+      local root = vim.fn.tempname()
+      local data = root .. '/data'
+      local mason_package = data .. '/mason/packages/oxfmt'
+      local runtime = root .. '/runtime'
+      vim.fn.mkdir(root .. '/node_modules/.bin', 'p')
+      vim.fn.mkdir(mason_package, 'p')
+      vim.fn.mkdir(data .. '/mason/bin', 'p')
+      vim.fn.mkdir(runtime, 'p')
+      vim.fn.writefile({ '#!/bin/sh', 'echo "oxfmt 0.66.0"' }, mason_package .. '/oxfmt')
+      vim.fn.writefile({ '#!/bin/sh', 'echo "v22.12.0"' }, runtime .. '/node')
+      vim.fn.setfperm(mason_package .. '/oxfmt', 'rwxr-xr-x')
+      vim.fn.setfperm(runtime .. '/node', 'rwxr-xr-x')
+      vim.uv.fs_symlink(mason_package .. '/oxfmt', data .. '/mason/bin/oxfmt')
+      local original_stdpath = vim.fn.stdpath
+      vim.fn.stdpath = function(kind)
+        if kind == 'data' then return data end
+        return original_stdpath(kind)
+      end
+      vim.fn.setenv('PATH', runtime)
+      vim.cmd.cd(root)
+      local config = M.config()
+      config:select({ 'language', 'formatting', 'tooling', 'lang.typescript' })
+      config:validate()
+      oxfmt = M.inspect('tools', 'oxfmt')
+    ]])
+
+    expect.equality(child.lua_get([[oxfmt.state]]), 'satisfied')
+    expect.equality(child.lua_get([[oxfmt.source]]), 'mason')
+    expect.equality(child.lua_get([[oxfmt.candidates[1].state]]), 'absent')
+  end)
+
+  it('classifies absent and unprobeable Node prerequisites', function()
+    child.lua([[
+      local root = vim.fn.tempname()
+      local workspace = root .. '/node_modules/.bin'
+      local runtime = root .. '/runtime'
+      vim.fn.mkdir(workspace, 'p')
+      vim.fn.mkdir(runtime, 'p')
+      vim.fn.writefile({ '#!/bin/sh', 'echo "oxfmt 0.66.0"' }, workspace .. '/oxfmt')
+      vim.fn.setfperm(workspace .. '/oxfmt', 'rwxr-xr-x')
+      vim.cmd.cd(root)
+      local resolution = {
+        effective_contributions = { 'tooling.tools.oxfmt' },
+        contribution_values = {},
+        modules = { {
+          contributions = { 'tooling.tools.oxfmt' },
+          selection_sources = { { file = 'test', line = 1, path = 'select[1]' } },
+        } },
+      }
+      vim.fn.setenv('PATH', runtime)
+      node_absent = require('plait.tools').resolve(resolution)[1].state
+      vim.fn.writefile({ 'not executable' }, runtime .. '/node')
+      node_unprobeable = require('plait.tools').resolve(resolution)[1].state
+    ]])
+
+    expect.equality(child.lua_get([[node_absent]]), 'absent')
+    expect.equality(child.lua_get([[node_unprobeable]]), 'unprobeable')
+  end)
 end)
 
 describe('tooling capability actions', function()

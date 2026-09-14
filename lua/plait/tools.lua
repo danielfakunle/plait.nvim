@@ -20,6 +20,16 @@ local function source_for(requirement)
     }
 end
 
+--- Return the canonical repair for one external-tool state.
+---@param state string
+---@return string
+local function repair_for(state)
+  if state == 'absent' then return 'Install through the declared ownership path, then check again.' end
+  if state == 'incompatible' then return 'Install a satisfying version or change the requirement.' end
+  if state == 'unprobeable' then return 'Repair the executable/path so the fixed probe succeeds.' end
+  return ''
+end
+
 --- Build one closed tool diagnostic.
 ---@param code string
 ---@param requirement table
@@ -59,9 +69,7 @@ local function diagnostic(code, requirement, record, reason)
     code = code,
     severity = 'warning',
     summary = summary,
-    repair = code == 'tool.absent' and 'Install through the declared ownership path, then check again.'
-      or code == 'tool.incompatible' and 'Install a satisfying version or change the requirement.'
-      or 'Repair the executable/path so the fixed probe succeeds.',
+    repair = repair_for(code:match('tool%.(.+)')),
     source = vim.deepcopy(source_for(requirement)),
     related_sources = {},
     details = details,
@@ -396,6 +404,27 @@ local function probe(candidate)
   return { parsed = parsed, text = token }
 end
 
+--- Observe the Node runtime required by a built-in JavaScript tool.
+---@param identity string
+---@return 'satisfied'|'absent'|'incompatible'|'unprobeable', table|nil, string|nil
+local function node_state(identity)
+  local requirement = compatibility.node[identity]
+  if not requirement then return 'satisfied', nil, nil end
+  local candidate
+  for directory in (vim.env.PATH or ''):gmatch('[^:]+') do
+    local path = vim.fs.normalize(directory .. '/node')
+    if vim.uv.fs_lstat(path) then
+      candidate = present_candidate(path, 'PATH')
+      break
+    end
+  end
+  if not candidate then return 'absent', nil, nil end
+  local observed, reason = probe(candidate)
+  if not observed then return 'unprobeable', { path = candidate.path }, reason end
+  local allowed = requirement.minimum and compare(observed.parsed, requirement.minimum) >= 0
+  return allowed and 'satisfied' or 'incompatible', { path = candidate.path, version = observed.text }, nil
+end
+
 --- Resolve all effective tool requirements without network access.
 ---@param resolution table
 ---@return table[], table[], table<string, table>
@@ -451,26 +480,40 @@ function M.resolve(resolution)
       state = 'absent',
       affected_operations = array(requirement.affected_operations),
       sources = array(requirement.sources),
-      repair = 'Install through the declared ownership path, then check again.',
+      repair = repair_for('absent'),
     }
     if authoritative then
       local candidate = found[authoritative]
       record.path, record.source = candidate.path, candidate.source
       local observed, reason = probe(candidate)
       if not observed then
-        record.state, record.repair = 'unprobeable', 'Repair the executable/path so the fixed probe succeeds.'
+        record.state, record.repair = 'unprobeable', repair_for('unprobeable')
         diagnostics[#diagnostics + 1] = diagnostic('tool.unprobeable', requirement, record, reason)
       else
         record.version = observed.text
         if constraint_allows(observed.parsed, requirement.constraint) then
           record.state, record.repair = 'satisfied', ''
         else
-          record.state, record.repair = 'incompatible', 'Install a satisfying version or change the requirement.'
+          record.state, record.repair = 'incompatible', repair_for('incompatible')
           diagnostics[#diagnostics + 1] = diagnostic('tool.incompatible', requirement, record)
         end
       end
     else
       diagnostics[#diagnostics + 1] = diagnostic('tool.absent', requirement, record)
+    end
+    if record.state == 'satisfied' and compatibility.node[identity] then
+      local runtime_state, runtime, runtime_reason = node_state(identity)
+      if runtime_state ~= 'satisfied' then
+        record.state = runtime_state
+        record.repair = repair_for(runtime_state)
+        local runtime_requirement = vim.deepcopy(requirement)
+        runtime_requirement.constraint = compatibility.node[identity].constraint
+        local diagnostic_record = vim.deepcopy(record)
+        diagnostic_record.path = runtime and runtime.path or nil
+        diagnostic_record.version = runtime and runtime.version or nil
+        diagnostics[#diagnostics + 1] =
+          diagnostic('tool.' .. runtime_state, runtime_requirement, diagnostic_record, runtime_reason)
+      end
     end
     records[#records + 1] = record
   end

@@ -7,6 +7,10 @@ local M = {}
 
 local builtin_servers = {
   lua_ls = { filetypes = { 'lua' }, tool = 'lua-language-server' },
+  tsc = {
+    filetypes = { 'javascript', 'javascriptreact', 'typescript', 'typescriptreact' },
+    tool = 'tsc',
+  },
 }
 
 local completion_capabilities = {

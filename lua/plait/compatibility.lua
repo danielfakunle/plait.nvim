@@ -11,7 +11,7 @@ local M = {
   },
   node = {
     tsc = { constraint = '>=16.20.0', minimum = { 16, 20, 0 } },
-    oxfmt = { constraint = '^20.19.0 || >=22.12.0', alternatives = { { 20, 19, 0 }, { 22, 12, 0 } } },
+    oxfmt = { constraint = '>=22.12.0', minimum = { 22, 12, 0 } },
   },
   providers = {
     {
