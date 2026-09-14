@@ -303,6 +303,7 @@ describe('editor capability application', function()
       code = 'effect.failed',
       summary = 'Effect editor/mappings failed.',
       responsible_capability = 'editor',
+      provider = vim.NIL,
       operation_id = 'apply',
       details = {
         operation_id = 'apply',

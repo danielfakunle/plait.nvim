@@ -149,10 +149,10 @@ local function observe(requirement, sources, locks)
     state = 'restart_required'
   elseif state_store.package_interrupted[requirement.identity] then
     state, inconsistency = 'partial_unknown', 'interrupted_mutation'
-  elseif not checkout_record and not lock_record then
-    state = 'absent'
   elseif checkout_problem or lock_problem then
     state, inconsistency = 'partial_unknown', checkout_problem or lock_problem
+  elseif not checkout_record and not lock_record then
+    state = 'absent'
   elseif not checkout_record then
     state, inconsistency = 'partial_unknown', 'lock_without_checkout'
   elseif not lock_record then

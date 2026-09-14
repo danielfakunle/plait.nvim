@@ -1,5 +1,6 @@
 local canonical = require('plait.canonical')
 local completion_integration = require('plait.completion')
+local effect_record = require('plait.effects')
 local formatting_integration = require('plait.formatting')
 local packages = require('plait.packages')
 local tooling_integration = require('plait.tooling')
@@ -87,49 +88,20 @@ function M.build(configuration, resolution)
   end
   if editor then
     effects = {
-      {
-        identity = 'editor/native-options',
-        stage = 3,
-        responsible_capability = 'editor',
-        provider = nil,
-        dependencies = {},
-        state = 'pending',
-        sources = vim.deepcopy(editor.selection_sources),
-        error = nil,
-      },
-      {
-        identity = 'editor/actions',
-        stage = 4,
-        responsible_capability = 'editor',
-        provider = nil,
-        dependencies = { 'editor/native-options' },
-        state = 'pending',
-        sources = vim.deepcopy(editor.selection_sources),
-        error = nil,
-      },
-      {
-        identity = 'editor/mappings',
-        stage = 4,
-        responsible_capability = 'editor',
-        provider = nil,
-        dependencies = { 'editor/actions' },
-        state = 'pending',
-        sources = vim.deepcopy(editor.selection_sources),
-        error = nil,
-      },
+      effect_record.new('editor', 'editor/native-options', 3, nil, {}, editor.selection_sources),
+      effect_record.new('editor', 'editor/actions', 4, nil, { 'editor/native-options' }, editor.selection_sources),
+      effect_record.new('editor', 'editor/mappings', 4, nil, { 'editor/actions' }, editor.selection_sources),
     }
   end
   if editor and configuration.editor.yank_highlight then
-    effects[#effects + 1] = {
-      identity = 'editor/yank-highlight',
-      stage = 4,
-      responsible_capability = 'editor',
-      provider = nil,
-      dependencies = { 'editor/native-options' },
-      state = 'pending',
-      sources = vim.deepcopy(editor.selection_sources),
-      error = nil,
-    }
+    effects[#effects + 1] = effect_record.new(
+      'editor',
+      'editor/yank-highlight',
+      4,
+      nil,
+      { 'editor/native-options' },
+      editor.selection_sources
+    )
   end
   if language then
     vim.list_extend(effects, require('plait.language').effects(resolution, language.selection_sources))
@@ -238,7 +210,7 @@ function M.id(effective_plan, configuration_schema)
       identity = effect.identity,
       stage = effect.stage,
       responsible_capability = effect.responsible_capability,
-      provider = effect.provider,
+      provider = effect.provider ~= vim.NIL and effect.provider or nil,
       dependencies = array(effect.dependencies),
     }
   end

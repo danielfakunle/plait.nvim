@@ -54,6 +54,7 @@ local function frame(tag, value) return tag .. #value .. ':' .. value end
 ---@param allow_functions? boolean
 ---@return string
 local function encode(value, declared_array, ancestors, allow_functions)
+  if value == vim.NIL then return allow_functions and 'n' or 'null' end
   local value_type = type(value)
   if allow_functions and value_type == 'nil' then return 'n' end
   if value_type == 'nil' then return 'null' end

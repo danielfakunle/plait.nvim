@@ -284,15 +284,15 @@ local function present_candidate(path, kind, lexical_root, resolved_root)
   path = vim.fs.normalize(path)
   lexical_root = lexical_root and vim.fs.normalize(lexical_root) or nil
   if lexical_root and path ~= lexical_root and path:sub(1, #lexical_root + 1) ~= lexical_root .. '/' then
-    return { path = path, real_path = nil, source = kind, state = 'rejected', reason = 'outside_root' }
+    return { path = path, real_path = vim.NIL, source = kind, state = 'rejected', reason = 'outside_root' }
   end
   local lexical = vim.uv.fs_lstat(path)
-  if not lexical then return { path = path, real_path = nil, source = kind, state = 'absent', reason = nil } end
+  if not lexical then return { path = path, real_path = vim.NIL, source = kind, state = 'absent', reason = vim.NIL } end
   local real = vim.uv.fs_realpath(path)
   if not real then
     return {
       path = path,
-      real_path = nil,
+      real_path = vim.NIL,
       source = kind,
       state = 'rejected',
       reason = lexical.type == 'link' and 'broken_symlink' or 'symlink_loop',
@@ -312,7 +312,7 @@ local function present_candidate(path, kind, lexical_root, resolved_root)
   if vim.fn.executable(path) ~= 1 then
     return { path = path, real_path = real, source = kind, state = 'rejected', reason = 'not_executable' }
   end
-  return { path = path, real_path = real, source = kind, state = 'present', reason = nil }
+  return { path = path, real_path = real, source = kind, state = 'present', reason = vim.NIL }
 end
 
 --- Select the active buffer directory, falling back to the CWD.
@@ -473,10 +473,10 @@ function M.resolve(resolution)
       constraint = requirement.constraint,
       ownership = requirement.ownership,
       candidates = found,
-      authoritative_candidate = authoritative,
-      path = nil,
-      source = nil,
-      version = nil,
+      authoritative_candidate = authoritative or vim.NIL,
+      path = vim.NIL,
+      source = vim.NIL,
+      version = vim.NIL,
       state = 'absent',
       affected_operations = array(requirement.affected_operations),
       sources = array(requirement.sources),

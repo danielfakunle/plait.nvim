@@ -13,11 +13,11 @@ function M.new(responsible_capability, identity, stage, provider, dependencies, 
     identity = identity,
     stage = stage,
     responsible_capability = responsible_capability,
-    provider = provider,
+    provider = provider or vim.NIL,
     dependencies = dependencies,
     state = 'pending',
     sources = vim.deepcopy(sources),
-    error = nil,
+    error = vim.NIL,
   }
 end
 
