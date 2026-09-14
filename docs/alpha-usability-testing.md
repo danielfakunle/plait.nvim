@@ -144,6 +144,10 @@ Run:
 
 Expected:
 
+- Inspection opens a `Plait inspection` report in the empty current window, or in a dedicated tab when the
+  current buffer contains editing work.
+- The report is read-only and disposable. Press `q` to close it and return to the editing buffer; rerunning an
+  inspection refreshes the one existing report rather than accumulating buffers.
 - Every selected module appears exactly once.
 - Dependencies are explicit and deterministically ordered.
 - The editor capability shows its default configuration.
@@ -151,6 +155,9 @@ Expected:
 - Packages and tools are empty in Alpha.
 - Diagnostics are empty.
 - Output is understandable without consulting implementation code.
+- Add `--json` when capturing deterministic machine-readable command output, for example
+  `:Plait inspect capabilities editor --json`. Lua callers continue to use `require('plait').inspect(...)` for
+  structured results.
 
 Also run:
 

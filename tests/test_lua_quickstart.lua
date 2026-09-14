@@ -189,11 +189,11 @@ T['canonical Lua quickstart']['locks the successful author journey'] = function(
   })
 
   for _, section in ipairs({ 'modules', 'capabilities', 'effects', 'packages', 'tools', 'diagnostics', 'operations' }) do
-    local rendered = child.cmd_capture('Plait inspect ' .. section)
+    local rendered = child.cmd_capture('Plait inspect ' .. section .. ' --json')
     local prefix = section .. ': '
     expect.equality(rendered:sub(1, #prefix), prefix)
     expect.equality(vim.json.decode(rendered:sub(#prefix + 1)), child.lua_get(([[M.inspect(%q)]]):format(section)))
-    expect.equality(child.cmd_capture('Plait inspect ' .. section), rendered)
+    expect.equality(child.cmd_capture('Plait inspect ' .. section .. ' --json'), rendered)
     if section == 'effects' then
       expect.equality(rendered:find('"error":null', 1, true) ~= nil, true)
       expect.equality(rendered:find('"provider":null', 1, true) ~= nil, true)
@@ -201,13 +201,13 @@ T['canonical Lua quickstart']['locks the successful author journey'] = function(
   end
   for _, section in ipairs({ 'modules', 'capabilities', 'effects', 'packages', 'tools' }) do
     local identity = child.lua_get(([[M.inspect(%q)[1].identity]]):format(section))
-    local rendered = child.cmd_capture(('Plait inspect %s %s'):format(section, identity))
+    local rendered = child.cmd_capture(('Plait inspect %s %s --json'):format(section, identity))
     local prefix = section .. ': '
     expect.equality(
       vim.json.decode(rendered:sub(#prefix + 1)),
       child.lua_get(([[M.inspect(%q, %q)]]):format(section, identity))
     )
-    expect.equality(child.cmd_capture(('Plait inspect %s %s'):format(section, identity)), rendered)
+    expect.equality(child.cmd_capture(('Plait inspect %s %s --json'):format(section, identity)), rendered)
   end
 end
 
@@ -246,7 +246,10 @@ T['canonical Lua quickstart']['does not mutate absent packages in non-interactiv
     ),
     {}
   )
-  expect.equality(child.cmd_capture('Plait packages sync!'), 'plait: packages.sync started (op-00000001)')
+  expect.equality(
+    child.cmd_capture('Plait packages sync!'),
+    'plait: packages.sync started (op-00000001)\ninspect progress: :Plait inspect operations op-00000001'
+  )
   expect.equality(child.lua_get([[M.inspect('operations')[1].targets]]), {
     'blink.cmp',
     'conform.nvim',
@@ -284,7 +287,10 @@ T['canonical Lua quickstart']['records synchronization restart and fresh-process
     'tests/fixtures/lua_quickstart/init.lua',
   })
 
-  expect.equality(child.cmd_capture('Plait packages sync!'), 'plait: packages.sync started (op-00000001)')
+  expect.equality(
+    child.cmd_capture('Plait packages sync!'),
+    'plait: packages.sync started (op-00000001)\ninspect progress: :Plait inspect operations op-00000001'
+  )
   child.lua([[vim.wait(1000, function() return M.inspect('operations')[1].state ~= 'pending' end)]])
   expect.equality(child.lua_get([[M.inspect('operations')[1].state]]), 'succeeded')
   assert_schema([[M.inspect('operations')]], {
@@ -344,7 +350,10 @@ T['canonical Lua quickstart']['records failed synchronization with its accepted 
     'tests/fixtures/lua_quickstart/init.lua',
   })
 
-  expect.equality(child.cmd_capture('Plait packages sync!'), 'plait: packages.sync started (op-00000001)')
+  expect.equality(
+    child.cmd_capture('Plait packages sync!'),
+    'plait: packages.sync started (op-00000001)\ninspect progress: :Plait inspect operations op-00000001'
+  )
   child.lua([[vim.wait(1000, function() return M.inspect('operations')[1].state ~= 'pending' end)]])
   expect.equality(child.lua_get([[M.inspect('operations')[1].state]]), 'failed')
   assert_schema([[M.inspect('operations')]], {
@@ -393,12 +402,12 @@ for _, variant in ipairs({
       child.lua_get([[vim.iter(lua_quickstart.effects):all(function(item) return item.state == 'pending' end)]]),
       true
     )
-    local rendered = child.cmd_capture('Plait inspect diagnostics ' .. variant.codes[1])
+    local rendered = child.cmd_capture('Plait inspect diagnostics ' .. variant.codes[1] .. ' --json')
     expect.equality(
       vim.json.decode(rendered:sub(#'diagnostics: ' + 1)),
       child.lua_get(([[M.inspect('diagnostics', %q)]]):format(variant.codes[1]))
     )
-    expect.equality(child.cmd_capture('Plait inspect diagnostics ' .. variant.codes[1]), rendered)
+    expect.equality(child.cmd_capture('Plait inspect diagnostics ' .. variant.codes[1] .. ' --json'), rendered)
   end
 end
 

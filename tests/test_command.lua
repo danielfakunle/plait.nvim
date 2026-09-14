@@ -60,21 +60,152 @@ describe('Plait command', function()
     expect.equality(child.lua_get([[M.inspect('modules', 'editor').identity]]), 'editor')
   end)
 
-  it('renders all inspection sections in canonical order', function()
+  it('opens a readable report in the empty current window and refreshes it in place', function()
     child.lua([[
       local config = M.config()
       config:select({ 'editor' })
       config:validate()
     ]])
 
-    local output = child.cmd_capture('Plait inspect')
-    expect.equality(output:match('^modules: '), 'modules: ')
+    expect.equality(child.cmd_capture('Plait inspect'), '')
+    expect.equality(child.lua_get([[vim.api.nvim_buf_get_name(0)]]), 'plait://inspect')
+    expect.equality(child.lua_get([[vim.bo.filetype]]), 'plait-report')
+    expect.equality(child.lua_get([[vim.bo.modifiable]]), false)
+    expect.equality(child.lua_get([[vim.bo.swapfile]]), false)
+    expect.equality(child.lua_get([[vim.bo.bufhidden]]), 'wipe')
+    expect.equality(child.lua_get([[vim.fn.maparg('q', 'n', false, true).buffer]]), 1)
+    local report = child.lua_get([[table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), '\n')]])
+    expect.equality(report:find('Modules\n  [ACTIVE] editor', 1, true) ~= nil, true)
+    expect.equality(report:find('    Provides: editor', 1, true) ~= nil, true)
+    expect.equality(report:find('Capabilities\n  [ACTIVE] editor', 1, true) ~= nil, true)
+    expect.equality(report:find('Managed effects\n  [PENDING] editor/native-options', 1, true) ~= nil, true)
+    expect.equality(report:find('Packages\n  No package requirements.', 1, true) ~= nil, true)
+    expect.equality(report:find('Tools\n  No tool requirements.', 1, true) ~= nil, true)
+    expect.equality(report:find('Diagnostics\n  No diagnostics.', 1, true) ~= nil, true)
+    expect.equality(report:find('Operations\n  No operations.', 1, true) ~= nil, true)
+
+    child.cmd('Plait inspect modules editor')
+    expect.equality(child.lua_get([[#vim.api.nvim_list_bufs()]]), 1)
+    expect.equality(child.lua_get([[vim.api.nvim_buf_get_lines(0, 0, 3, false)]]), {
+      'Plait inspection',
+      '',
+      'Modules',
+    })
+  end)
+
+  it('opens inspection in a dedicated tab without replacing an editing buffer', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'editor' })
+      config:validate()
+      vim.api.nvim_buf_set_name(0, 'notes.txt')
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'keep me' })
+      editing_buffer = vim.api.nvim_get_current_buf()
+    ]])
+
+    child.cmd('Plait inspect modules')
+    expect.equality(child.lua_get([[#vim.api.nvim_list_tabpages()]]), 2)
+    expect.equality(child.lua_get([[vim.api.nvim_buf_get_name(editing_buffer)]]):match('notes.txt$'), 'notes.txt')
+    expect.equality(child.lua_get([[vim.api.nvim_buf_get_lines(editing_buffer, 0, -1, false)]]), { 'keep me' })
+    child.cmd('tabprevious')
+    child.cmd('Plait inspect capabilities')
+    expect.equality(child.lua_get([[#vim.api.nvim_list_tabpages()]]), 2)
     expect.equality(
-      vim.tbl_map(function(line) return line:match('^(%a+):') end, vim.split(output, '\n')),
-      { 'modules', 'capabilities', 'effects', 'packages', 'tools', 'diagnostics', 'operations' }
+      child.lua_get(
+        [[#vim.tbl_filter(function(buffer) return vim.api.nvim_buf_get_name(buffer) == 'plait://inspect' end, vim.api.nvim_list_bufs())]]
+      ),
+      1
     )
-    expect.equality(output:find('packages: []', 1, true) ~= nil, true)
-    expect.equality(output:find('operations: []', 1, true) ~= nil, true)
+    child.cmd('normal q')
+    expect.equality(child.lua_get([[#vim.api.nvim_list_tabpages()]]), 1)
+    expect.equality(child.lua_get([[vim.api.nvim_get_current_buf()]]), child.lua_get([[editing_buffer]]))
+  end)
+
+  it('closes only a report that reused an empty split', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'editor' })
+      config:validate()
+      vim.api.nvim_buf_set_name(0, 'editing.txt')
+      editing_buffer = vim.api.nvim_get_current_buf()
+      vim.cmd.vnew()
+      vim.cmd.tabnew()
+      vim.api.nvim_buf_set_name(0, 'other-tab.txt')
+      vim.cmd.tabprevious()
+    ]])
+
+    child.cmd('Plait inspect modules')
+    child.cmd('normal q')
+    expect.equality(child.lua_get([[#vim.api.nvim_list_tabpages()]]), 2)
+    expect.equality(child.lua_get([[vim.api.nvim_buf_is_valid(editing_buffer)]]), true)
+    expect.equality(child.lua_get([[vim.api.nvim_buf_get_name(editing_buffer)]]):match('editing.txt$'), 'editing.txt')
+  end)
+
+  it('preserves deterministic machine-readable inspection behind --json', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'editor' })
+      config:validate()
+    ]])
+
+    expect.equality(child.cmd_capture('Plait inspect packages --json'), 'packages: []')
+    local output = child.cmd_capture('Plait inspect modules editor --json')
+    expect.equality(output:match('^modules: {'), 'modules: {')
+    expect.equality(output:find('"identity":"editor"', 1, true) ~= nil, true)
+  end)
+
+  it('uses section-specific fields and distinguishable report states', function()
+    child.lua([[
+      M.inspect = function(section)
+        local fixtures = {
+          modules = { { identity = 'demo', state = 'invalid', provides = {}, requires = { 'base' }, contributions = {} } },
+          capabilities = { { identity = 'demo', state = 'degraded', responsible_integration = 'demo/native', providers = { 'native' }, dependents = {}, actions = {}, degradation_reasons = { 'tool.absent' } } },
+          effects = { { identity = 'demo/effect', state = 'pending', responsible_capability = 'demo', stage = 2, dependencies = {} } },
+          packages = { { identity = 'demo.nvim', state = 'satisfied', source = 'https://example.test/demo', required_commit = 'abc', responsible_capabilities = { 'demo' } } },
+          tools = { { identity = 'demo', state = 'absent', executable = 'demo', constraint = '>=1,<2', ownership = 'project', affected_operations = { 'demo.run' }, repair = 'Install demo in the project.' } },
+          diagnostics = { { code = 'demo.failed', severity = 'error', summary = 'Demo failed.', repair = 'Repair demo.', details = { target = 'demo' } } },
+          operations = {
+            { identity = 'op-00000001', state = 'succeeded', operation = 'demo.run', targets = { 'one' }, diagnostic_codes = { 'operation.succeeded' } },
+            { identity = 'op-00000002', state = 'failed', operation = 'demo.run', targets = { 'two' }, error = { reason = 'execution_failed', message = 'Demo stopped.' }, diagnostic_codes = { 'operation.failed' } },
+          },
+        }
+        return vim.deepcopy(fixtures[section])
+      end
+    ]])
+
+    child.cmd('Plait inspect')
+    local report = child.lua_get([[table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), '\n')]])
+    for _, text in ipairs({
+      '[INVALID] demo',
+      '[DEGRADED] demo',
+      '[PENDING] demo/effect',
+      '[SATISFIED] demo.nvim',
+      '[ABSENT] demo',
+      '[ERROR] demo.failed',
+      '[SUCCEEDED] op-00000001',
+      '[FAILED] op-00000002',
+      'Version constraint: >=1,<2',
+      'Repair: Install demo in the project.',
+      'Affected: (target: demo)',
+    }) do
+      expect.equality(report:find(text, 1, true) ~= nil, true)
+    end
+  end)
+
+  it('renders unavailable action context and repair guidance without JSON', function()
+    child.lua([[
+      M.actions.tooling.ensure = function()
+        return {
+          status = 'unavailable', operation = 'tooling.ensure', reason = 'capability_inactive',
+          details = { capability = 'tooling', targets = { 'stylua', 'lua-language-server' } },
+        }
+      end
+    ]])
+
+    expect.equality(
+      child.cmd_capture('Plait tooling ensure'),
+      'plait: tooling.ensure unavailable: capability inactive\nAffected capability: tooling\nAffected targets: stylua, lua-language-server\nRepair: activate the tooling capability, validate again, then retry.'
+    )
   end)
 
   it('routes package sync bang through the public package action', function()
@@ -111,7 +242,10 @@ describe('Plait command', function()
       end
     ]])
 
-    expect.equality(child.cmd_capture('2,3Plait format'), 'plait: formatting.format started (op-00000009)')
+    expect.equality(
+      child.cmd_capture('2,3Plait format'),
+      'plait: formatting.format started (op-00000009)\ninspect progress: :Plait inspect operations op-00000009'
+    )
     expect.equality(child.lua_get([[command_format_options]]), {
       range = {
         start = { line = 1, character = 0 },

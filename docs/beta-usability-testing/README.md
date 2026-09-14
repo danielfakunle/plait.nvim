@@ -46,4 +46,10 @@ For example, the second row is a hesitation because the operation succeeded but 
 
 Also preserve useful evidence such as operation IDs, relevant `:Plait inspect` output, and health messages. Do not mark a confusing experience as a pass merely because the final editor state was correct; usability friction is part of the result.
 
+Inspection commands open one read-only Plait report. They may reuse an empty unnamed window, otherwise they
+open a dedicated tab; press `q` to close the report without losing an editing buffer. Repeated inspection should
+refresh that report. Command-line validation and actions should remain concise, name affected targets, give a
+repair for unavailable work, and direct started operations to `:Plait inspect operations <operation-id>`. Use a
+trailing `--json` only when the procedure needs deterministic machine-readable inspection output.
+
 Beta passes when both language journeys work end to end; package and tool ownership remains explicit; supported customization is predictable; unsafe collisions and provider changes stop before application; and inspection, health, and operation records explain every required repair without source-code knowledge.

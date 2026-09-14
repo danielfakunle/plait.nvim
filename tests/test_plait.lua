@@ -315,8 +315,8 @@ describe('effective plan', function()
     ]])
 
     expect.equality(child.lua_get([[detached[1].identity]]), 'editor')
-    expect.equality(child.cmd_capture('Plait inspect packages'), 'packages: []')
-    expect.equality(child.cmd_capture('Plait inspect modules'):find('"requires":[]', 1, true) ~= nil, true)
+    expect.equality(child.cmd_capture('Plait inspect packages --json'), 'packages: []')
+    expect.equality(child.cmd_capture('Plait inspect modules --json'):find('"requires":[]', 1, true) ~= nil, true)
   end)
 
   it('revalidates deterministically and permits only one collector', function()

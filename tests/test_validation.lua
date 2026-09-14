@@ -254,7 +254,7 @@ describe('configuration validation', function()
     })
   end)
 
-  it('renders canonical diagnostic lines through the headless command', function()
+  it('renders readable diagnostic lines through the headless command', function()
     child.lua([[
       local config = M.config()
       config:select({ 'editor' })
@@ -267,8 +267,8 @@ describe('configuration validation', function()
         'ERROR config.invalid: Invalid value at configure.editor.line_numbers. '
           .. '[at <nvim>:3 configure.editor.line_numbers] '
           .. '[repair: Use one value/form named by `expected`.] '
-          .. '[details: {"expected":"one of \\"absolute\\", \\"relative\\", \\"off\\"",'
-          .. '"observed":"\\"bad\\"","path":"configure.editor.line_numbers"}]',
+          .. '[affected: expected: one of "absolute", "relative", "off"; observed: "bad"; '
+          .. 'path: configure.editor.line_numbers]',
         'invalid',
       }, '\n')
     )
