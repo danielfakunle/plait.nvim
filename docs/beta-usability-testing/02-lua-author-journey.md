@@ -64,8 +64,8 @@ Expected: each mapping invokes a native LSP behavior, diagnostics use the config
 Also sample the public facade:
 
 ```vim
-:lua vim.print(require('plait').actions.language.hover())
-:lua vim.print(require('plait').actions.language.definition())
+:lua local p = require('plait'); print(p.render(p.actions.language.hover()))
+:lua local p = require('plait'); print(p.render(p.actions.language.definition()))
 ```
 
 Expected: asynchronous requests return `started` with operation IDs when supported. `:Plait inspect operations` eventually records their success or failure with buffer, position, method, and completion evidence.
@@ -87,7 +87,7 @@ Expected: automatic LSP completion appears, accepted text is inserted, documenta
 Outside insert mode run:
 
 ```vim
-:lua vim.print(require('plait').actions.completion.trigger())
+:lua local p = require('plait'); print(p.render(p.actions.completion.trigger()))
 ```
 
 Expected: a closed `unavailable` result with reason `completion_inactive`, not an exception.

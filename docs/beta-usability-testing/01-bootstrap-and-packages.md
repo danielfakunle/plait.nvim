@@ -70,7 +70,7 @@ Expected: Plait asks whether to install four provider packages. First choose **C
 Inside Neovim, run:
 
 ```vim
-:lua vim.print(_G.plait_apply)
+:lua print(require('plait').render(_G.plait_apply))
 :Plait inspect packages
 :Plait inspect effects
 :Plait inspect diagnostics

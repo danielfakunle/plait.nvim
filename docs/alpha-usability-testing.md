@@ -117,9 +117,12 @@ Record whether startup is clean and whether any messages are confusing.
 Inspect the startup results:
 
 ```vim
-:lua vim.print(_G.plait_validation)
-:lua vim.print(_G.plait_apply)
+:lua print(require('plait').render(_G.plait_validation))
+:lua print(require('plait').render(_G.plait_apply))
 ```
+
+Plait functions still return structured Lua tables. `plait.render(value)` explicitly projects a validation or
+action result into deterministic human-readable text; it does not change the returned table or open a report.
 
 Expected:
 
@@ -244,7 +247,7 @@ Expected: focus moves geometrically between windows.
 Close all but one window and run:
 
 ```vim
-:lua vim.print(require('plait').actions.editor.focus('right'))
+:lua local p = require('plait'); print(p.render(p.actions.editor.focus('right')))
 ```
 
 Expected: `performed`, even though focus remains in the same window.
@@ -254,12 +257,14 @@ Expected: `performed`, even though focus remains in the same window.
 Run:
 
 ```vim
-:lua vim.print(require('plait').actions.editor.save())
-:lua vim.print(require('plait').actions.editor.clear_search())
-:lua vim.print(require('plait').actions.editor.focus('left'))
+:lua local p = require('plait'); print(p.render(p.actions.editor.save()))
+:lua local p = require('plait'); print(p.render(p.actions.editor.clear_search()))
+:lua local p = require('plait'); print(p.render(p.actions.editor.focus('left')))
 ```
 
-Expected: each returns a closed result containing `status`, `operation`, and `details`.
+Expected: each rendered result begins with `plait: <operation> performed` and follows with deterministic
+`Details <name>: <value>` lines. The underlying return remains a closed table containing `status`, `operation`,
+and `details`.
 
 Try an invalid direction:
 
@@ -330,7 +335,7 @@ env PLAIT_PROFILE=invalid nvim
 Run:
 
 ```vim
-:lua vim.print(_G.plait_validation)
+:lua print(require('plait').render(_G.plait_validation))
 :Plait validate
 :Plait inspect diagnostics
 :Plait inspect modules

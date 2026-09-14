@@ -81,7 +81,7 @@ nvim
 ```
 
 ```vim
-:lua vim.print(_G.plait_validation)
+:lua print(require('plait').render(_G.plait_validation))
 :Plait inspect modules local.lang.python
 :Plait inspect capabilities formatting
 :Plait inspect tools ruff
@@ -170,7 +170,12 @@ Use a new app name with the canonical config. Before requiring Plait, add a fore
 vim.keymap.set('n', '<leader>cf', function() end, { desc = 'Foreign formatter' })
 ```
 
-Start Neovim and inspect `_G.plait_apply` and diagnostics.
+Start Neovim and render `_G.plait_apply` before inspecting diagnostics:
+
+```vim
+:lua print(require('plait').render(_G.plait_apply))
+:Plait inspect diagnostics
+```
 
 Expected: apply is invalid before any managed effect runs; a collision diagnostic identifies the mapping and the Plait effect that would overwrite it; all effects remain pending; and the foreign mapping remains intact.
 
@@ -190,6 +195,13 @@ config:configure({ formatting = { timeout_ms = 0 } })
 config:configure({ formatting = { timeout_ms = 2000 } })
 
 _G.plait_validation = config:validate()
+```
+
+Start Neovim and render the invalid validation result before inspecting its structured snapshot:
+
+```vim
+:lua print(require('plait').render(_G.plait_validation))
+:Plait inspect diagnostics
 ```
 
 Expected diagnostics include the missing `language` dependency, invalid conflicting configuration, precise source locations, related sources where applicable, and concrete repairs. The invalid snapshot contains diagnostics but no effective modules, capabilities, packages, tools, or effects.

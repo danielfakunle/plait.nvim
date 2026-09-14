@@ -46,6 +46,11 @@ For example, the second row is a hesitation because the operation succeeded but 
 
 Also preserve useful evidence such as operation IDs, relevant `:Plait inspect` output, and health messages. Do not mark a confusing experience as a pass merely because the final editor state was correct; usability friction is part of the result.
 
+Plait functions return structured Lua tables. When a procedure asks a tester to judge a function result's
+readability, it uses `print(require('plait').render(result))` to request deterministic text explicitly. Rendering
+does not mutate the table, replace `vim.print`, or open an inspection buffer. Direct structured inspection is
+reserved for steps that deliberately verify Lua data.
+
 Inspection commands open one read-only Plait report. They may reuse an empty unnamed window, otherwise they
 open a dedicated tab; press `q` to close the report without losing an editing buffer. Repeated inspection should
 refresh that report. Command-line validation and actions should remain concise, name affected targets, give a

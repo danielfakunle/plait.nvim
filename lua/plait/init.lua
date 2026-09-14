@@ -8,6 +8,7 @@ local environment = require('plait.environment')
 local packages = require('plait.packages')
 local plan = require('plait.plan')
 local providers = require('plait.providers')
+local result_renderer = require('plait.result')
 local schema = require('plait.schema_generated')
 local snapshot = require('plait.snapshot')
 local state = require('plait.state')
@@ -25,6 +26,11 @@ local M = {
     tooling = tooling.actions,
   },
 }
+
+--- Render one structured Plait validation or action result without editor side effects.
+---@param value any
+---@return string
+function M.render(value) return result_renderer.render(value) end
 
 local inspection_sections = {
   modules = true,

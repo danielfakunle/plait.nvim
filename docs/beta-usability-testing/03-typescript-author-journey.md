@@ -43,7 +43,7 @@ nvim src/main.ts
 Run:
 
 ```vim
-:lua vim.print(_G.plait_apply)
+:lua print(require('plait').render(_G.plait_apply))
 :Plait inspect modules lang.typescript
 :Plait inspect tools tsc
 :Plait inspect tools oxfmt
@@ -91,7 +91,7 @@ Run:
 ```vim
 :Plait inspect tools tsc
 :Plait tooling ensure
-:lua vim.print(require('plait').actions.language.hover())
+:lua local p = require('plait'); print(p.render(p.actions.language.hover()))
 ```
 
 Expected:

@@ -1,8 +1,8 @@
 local canonical = require('plait.canonical')
 local diagnostic = require('plait.diagnostic')
 local plait = require('plait')
-local presentation = require('plait.presentation')
 local report = require('plait.report')
+local result_presentation = require('plait.result')
 local state = require('plait.state')
 
 local M = {}
@@ -99,38 +99,7 @@ end
 
 --- Render a closed action result for the command line.
 ---@param result table
-local function render_result(result)
-  if result.status == 'started' then
-    print(
-      ('plait: %s started (%s)\ninspect progress: :Plait inspect operations %s'):format(
-        result.operation,
-        result.operation_id,
-        result.operation_id
-      )
-    )
-  elseif result.status == 'performed' then
-    print(('plait: %s performed'):format(result.operation))
-  else
-    local lines = { ('plait: %s unavailable: %s'):format(result.operation, result.reason:gsub('_', ' ')) }
-    local keys = vim.tbl_keys(result.details)
-    table.sort(keys)
-    for _, key in ipairs(keys) do
-      lines[#lines + 1] = ('Affected %s: %s'):format(key:gsub('_', ' '), presentation.value(result.details[key]))
-    end
-    local repairs = {
-      capability_inactive = ('activate the %s capability, validate again, then retry.'):format(
-        result.details.capability or 'affected'
-      ),
-      not_configured = 'create and validate a Plait configuration, then retry.',
-      consent_required = 'rerun the command with explicit consent.',
-      consent_denied = 'approve the requested change when ready, then retry.',
-      restart_required = 'restart Neovim, inspect the affected targets, then retry.',
-    }
-    lines[#lines + 1] = 'Repair: '
-      .. (repairs[result.reason] or 'inspect diagnostics and the affected targets, repair them, then retry.')
-    print(table.concat(lines, '\n'))
-  end
-end
+local function render_result(result) print(result_presentation.render_command(result)) end
 
 --- Dispatch the process-wide Plait command.
 ---@param arguments string[]
