@@ -330,4 +330,55 @@ describe('tooling capability actions', function()
     expect.equality(child.lua_get([[operation.state]]), 'succeeded')
     expect.equality(child.lua_get([[operation.result.details.targets]]), { 'demo' })
   end)
+
+  it('closes an operation when an asynchronous Mason callback throws', function()
+    child.lua([[
+      local state = require('plait.state')
+      local data_path = vim.fn.tempname()
+      vim.fn.mkdir(data_path, 'p')
+      local original_stdpath = vim.fn.stdpath
+      vim.fn.stdpath = function(kind)
+        if kind == 'data' then return data_path end
+        return original_stdpath(kind)
+      end
+      state.snapshot = {
+        snapshot_state = 'validated', diagnostics = {}, operations = {}, modules = {}, effects = {}, packages = {},
+        capabilities = { { identity = 'tooling' } },
+        tools = { { identity = 'demo', state = 'absent' } },
+      }
+      state.tool_requirements = { demo = { mason = 'demo' } }
+      vim.fn.executable = function(name) return (name == 'curl' or name == 'wget') and 1 or 0 end
+      vim.fn.filewritable = function() return 2 end
+      package.loaded['mason-registry'] = {
+        get_package = function()
+          return {
+            install = function()
+              return { once = function(_, _, callback) vim.schedule(callback) end }
+            end,
+            is_installed = function()
+              error('SECRET_TOKEN=tool-credential\nstack traceback:\n\tenvironment dump')
+            end,
+          }
+        end,
+      }
+      notifications = {}
+      vim.notify = function(message, level) notifications[#notifications + 1] = { message, level } end
+      started = M.actions.tooling.ensure()
+      vim.wait(1000, function() return M.inspect('operations')[1].state ~= 'pending' end)
+      operation = M.inspect('operations')[1]
+      diagnostic = M.inspect('diagnostics', 'operation.failed')[1]
+    ]])
+
+    expect.equality(child.lua_get([[started.status]]), 'started')
+    expect.equality(child.lua_get([[operation.state]]), 'failed')
+    expect.equality(child.lua_get([[operation.error.message]]), 'Mason tool mutation failed.')
+    expect.equality(child.lua_get([[diagnostic.details.message]]), 'Mason tool mutation failed.')
+    expect.equality(child.lua_get([[#M.inspect('diagnostics', 'operation.failed')]]), 1)
+    expect.equality(child.lua_get([[#notifications]]), 1)
+    expect.equality(child.lua_get('notifications[1][2]'), vim.log.levels.ERROR)
+    expect.equality(
+      child.lua_get([[vim.inspect({ operation, diagnostic }):find('SECRET_TOKEN', 1, true) == nil]]),
+      true
+    )
+  end)
 end)

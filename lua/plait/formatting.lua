@@ -188,32 +188,39 @@ function M.format(opts)
     return { status = 'unavailable', operation = operation, reason = 'no_formatter', details = { buffer = buffer } }
   end
   local details = { buffer = buffer, range = public_range or vim.NIL, chain = vim.deepcopy(chain) }
-  return operations.start(operation, { 'buffer:' .. buffer }, function(done)
-    local format_options = {
-      bufnr = buffer,
-      async = true,
-      timeout_ms = state.formatting_configuration.timeout_ms,
-      formatters = #chain > 0 and vim.deepcopy(chain) or nil,
-      lsp_format = lsp and 'fallback' or 'never',
-      quiet = true,
-      range = conform_range,
-    }
-    local callback_error
-    local callback_completed = false
-    local returned = false
-    local function completed(err)
-      callback_error = err
-      callback_completed = true
-      if returned then done(err == nil, err and 'Formatting operation failed.' or nil) end
-    end
-    local ok, attempted = pcall(require('conform').format, format_options, completed)
-    returned = true
-    if not ok or attempted == false then
-      done(false, 'Formatting operation failed.')
-    elseif callback_completed then
-      done(callback_error == nil, callback_error and 'Formatting operation failed.' or nil)
-    end
-  end, function() return vim.deepcopy(details) end, details)
+  return operations.start({
+    operation = operation,
+    targets = { 'buffer:' .. buffer },
+    work = function(done)
+      local format_options = {
+        bufnr = buffer,
+        async = true,
+        timeout_ms = state.formatting_configuration.timeout_ms,
+        formatters = #chain > 0 and vim.deepcopy(chain) or nil,
+        lsp_format = lsp and 'fallback' or 'never',
+        quiet = true,
+        range = conform_range,
+      }
+      local callback_error
+      local callback_completed = false
+      local returned = false
+      local function completed(err)
+        callback_error = err
+        callback_completed = true
+        if returned then done(err == nil) end
+      end
+      local ok, attempted = pcall(require('conform').format, format_options, completed)
+      returned = true
+      if not ok or attempted == false then
+        done(false)
+      elseif callback_completed then
+        done(callback_error == nil)
+      end
+    end,
+    success_details = function() return vim.deepcopy(details) end,
+    started_details = details,
+    failure_message = 'Formatting operation failed.',
+  })
 end
 
 --- Build a zero-based end-exclusive public range from the current visual selection.

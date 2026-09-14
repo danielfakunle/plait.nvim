@@ -245,10 +245,14 @@ local function request(name)
     return { status = 'unavailable', operation = operation_name, reason = 'client_unsupported', details = details }
   end
 
-  return operations.start(operation_name, { 'buffer:' .. buffer }, function(done)
-    local ok = pcall(vim.api.nvim_buf_call, buffer, requests[name].invoke)
-    done(ok, ok and nil or 'Language action failed.')
-  end, function() return vim.deepcopy(details) end, details)
+  return operations.start({
+    operation = operation_name,
+    targets = { 'buffer:' .. buffer },
+    work = function(done) done(pcall(vim.api.nvim_buf_call, buffer, requests[name].invoke)) end,
+    success_details = function() return vim.deepcopy(details) end,
+    started_details = details,
+    failure_message = 'Language action failed.',
+  })
 end
 
 --- Navigate to one native diagnostic.

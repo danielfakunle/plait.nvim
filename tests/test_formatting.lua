@@ -174,9 +174,12 @@ describe('formatting capability facade', function()
           return true
         end,
       }
+      notifications = {}
+      vim.notify = function(message, level) notifications[#notifications + 1] = { message, level } end
       fallback = M.actions.formatting.format()
       vim.wait(1000, function() return M.inspect('operations')[1].state ~= 'pending' end)
       failed_operation = M.inspect('operations')[1]
+      failed_diagnostic = M.inspect('diagnostics', 'operation.failed')
     ]])
 
     expect.equality(child.lua_get([[fallback.status]]), 'started')
@@ -188,6 +191,9 @@ describe('formatting capability facade', function()
       message = 'Formatting operation failed.',
     })
     expect.equality(child.lua_get([[vim.inspect(failed_operation):find('SECRET', 1, true) == nil]]), true)
+    expect.equality(child.lua_get([[#failed_diagnostic]]), 1)
+    expect.equality(child.lua_get([[#notifications]]), 1)
+    expect.equality(child.lua_get('notifications[1][2]'), vim.log.levels.ERROR)
   end)
 
   it('does not let a synchronous callback turn a rejected provider start into success', function()

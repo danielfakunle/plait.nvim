@@ -393,7 +393,19 @@ function M.inspect(section, identity)
     ancestors[value] = nil
     return result
   end
-  if identity == nil then return assert(inspectable(records)) end
+  if identity == nil then
+    local result = assert(inspectable(records))
+    if section == 'operations' then
+      table.sort(
+        result,
+        function(left, right)
+          return left.started_at < right.started_at
+            or (left.started_at == right.started_at and left.identity < right.identity)
+        end
+      )
+    end
+    return result
+  end
   if section == 'diagnostics' then
     local matches = {}
     for _, record in ipairs(records) do

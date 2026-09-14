@@ -296,6 +296,8 @@ describe('language capability facade', function()
         called = called + 1
         called_buffer = vim.api.nvim_get_current_buf()
       end
+      notifications = {}
+      vim.notify = function(message, level) notifications[#notifications + 1] = { message, level } end
       started = M.actions.language.definition()
       vim.cmd.enew()
       vim.wait(1000, function() return M.inspect('operations')[1].state ~= 'pending' end)
@@ -323,6 +325,9 @@ describe('language capability facade', function()
       operation = 'language.definition',
       details = { buffer = 1, position = { line = 2, character = 4 } },
     })
+    expect.equality(child.lua_get([[#M.inspect('diagnostics', 'operation.succeeded')]]), 1)
+    expect.equality(child.lua_get([[#notifications]]), 1)
+    expect.equality(child.lua_get('notifications[1][2]'), vim.log.levels.INFO)
   end)
 
   it('sanitizes asynchronous action failures in canonical records', function()
@@ -336,6 +341,8 @@ describe('language capability facade', function()
           related_sources = {}, details = {} },
       }
       vim.lsp.buf.hover = function() error('token=SECRET\ntrace') end
+      notifications = {}
+      vim.notify = function(message, level) notifications[#notifications + 1] = { message, level } end
       started = M.actions.language.hover()
       vim.wait(1000, function() return M.inspect('operations')[1].state ~= 'pending' end)
       operation = M.inspect('operations')[1]
@@ -350,7 +357,32 @@ describe('language capability facade', function()
     })
     expect.equality(child.lua_get([[diagnostic.details.message]]), 'Language action failed.')
     expect.equality(child.lua_get([[diagnostic_codes]]), { 'operation.failed', 'operation.succeeded' })
+    expect.equality(child.lua_get([[#notifications]]), 1)
+    expect.equality(child.lua_get('notifications[1][2]'), vim.log.levels.ERROR)
     expect.equality(child.lua_get([[vim.inspect(operation):find('SECRET', 1, true) == nil]]), true)
+  end)
+
+  it('orders accepted operations by start time and then identity', function()
+    activate_language()
+    child.lua([[
+      vim.lsp.get_clients = function()
+        return { { supports_method = function() return true end } }
+      end
+      vim.lsp.buf.definition = function() end
+      vim.lsp.buf.references = function() end
+      local times = { { 200, 0 }, { 100, 0 } }
+      vim.uv.gettimeofday = function()
+        local value = table.remove(times, 1) or { 300, 0 }
+        return value[1], value[2]
+      end
+      first = M.actions.language.definition()
+      second = M.actions.language.references()
+      operation_ids = vim.tbl_map(function(item) return item.identity end, M.inspect('operations'))
+    ]])
+
+    expect.equality(child.lua_get([[first.operation_id]]), 'op-00000001')
+    expect.equality(child.lua_get([[second.operation_id]]), 'op-00000002')
+    expect.equality(child.lua_get([[operation_ids]]), { 'op-00000002', 'op-00000001' })
   end)
 
   it('applies only native diagnostics, inlay hints, and fixed buffer mappings', function()

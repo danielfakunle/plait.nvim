@@ -160,46 +160,55 @@ local function mutate(operation, records)
   local targets = vim.tbl_map(function(record) return record.identity end, records)
   if not prerequisites(records) then return environment_unavailable(operation, records) end
   local terminal_states = {}
-  return operations.start(operation, targets, function(done)
-    local ok, registry = pcall(require, 'mason-registry')
-    if not ok then
-      done(false, 'Mason registry is unavailable.')
-      return
-    end
-    local remaining, failed = #records, false
-    local function finish(okay)
-      failed = failed or not okay
-      remaining = remaining - 1
-      if remaining == 0 then
-        if failed then
-          done(false, 'Mason tool mutation failed.')
-          return
-        end
-        local observed = refresh()
-        local satisfied = true
-        for _, record in ipairs(observed.tools) do
-          if vim.list_contains(targets, record.identity) then
-            terminal_states[record.identity] = record.state
-            if record.state ~= 'satisfied' then satisfied = false end
-          end
-        end
-        done(satisfied, satisfied and nil or 'Mason did not produce a satisfying executable.')
+  return operations.start({
+    operation = operation,
+    targets = targets,
+    work = function(done)
+      local ok, registry = pcall(require, 'mason-registry')
+      if not ok then
+        done(false)
+        return
       end
-    end
-    for _, record in ipairs(records) do
-      local package_ok, package = pcall(registry.get_package, mason_name(record.identity))
-      if not package_ok or not package then
-        finish(false)
-      else
-        local install_ok, receipt = pcall(package.install, package, {})
-        if not install_ok or not receipt or type(receipt.once) ~= 'function' then
+      local remaining, failed = #records, false
+      local function finish(okay)
+        failed = failed or not okay
+        remaining = remaining - 1
+        if remaining == 0 then
+          if failed then
+            done(false)
+            return
+          end
+          local observed = refresh()
+          local satisfied = true
+          for _, record in ipairs(observed.tools) do
+            if vim.list_contains(targets, record.identity) then
+              terminal_states[record.identity] = record.state
+              if record.state ~= 'satisfied' then satisfied = false end
+            end
+          end
+          done(satisfied)
+        end
+      end
+      for _, record in ipairs(records) do
+        local package_ok, package = pcall(registry.get_package, mason_name(record.identity))
+        if not package_ok or not package then
           finish(false)
         else
-          receipt:once('closed', function() finish(package:is_installed()) end)
+          local install_ok, receipt = pcall(package.install, package, {})
+          if not install_ok or not receipt or type(receipt.once) ~= 'function' then
+            finish(false)
+          else
+            receipt:once('closed', function()
+              local callback_ok = pcall(function() finish(package:is_installed()) end)
+              if not callback_ok then done(false) end
+            end)
+          end
         end
       end
-    end
-  end, function() return { targets = vim.deepcopy(targets), states = vim.deepcopy(terminal_states) } end)
+    end,
+    success_details = function() return { targets = vim.deepcopy(targets), states = vim.deepcopy(terminal_states) } end,
+    failure_message = 'Mason tool mutation failed.',
+  })
 end
 
 --- Ensure every unmet mutable effective tool is installed.

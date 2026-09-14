@@ -148,4 +148,51 @@ describe('provider package synchronization', function()
     expect.equality(child.lua_get([[M.inspect('operations')[1].state]]), 'succeeded')
     expect.equality(child.lua_get([[M.inspect('packages')[1].state]]), 'restart_required')
   end)
+
+  it('publishes one sanitized failure diagnostic and notification', function()
+    child.lua([[
+      local data_path = vim.fn.stdpath('data')
+      local config_path = vim.fn.tempname()
+      vim.fn.stdpath = function(kind)
+        if kind == 'config' then return config_path end
+        return data_path
+      end
+      vim.fn.globpath = function() return {} end
+      vim.pack.add = function()
+        error('SECRET_TOKEN=package-credential\nstack traceback:\n\tenvironment dump')
+      end
+      notifications = {}
+      vim.notify = function(message, level)
+        notifications[#notifications + 1] = { message, level }
+      end
+      local config = M.config()
+      config:select({ 'language' })
+      config:validate()
+      started = M.actions.packages.sync(true)
+      pending = M.inspect('operations')[1]
+      pending_copy = vim.deepcopy(pending)
+      vim.wait(1000, function() return M.inspect('operations')[1].state ~= 'pending' end)
+      operation = M.inspect('operations')[1]
+      diagnostic = M.inspect('diagnostics', 'operation.failed')[1]
+      diagnostic_codes = vim.tbl_map(function(item) return item.code end, M.inspect('diagnostics'))
+    ]])
+
+    expect.equality(child.lua_get([[started.operation_id]]), 'op-00000001')
+    expect.equality(child.lua_get([[pending_copy.state]]), 'pending')
+    expect.equality(child.lua_get([[pending_copy.completed_at]]), vim.NIL)
+    expect.equality(child.lua_get([[operation.error]]), {
+      reason = 'execution_failed',
+      message = 'Provider package synchronization failed.',
+    })
+    expect.equality(child.lua_get([[operation.diagnostic_codes]]), { 'operation.failed' })
+    expect.equality(child.lua_get([[#M.inspect('diagnostics', 'operation.failed')]]), 1)
+    expect.equality(child.lua_get([[diagnostic.details.message]]), 'Provider package synchronization failed.')
+    expect.equality(child.lua_get([[diagnostic_codes]]), { 'operation.failed', 'package.partial_unknown' })
+    expect.equality(child.lua_get([[#notifications]]), 1)
+    expect.equality(child.lua_get('notifications[1][2]'), vim.log.levels.ERROR)
+    expect.equality(
+      child.lua_get([[vim.inspect({ operation, diagnostic, notifications }):find('SECRET_TOKEN', 1, true) == nil]]),
+      true
+    )
+  end)
 end)
