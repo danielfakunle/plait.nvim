@@ -8,6 +8,72 @@ local state = require('plait.state')
 local M = {}
 
 local sections = { 'modules', 'capabilities', 'effects', 'packages', 'tools', 'diagnostics', 'operations' }
+local subcommands = { 'format', 'inspect', 'packages', 'tooling', 'validate' }
+local package_actions = { 'sync', 'sync!' }
+local tooling_actions = { 'check', 'ensure', 'install', 'update' }
+
+--- Return sorted candidates matching the current argument lead.
+---@param candidates string[]
+---@param argument_lead string
+---@return string[]
+local function matching(candidates, argument_lead)
+  local selected = vim.tbl_filter(function(candidate) return vim.startswith(candidate, argument_lead) end, candidates)
+  table.sort(selected)
+  return selected
+end
+
+--- Return identities from one completed-snapshot section without publishing state.
+---@param section string
+---@return string[]
+local function snapshot_identities(section)
+  if not state.snapshot or not vim.tbl_contains(sections, section) then return {} end
+  local identities = {}
+  local seen = {}
+  for _, record in ipairs(state.snapshot[section] or {}) do
+    local identity = section == 'diagnostics' and record.code or record.identity
+    if type(identity) == 'string' and not seen[identity] then
+      identities[#identities + 1] = identity
+      seen[identity] = true
+    end
+  end
+  table.sort(identities)
+  return identities
+end
+
+--- Complete arguments accepted by the process-wide Plait command.
+---@param argument_lead string
+---@param command_line string
+---@param cursor_position integer
+---@return string[]
+function M.complete(argument_lead, command_line, cursor_position)
+  local before_cursor = command_line:sub(1, cursor_position)
+  local arguments = vim.split(before_cursor, '%s+', { trimempty = true })
+  if before_cursor:match('%s$') then arguments[#arguments + 1] = '' end
+  if #arguments == 2 then return matching(subcommands, argument_lead) end
+  local subcommand = arguments[2]
+  if subcommand == 'inspect' and #arguments == 3 then
+    local candidates = vim.deepcopy(sections)
+    candidates[#candidates + 1] = '--json'
+    return matching(candidates, argument_lead)
+  end
+  if subcommand == 'inspect' and #arguments == 4 and vim.tbl_contains(sections, arguments[3]) then
+    local candidates = snapshot_identities(arguments[3])
+    candidates[#candidates + 1] = '--json'
+    return matching(candidates, argument_lead)
+  end
+  if subcommand == 'inspect' and #arguments == 5 and vim.tbl_contains(sections, arguments[3]) then
+    if vim.tbl_contains(snapshot_identities(arguments[3]), arguments[4]) then
+      return matching({ '--json' }, argument_lead)
+    end
+    return {}
+  end
+  if subcommand == 'packages' and #arguments == 3 then return matching(package_actions, argument_lead) end
+  if subcommand == 'tooling' and #arguments == 3 then return matching(tooling_actions, argument_lead) end
+  if subcommand == 'tooling' and #arguments == 4 and (arguments[3] == 'install' or arguments[3] == 'update') then
+    return matching(snapshot_identities('tools'), argument_lead)
+  end
+  return {}
+end
 
 --- Raise a command misuse error.
 ---@param message string

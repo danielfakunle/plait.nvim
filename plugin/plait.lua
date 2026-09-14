@@ -7,7 +7,13 @@ if vim.fn.exists(':Plait') == 0 then
   vim.api.nvim_create_user_command(
     'Plait',
     function(command) require('plait.command').dispatch(command.fargs, command) end,
-    { nargs = '+', range = true }
+    {
+      nargs = '+',
+      range = true,
+      complete = function(argument_lead, command_line, cursor_position)
+        return require('plait.command').complete(argument_lead, command_line, cursor_position)
+      end,
+    }
   )
 else
   state.bootstrap_diagnostics = {

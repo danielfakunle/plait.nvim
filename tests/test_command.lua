@@ -6,6 +6,104 @@ before_each(function() child.setup() end)
 teardown(function() child.stop() end)
 
 describe('Plait command', function()
+  it('completes every supported top-level subcommand deterministically', function()
+    expect.equality(child.lua_get([[vim.fn.getcompletion('Plait ', 'cmdline')]]), {
+      'format',
+      'inspect',
+      'packages',
+      'tooling',
+      'validate',
+    })
+    expect.equality(child.lua_get([[vim.fn.getcompletion('Plait in', 'cmdline')]]), { 'inspect' })
+  end)
+
+  it('completes only valid static arguments at each nested command position', function()
+    expect.equality(child.lua_get([[vim.fn.getcompletion('Plait inspect ', 'cmdline')]]), {
+      '--json',
+      'capabilities',
+      'diagnostics',
+      'effects',
+      'modules',
+      'operations',
+      'packages',
+      'tools',
+    })
+    expect.equality(child.lua_get([[vim.fn.getcompletion('Plait packages ', 'cmdline')]]), { 'sync', 'sync!' })
+    expect.equality(child.lua_get([[vim.fn.getcompletion('Plait tooling ', 'cmdline')]]), {
+      'check',
+      'ensure',
+      'install',
+      'update',
+    })
+    expect.equality(child.lua_get([[vim.fn.getcompletion('Plait validate ', 'cmdline')]]), {})
+    expect.equality(child.lua_get([[vim.fn.getcompletion('Plait packages sync ', 'cmdline')]]), {})
+    expect.equality(child.lua_get([[vim.fn.getcompletion('Plait tooling check ', 'cmdline')]]), {})
+  end)
+
+  it('completes inspection identities, JSON, and effective tool identities without side effects', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'language', 'formatting', 'tooling', 'lang.lua' })
+      config:validate()
+      completion_snapshot_before = vim.inspect({
+        modules = M.inspect('modules'),
+        tools = M.inspect('tools'),
+        operations = M.inspect('operations'),
+      })
+    ]])
+
+    expect.equality(child.lua_get([[vim.fn.getcompletion('Plait inspect modules ', 'cmdline')]]), {
+      '--json',
+      'formatting',
+      'lang.lua',
+      'language',
+      'tooling',
+    })
+    expect.equality(child.lua_get([[vim.fn.getcompletion('Plait inspect modules la', 'cmdline')]]), {
+      'lang.lua',
+      'language',
+    })
+    expect.equality(child.lua_get([[vim.fn.getcompletion('Plait inspect modules lang.lua ', 'cmdline')]]), {
+      '--json',
+    })
+    expect.equality(child.lua_get([[vim.fn.getcompletion('Plait inspect operations ', 'cmdline')]]), { '--json' })
+    expect.equality(child.lua_get([[vim.fn.getcompletion('Plait tooling install ', 'cmdline')]]), {
+      'lua-language-server',
+      'stylua',
+    })
+    expect.equality(child.lua_get([[vim.fn.getcompletion('Plait tooling update sty', 'cmdline')]]), { 'stylua' })
+    expect.equality(child.lua_get([[vim.fn.getcompletion('Plait tooling install stylua ', 'cmdline')]]), {})
+    expect.equality(child.lua_get([[vim.fn.getcompletion('Plait inspect modules --json ', 'cmdline')]]), {})
+    expect.equality(
+      child.lua_get([[
+        completion_snapshot_before == vim.inspect({
+          modules = M.inspect('modules'),
+          tools = M.inspect('tools'),
+          operations = M.inspect('operations'),
+        })
+      ]]),
+      true
+    )
+  end)
+
+  it('completes repeated diagnostic codes as one accepted inspection identity', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'editor' })
+      config:configure({ unknown = true, editor = { line_numbers = 1 } })
+      config:validate()
+    ]])
+
+    expect.equality(child.lua_get([[vim.fn.getcompletion('Plait inspect diagnostics ', 'cmdline')]]), {
+      '--json',
+      'config.invalid',
+    })
+    expect.equality(
+      child.cmd_capture('Plait inspect diagnostics config.invalid --json'):match('^diagnostics: %['),
+      'diagnostics: ['
+    )
+  end)
+
   it('registers one process-wide dispatcher', function()
     expect.equality(child.lua_get([[vim.api.nvim_get_commands({ builtin = false }).Plait.nargs]]), '+')
     expect.equality(
