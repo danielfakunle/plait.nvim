@@ -13,22 +13,21 @@ Language, completion, formatting, tooling, package management, and provider acti
 
 ## 1. Create an isolated environment
 
-Use a fresh terminal so your normal Neovim configuration cannot affect the results:
+Use a fresh Fish shell. `NVIM_APPNAME` gives the test its own config, data, state, and cache directories without changing the XDG environment used by other applications:
 
-```sh
-export PLAIT_REPO=/Users/daniel/Developer/plait.nvim
-export PLAIT_UX="$(mktemp -d /tmp/plait-alpha-ux.XXXXXX)"
-export XDG_CONFIG_HOME="$PLAIT_UX/config"
-export XDG_DATA_HOME="$PLAIT_UX/data"
-export XDG_STATE_HOME="$PLAIT_UX/state"
-export XDG_CACHE_HOME="$PLAIT_UX/cache"
+```fish
+set -gx PLAIT_REPO /Users/daniel/Developer/plait.nvim
+set -gx NVIM_APPNAME plait-alpha-ux
+set -gx PLAIT_UX /tmp/plait-alpha-ux
 
-mkdir -p "$XDG_CONFIG_HOME/nvim"
+mkdir -p ~/.config/$NVIM_APPNAME $PLAIT_UX
 ```
+
+Choose a new app name, such as `plait-alpha-ux-2`, when repeating the test from a completely clean state.
 
 Confirm the tested Neovim is in the supported range:
 
-```sh
+```fish
 nvim --version
 ```
 
@@ -36,7 +35,7 @@ Expected: Neovim `>=0.12.5,<0.13.0`.
 
 ## 2. Create the test configuration
 
-Create `$XDG_CONFIG_HOME/nvim/init.lua` with:
+Create `~/.config/$NVIM_APPNAME/init.lua` with:
 
 ```lua
 vim.opt.runtimepath:prepend(vim.env.PLAIT_REPO)
@@ -109,8 +108,8 @@ _G.plait_apply = config:apply()
 
 ### 3. Start Neovim
 
-```sh
-PLAIT_PROFILE=default nvim "$PLAIT_UX/notes.txt"
+```fish
+env PLAIT_PROFILE=default nvim $PLAIT_UX/notes.txt
 ```
 
 Record whether startup is clean and whether any messages are confusing.
@@ -284,8 +283,8 @@ Expected: the previous-session change can be undone.
 
 Quit and run:
 
-```sh
-PLAIT_PROFILE=custom nvim "$PLAIT_UX/custom.txt"
+```fish
+env PLAIT_PROFILE=custom nvim $PLAIT_UX/custom.txt
 ```
 
 Verify:
@@ -317,8 +316,8 @@ Expected: the inspected values accurately explain the behavior you observed.
 
 Quit and run:
 
-```sh
-PLAIT_PROFILE=invalid nvim
+```fish
+env PLAIT_PROFILE=invalid nvim
 ```
 
 Run:
@@ -407,6 +406,21 @@ Missing providers and tools are expected during Alpha. Evaluate whether health c
 - Informational details
 
 ## Feedback rubric
+
+Copy this rubric into a results file and complete it while testing. Mark exactly one outcome per row:
+
+- **Pass**: The behavior matched the expectation and was understandable without extra investigation.
+- **Hesitation**: The behavior worked, but you had to guess, reread instructions, repeat a step, or consult source code.
+- **Failure**: The behavior was incorrect, an expected result did not occur, or you could not continue.
+
+Use **Notes** to record what happened. For every hesitation or failure, include the procedure step, the command or action, the exact message or behavior, what you expected, what you tried next, and whether this procedure made recovery possible. Preserve relevant inspection or health output. Usability friction should be marked as a hesitation even when the final editor state is correct.
+
+Examples:
+
+| Area | Pass | Hesitation | Failure | Notes |
+| --- | --- | --- | --- | --- |
+| Inspection discoverability | | ✓ | | Step 4 worked, but I tried `:Plait modules` before finding `:Plait inspect modules`. The procedure corrected me; no source-code lookup was needed. |
+| Persistent undo | | | ✓ | In step 9, `u` did not restore the previous-session change. `:set undofile?` reported `undofile`; restarting and repeating the step did not help. |
 
 For each section, record:
 
