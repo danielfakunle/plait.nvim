@@ -15,11 +15,11 @@ description: Generated facts for supported capability configuration.
 | `completion.mappings.scroll_documentation_up`   | `non-empty key string \| false`                    | `<C-b>`                                   |
 | `completion.mappings.trigger`                   | `non-empty key string \| false`                    | `<C-Space>`                               |
 | `completion.signature_help`                     | `boolean`                                          | `true`                                    |
-| `completion.sources`                            | `dense array of lsp \| buffer \| path \| snippets` | `{ "lsp", "buffer", "path", "snippets" }` |
+| `completion.sources`                            | `dense array of lsp \| buffer \| path \| snippets` | `{ "lsp", "path", "snippets", "buffer" }` |
 | `editor.clipboard`                              | `auto \| system \| osc52 \| disabled`              | `auto`                                    |
 | `editor.indentation.style`                      | `spaces \| tabs`                                   | `spaces`                                  |
 | `editor.indentation.width`                      | `integer 1..16`                                    | `2`                                       |
-| `editor.line_numbers`                           | `absolute \| relative \| off`                      | `absolute`                                |
+| `editor.line_numbers`                           | `absolute \| relative \| off`                      | `relative`                                |
 | `editor.mappings.clear_search`                  | `non-empty key string \| false`                    | `<Esc>`                                   |
 | `editor.mappings.focus_down`                    | `non-empty key string \| false`                    | `<C-j>`                                   |
 | `editor.mappings.focus_left`                    | `non-empty key string \| false`                    | `<C-h>`                                   |
@@ -48,4 +48,5 @@ description: Generated facts for supported capability configuration.
 | `language.mappings.previous_diagnostic`         | `non-empty key string \| false`                    | `[d`                                      |
 | `language.mappings.references`                  | `non-empty key string \| false`                    | `gr`                                      |
 | `language.mappings.rename`                      | `non-empty key string \| false`                    | `<leader>cr`                              |
+| `operation_feedback`                            | `errors \| all \| silent`                          | `errors`                                  |
 | `tooling.check_on_startup`                      | `boolean`                                          | `true`                                    |

@@ -1,9 +1,11 @@
 local M = {}
 
+M.operation_feedback = { type = 'enum', values = { 'errors', 'all', 'silent' }, default = 'errors' }
+
 M.editor = {
   type = 'map',
   fields = {
-    line_numbers = { type = 'enum', values = { 'absolute', 'relative', 'off' }, default = 'absolute' },
+    line_numbers = { type = 'enum', values = { 'absolute', 'relative', 'off' }, default = 'relative' },
     persistent_undo = { type = 'boolean', default = true },
     yank_highlight = { type = 'boolean', default = true },
     splits = {
@@ -72,7 +74,7 @@ M.completion = {
     sources = {
       type = 'array',
       item = { type = 'enum', values = { 'lsp', 'buffer', 'path', 'snippets' } },
-      default = { 'lsp', 'buffer', 'path', 'snippets' },
+      default = { 'lsp', 'path', 'snippets', 'buffer' },
     },
     documentation = { type = 'enum', values = { 'selected', 'automatic', 'off' }, default = 'selected' },
     signature_help = { type = 'boolean', default = true },

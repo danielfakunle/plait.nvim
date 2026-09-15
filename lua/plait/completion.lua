@@ -157,10 +157,20 @@ local function setup_options(configuration)
         show_on_keyword = configuration.automatic,
         show_on_trigger_character = configuration.automatic,
       },
-      documentation = { auto_show = configuration.documentation ~= 'off' },
+      list = { selection = { preselect = false } },
+      documentation = { auto_show = configuration.documentation ~= 'off', auto_show_delay_ms = 200 },
     },
     signature = { enabled = configuration.signature_help },
     sources = { default = vim.deepcopy(configuration.sources) },
+    cmdline = {
+      enabled = true,
+      keymap = { preset = 'cmdline', ['<Right>'] = false, ['<Left>'] = false },
+      completion = {
+        list = { selection = { preselect = false } },
+        menu = { auto_show = function() return vim.fn.getcmdtype() == ':' end },
+        ghost_text = { enabled = true },
+      },
+    },
     fuzzy = { implementation = 'prefer_rust_with_warning' },
   })
 end

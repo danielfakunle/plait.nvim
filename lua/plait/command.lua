@@ -165,7 +165,9 @@ end
 
 --- Render a closed action result for the command line.
 ---@param result table
-local function render_result(result) print(result_presentation.render_command(result)) end
+local function render_result(result)
+  if require('plait.feedback').present_result(result) then print(result_presentation.render_command(result)) end
+end
 
 --- Dispatch the process-wide Plait command.
 ---@param arguments string[]

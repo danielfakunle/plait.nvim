@@ -67,12 +67,14 @@ local function runtime_artifact()
     '',
   }
   for _, capability in ipairs(sorted_keys(schema)) do
-    local class_name = 'Plait' .. capability:gsub('^%l', string.upper) .. 'Configuration'
-    lines[#lines + 1] = '---@class ' .. class_name
-    for _, name in ipairs(sorted_keys(schema[capability].fields)) do
-      lines[#lines + 1] = '---@field ' .. name .. '? ' .. annotation_type(schema[capability].fields[name])
+    if schema[capability].type == 'map' then
+      local class_name = 'Plait' .. capability:gsub('^%l', string.upper) .. 'Configuration'
+      lines[#lines + 1] = '---@class ' .. class_name
+      for _, name in ipairs(sorted_keys(schema[capability].fields)) do
+        lines[#lines + 1] = '---@field ' .. name .. '? ' .. annotation_type(schema[capability].fields[name])
+      end
+      lines[#lines + 1] = ''
     end
-    lines[#lines + 1] = ''
   end
   lines[#lines + 1] = 'return ' .. serialize(schema, 0)
   lines[#lines + 1] = ''
@@ -158,7 +160,15 @@ end
 local function reference_artifact()
   local rows = {}
   for _, capability in ipairs(sorted_keys(schema)) do
-    reference_rows(schema[capability], capability .. '.', rows)
+    if schema[capability].type == 'map' then
+      reference_rows(schema[capability], capability .. '.', rows)
+    else
+      rows[#rows + 1] = {
+        '`' .. capability .. '`',
+        '`' .. describe(schema[capability]) .. '`',
+        display_default(schema[capability].default),
+      }
+    end
   end
   return table.concat({
     '---',

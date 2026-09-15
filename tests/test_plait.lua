@@ -53,6 +53,24 @@ local function without_provenance(plan)
 end
 
 describe('effective plan', function()
+  it('validates the capability-neutral operation feedback configuration point', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'editor' })
+      config:configure({ operation_feedback = 'all' })
+      feedback_validation = config:validate()
+      feedback_policy = require('plait.state').operation_feedback
+    ]])
+
+    expect.equality(child.lua_get([[feedback_validation.status]]), 'valid')
+    expect.equality(child.lua_get([[feedback_policy]]), 'all')
+    expect.equality(child.lua_get([[require('plait.schema_generated').operation_feedback]]), {
+      type = 'enum',
+      values = { 'errors', 'all', 'silent' },
+      default = 'errors',
+    })
+  end)
+
   it('validates and publishes the minimal editor plan', function()
     child.lua(minimal_editor .. [[result = config:validate()]])
 

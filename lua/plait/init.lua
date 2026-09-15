@@ -87,7 +87,7 @@ function Collector:select(entries)
 end
 
 --- Add capability configuration to this Plait configuration.
----@param declaration { editor?: PlaitEditorConfiguration, language?: PlaitLanguageConfiguration, completion?: PlaitCompletionConfiguration, formatting?: PlaitFormattingConfiguration, tooling?: PlaitToolingConfiguration }
+---@param declaration { operation_feedback?: 'errors'|'all'|'silent', editor?: PlaitEditorConfiguration, language?: PlaitLanguageConfiguration, completion?: PlaitCompletionConfiguration, formatting?: PlaitFormattingConfiguration, tooling?: PlaitToolingConfiguration }
 ---@return PlaitCollector
 function Collector:configure(declaration)
   ensure_collecting(self)
@@ -249,6 +249,7 @@ local function resolve(collector)
     schema,
     collector.override_calls
   )
+  if configuration then state.operation_feedback = configuration.operation_feedback end
   local semantic_diagnostic_count = #diagnostics
   vim.list_extend(diagnostics, vim.deepcopy(state.bootstrap_diagnostics))
   vim.list_extend(diagnostics, vim.deepcopy(state.operation_diagnostics))

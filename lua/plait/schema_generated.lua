@@ -87,9 +87,9 @@ return {
       sources = {
         default = {
           [1] = 'lsp',
-          [2] = 'buffer',
-          [3] = 'path',
-          [4] = 'snippets',
+          [2] = 'path',
+          [3] = 'snippets',
+          [4] = 'buffer',
         },
         item = {
           type = 'enum',
@@ -137,7 +137,7 @@ return {
         type = 'map',
       },
       line_numbers = {
-        default = 'absolute',
+        default = 'relative',
         type = 'enum',
         values = {
           [1] = 'absolute',
@@ -308,6 +308,15 @@ return {
       },
     },
     type = 'map',
+  },
+  operation_feedback = {
+    default = 'errors',
+    type = 'enum',
+    values = {
+      [1] = 'errors',
+      [2] = 'all',
+      [3] = 'silent',
+    },
   },
   tooling = {
     fields = {

@@ -8,6 +8,13 @@ teardown(function() child.stop() end)
 local function restart_with_init(path) child.restart({ '--clean', '-u', path }) end
 
 describe('editor capability application', function()
+  it('uses Space as the conventional mapping leader', function()
+    restart_with_init('tests/fixtures/editor_apply/init.lua')
+
+    expect.equality(child.lua_get([[vim.g.mapleader]]), ' ')
+    expect.equality(child.lua_get([[vim.fn.maparg(' w', 'n', false, true).callback ~= nil]]), true)
+  end)
+
   it('re-resolves and applies configured native behavior during init.lua', function()
     restart_with_init('tests/fixtures/editor_apply/init.lua')
 

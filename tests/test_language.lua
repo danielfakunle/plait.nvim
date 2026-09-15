@@ -15,6 +15,45 @@ local function activate_language()
 end
 
 describe('language capability facade', function()
+  it('replaces the native gr mapping family when language is applied', function()
+    child.lua([[
+      local language = require('plait.language')
+      vim.lsp.get_clients = function()
+        return { { supports_method = function(_, method) return method == 'textDocument/references' end } }
+      end
+      language.apply_effect('language/actions-and-mappings', {
+        mappings = { previous_diagnostic = false, next_diagnostic = false, definition = false, references = 'gr',
+          hover = false, rename = false, code_action = false },
+      })
+    ]])
+
+    expect.equality(child.lua_get([[vim.fn.maparg('gr', 'n', false, true).callback ~= nil]]), true)
+    for _, mapping in ipairs({ 'grr', 'gra', 'grn', 'gri', 'grt' }) do
+      expect.equality(child.lua_get(([[vim.fn.maparg(%q, 'n')]]):format(mapping)), '')
+    end
+  end)
+
+  it('preserves owner and plugin gr mappings while removing only native defaults', function()
+    child.lua([[
+      local language = require('plait.language')
+      vim.keymap.set('n', 'grr', function() end, { desc = 'Owner references' })
+      vim.keymap.set('n', 'gra', function() end, { buffer = 0, desc = 'Plugin action' })
+      language.apply_effect('language/actions-and-mappings', {
+        mappings = { previous_diagnostic = false, next_diagnostic = false, definition = false, references = false,
+          hover = false, rename = false, code_action = false },
+      })
+      owner_grr = vim.fn.maparg('grr', 'n', false, true)
+      plugin_gra = vim.fn.maparg('gra', 'n', false, true)
+    ]])
+
+    expect.equality(child.lua_get([[owner_grr.desc]]), 'Owner references')
+    expect.equality(child.lua_get([[plugin_gra.desc]]), 'Plugin action')
+    expect.equality(child.lua_get([[plugin_gra.buffer]]), 1)
+    for _, mapping in ipairs({ 'grn', 'gri', 'grt' }) do
+      expect.equality(child.lua_get(([[vim.fn.maparg(%q, 'n')]]):format(mapping)), '')
+    end
+  end)
+
   it('plans the canonical TypeScript language integration', function()
     child.lua([[
       local config = M.config()
@@ -298,6 +337,7 @@ describe('language capability facade', function()
       end
       notifications = {}
       vim.notify = function(message, level) notifications[#notifications + 1] = { message, level } end
+      require('plait.state').operation_feedback = 'all'
       started = M.actions.language.definition()
       vim.cmd.enew()
       vim.wait(1000, function() return M.inspect('operations')[1].state ~= 'pending' end)
@@ -326,8 +366,9 @@ describe('language capability facade', function()
       details = { buffer = 1, position = { line = 2, character = 4 } },
     })
     expect.equality(child.lua_get([[#M.inspect('diagnostics', 'operation.succeeded')]]), 1)
-    expect.equality(child.lua_get([[#notifications]]), 1)
+    expect.equality(child.lua_get([[#notifications]]), 2)
     expect.equality(child.lua_get('notifications[1][2]'), vim.log.levels.INFO)
+    expect.equality(child.lua_get('notifications[2][2]'), vim.log.levels.INFO)
   end)
 
   it('sanitizes asynchronous action failures in canonical records', function()
@@ -360,6 +401,50 @@ describe('language capability facade', function()
     expect.equality(child.lua_get([[#notifications]]), 1)
     expect.equality(child.lua_get('notifications[1][2]'), vim.log.levels.ERROR)
     expect.equality(child.lua_get([[vim.inspect(operation):find('SECRET', 1, true) == nil]]), true)
+  end)
+
+  it('keeps operation records inspectable under every automatic feedback mode', function()
+    activate_language()
+    child.lua([[
+      vim.lsp.get_clients = function()
+        return { { supports_method = function() return true end } }
+      end
+      local failed = false
+      vim.lsp.buf.hover = function()
+        if failed then error('expected failure') end
+      end
+      notifications = {}
+      vim.notify = function(message, level) notifications[#notifications + 1] = { message, level } end
+      for _, policy in ipairs({ 'errors', 'all', 'silent' }) do
+        require('plait.state').operation_feedback = policy
+        local success = M.actions.language.hover()
+        vim.wait(1000, function() return M.inspect('operations', success.operation_id).state ~= 'pending' end)
+        failed = true
+        local failure = M.actions.language.hover()
+        vim.wait(1000, function() return M.inspect('operations', failure.operation_id).state ~= 'pending' end)
+        failed = false
+      end
+      feedback_operations = M.inspect('operations')
+    ]])
+
+    expect.equality(child.lua_get([[vim.tbl_map(function(item) return item.state end, feedback_operations)]]), {
+      'succeeded',
+      'failed',
+      'succeeded',
+      'failed',
+      'succeeded',
+      'failed',
+    })
+    expect.equality(child.lua_get([[#notifications]]), 5)
+    expect.equality(child.lua_get('notifications[1][2]'), vim.log.levels.ERROR)
+    expect.equality(child.lua_get('notifications[2][2]'), vim.log.levels.INFO)
+    expect.equality(child.lua_get('notifications[3][2]'), vim.log.levels.INFO)
+    expect.equality(child.lua_get('notifications[4][2]'), vim.log.levels.INFO)
+    expect.equality(child.lua_get('notifications[5][2]'), vim.log.levels.ERROR)
+    expect.equality(
+      child.lua_get('notifications[2][1]'),
+      'Plait operation language.hover started (op-00000003)\nInspect progress: :Plait inspect operations op-00000003'
+    )
   end)
 
   it('orders accepted operations by start time and then identity', function()

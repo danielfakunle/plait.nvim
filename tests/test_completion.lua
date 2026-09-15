@@ -63,19 +63,36 @@ describe('completion capability facade', function()
     expect.equality(child.lua_get([[completion_apply_result.status]]), 'performed')
     expect.equality(child.lua_get([[type(blink_setup.enabled)]]), 'function')
     expect.equality(child.lua_get([[blink_setup.enabled()]]), true)
-    child.lua([[blink_setup_without_enabled = vim.deepcopy(blink_setup); blink_setup_without_enabled.enabled = nil]])
+    child.lua([[
+      blink_setup_without_enabled = vim.deepcopy(blink_setup)
+      blink_setup_without_enabled.enabled = nil
+      blink_cmdline_auto_show = blink_setup_without_enabled.cmdline.completion.menu.auto_show
+      blink_setup_without_enabled.cmdline.completion.menu.auto_show = nil
+    ]])
     expect.equality(child.lua_get([[blink_setup_without_enabled]]), {
       appearance = { nerd_font_variant = 'mono' },
       keymap = { preset = 'none' },
       completion = {
         menu = { enabled = true, auto_show = false },
         trigger = { show_on_keyword = false, show_on_trigger_character = false },
-        documentation = { auto_show = true },
+        list = { selection = { preselect = false } },
+        documentation = { auto_show = true, auto_show_delay_ms = 200 },
       },
       signature = { enabled = false },
       sources = { default = { 'path', 'buffer', 'snippets', 'lsp' } },
+      cmdline = {
+        enabled = true,
+        keymap = { preset = 'cmdline', ['<Right>'] = false, ['<Left>'] = false },
+        completion = {
+          list = { selection = { preselect = false } },
+          menu = {},
+          ghost_text = { enabled = true },
+        },
+      },
       fuzzy = { implementation = 'prefer_rust_with_warning' },
     })
+    expect.equality(child.lua_get([[type(blink_cmdline_auto_show)]]), 'function')
+    expect.equality(child.lua_get([[blink_cmdline_auto_show()]]), false)
     expect.equality(child.lua_get([[vim.fn.maparg('<CR>', 'i', false, true)]]), {})
     expect.equality(child.lua_get([[(vim.fn.maparg('<Tab>', 'i', false, true).sid or 0) <= 0]]), true)
     expect.equality(child.lua_get([[vim.fn.maparg('<C-n>', 'i', false, true).callback()]]), '<C-n>')

@@ -158,6 +158,15 @@ local requests = {
   code_action = { method = 'textDocument/codeAction', invoke = function() vim.lsp.buf.code_action() end },
 }
 
+local superseded_native_mappings = { 'grr', 'gra', 'grn', 'gri', 'grt' }
+local native_mapping_descriptions = {
+  grr = 'vim.lsp.buf.references()',
+  gra = 'vim.lsp.buf.code_action()',
+  grn = 'vim.lsp.buf.rename()',
+  gri = 'vim.lsp.buf.implementation()',
+  grt = 'vim.lsp.buf.type_definition()',
+}
+
 --- Find the bytewise-first degraded managed server matching a buffer.
 ---@param buffer integer
 ---@return table|nil
@@ -351,6 +360,15 @@ function M.apply_effect(identity, configuration, effective_plan)
     vim.diagnostic.config(vim.deepcopy(configuration.diagnostics))
     vim.lsp.inlay_hint.enable(configuration.inlay_hints, { bufnr = buffer })
   elseif identity == 'language/actions-and-mappings' then
+    local native = {}
+    for _, mapping in ipairs(vim.api.nvim_get_keymap('n')) do
+      if mapping.sid and mapping.sid < 0 and mapping.desc == native_mapping_descriptions[mapping.lhs] then
+        native[mapping.lhs] = true
+      end
+    end
+    for _, lhs in ipairs(superseded_native_mappings) do
+      if native[lhs] then vim.keymap.del('n', lhs) end
+    end
     map('n', configuration.mappings.previous_diagnostic, M.actions.previous_diagnostic, buffer)
     map('n', configuration.mappings.next_diagnostic, M.actions.next_diagnostic, buffer)
     M.attach(buffer, configuration.mappings)

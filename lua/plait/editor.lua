@@ -81,6 +81,7 @@ local function set_option(name, value) vim.api.nvim_set_option_value(name, value
 --- Apply the editor's deliberately managed native options.
 ---@param configuration table
 local function apply_options(configuration)
+  vim.api.nvim_set_var('mapleader', ' ')
   set_option('termguicolors', true)
   set_option('ignorecase', true)
   set_option('smartcase', true)

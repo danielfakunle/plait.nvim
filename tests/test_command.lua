@@ -318,7 +318,7 @@ describe('Plait command', function()
       config:validate()
     ]])
 
-    expect.equality(child.cmd_capture('Plait packages sync!'), 'plait: packages.sync performed')
+    expect.equality(child.cmd_capture('Plait packages sync!'), '')
     expect.equality(child.lua_get([[M.inspect('operations')]]), {})
   end)
 
@@ -329,8 +329,8 @@ describe('Plait command', function()
       config:validate()
     ]])
 
-    expect.equality(child.cmd_capture('Plait tooling check'), 'plait: tooling.check performed')
-    expect.equality(child.cmd_capture('Plait tooling ensure'), 'plait: tooling.ensure performed')
+    expect.equality(child.cmd_capture('Plait tooling check'), '')
+    expect.equality(child.cmd_capture('Plait tooling ensure'), '')
   end)
 
   it('routes command ranges through the shared formatting action', function()
@@ -345,15 +345,37 @@ describe('Plait command', function()
       end
     ]])
 
-    expect.equality(
-      child.cmd_capture('2,3Plait format'),
-      'plait: formatting.format started (op-00000009)\ninspect progress: :Plait inspect operations op-00000009'
-    )
+    expect.equality(child.cmd_capture('2,3Plait format'), '')
     expect.equality(child.lua_get([[command_format_options]]), {
       range = {
         start = { line = 1, character = 0 },
         end_ = { line = 2, character = 5 },
       },
     })
+  end)
+
+  it('applies every automatic operation feedback policy to command results', function()
+    child.lua([[
+      M.actions.tooling.check = function()
+        return { status = 'performed', operation = 'tooling.check', details = {} }
+      end
+      M.actions.tooling.ensure = function()
+        return { status = 'unavailable', operation = 'tooling.ensure', reason = 'capability_inactive',
+          details = { capability = 'tooling' } }
+      end
+    ]])
+
+    child.lua([[require('plait.state').operation_feedback = 'errors']])
+    expect.equality(child.cmd_capture('Plait tooling check'), '')
+    expect.equality(
+      child.cmd_capture('Plait tooling ensure'):match('^plait: tooling.ensure unavailable'),
+      'plait: tooling.ensure unavailable'
+    )
+
+    child.lua([[require('plait.state').operation_feedback = 'all']])
+    expect.equality(child.cmd_capture('Plait tooling check'), 'plait: tooling.check performed')
+
+    child.lua([[require('plait.state').operation_feedback = 'silent']])
+    expect.equality(child.cmd_capture('Plait tooling ensure'), '')
   end)
 end)

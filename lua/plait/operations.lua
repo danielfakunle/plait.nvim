@@ -43,6 +43,17 @@ function M.start(definition)
   }
   state.operations[#state.operations + 1] = record
   if state.snapshot then state.snapshot.operations = state.operations end
+  if state.operation_feedback == 'all' then
+    pcall(
+      vim.notify,
+      ('Plait operation %s started (%s)\nInspect progress: :Plait inspect operations %s'):format(
+        operation_name,
+        operation_id,
+        operation_id
+      ),
+      vim.log.levels.INFO
+    )
+  end
 
   local completed = false
   local function done(ok)
@@ -101,11 +112,13 @@ function M.start(definition)
       state.snapshot.diagnostics[#state.snapshot.diagnostics + 1] = vim.deepcopy(diagnostic)
       validation.sort_diagnostics(state.snapshot.diagnostics)
     end
-    pcall(
-      vim.notify,
-      ('Plait operation %s %s (%s)'):format(operation_name, ok and 'succeeded' or 'failed', operation_id),
-      ok and vim.log.levels.INFO or vim.log.levels.ERROR
-    )
+    if require('plait.feedback').present_completion(ok) then
+      pcall(
+        vim.notify,
+        ('Plait operation %s %s (%s)'):format(operation_name, ok and 'succeeded' or 'failed', operation_id),
+        ok and vim.log.levels.INFO or vim.log.levels.ERROR
+      )
+    end
   end
   vim.schedule(function()
     local ok = pcall(definition.work, done)

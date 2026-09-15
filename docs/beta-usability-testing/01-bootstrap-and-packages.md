@@ -145,6 +145,7 @@ Cancel the startup installation prompt, then run:
 Wait until the operation is no longer pending and inspect again. Expected:
 
 - The command immediately returns `started` with an operation ID.
+- Under the default `operation_feedback = 'errors'`, the start and successful completion are not printed automatically; use `:Plait inspect operations` for the ID and final state. The Lua facade still returns a structured `started` result that can be explicitly rendered.
 - The operation record exposes targets, timestamps, final state, result, and any diagnostic codes.
 - Successful packages become `restart_required`; apply is not retried in the mutated process.
 - After quitting and restarting, all packages recompute as `satisfied` and apply completes.
