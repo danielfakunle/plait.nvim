@@ -285,8 +285,8 @@ describe('Plait command', function()
       'Version constraint: >=1,<2',
       'Repair: Install demo in the project.',
       'Affected:\n      target: demo',
-      'Selected at:\n      -\n        file: init.lua\n        line: 12\n        path: select[1]',
-      'Configuration:\n      providers:\n        -\n          identity: demo.nvim',
+      'Selected at:\n      - file: init.lua\n        line: 12\n        path: select[1]',
+      'Configuration:\n      providers:\n        - identity: demo.nvim',
       'values:\n        nested:\n          enabled: true',
       'Error:\n      details:\n        cause: bad option',
     }) do

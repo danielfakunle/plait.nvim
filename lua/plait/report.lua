@@ -7,11 +7,38 @@ local M = {}
 ---@return boolean
 local function empty(value) return value == '' or (type(value) == 'table' and next(value) == nil) end
 
+local append_value
+
+--- Append one map, optionally attaching its first field to a list bullet.
+---@param lines string[]
+---@param value table
+---@param indent integer
+---@param bullet? boolean
+local function append_map(lines, value, indent, bullet)
+  local keys = vim.tbl_keys(value)
+  table.sort(keys)
+  local first = bullet
+  for _, key in ipairs(keys) do
+    local child = value[key]
+    if not empty(child) then
+      local prefix = first and '- ' or ''
+      local line_indent = first and indent or indent + (bullet and 2 or 0)
+      if type(child) == 'table' then
+        lines[#lines + 1] = string.rep(' ', line_indent) .. prefix .. key .. ':'
+        append_value(lines, child, line_indent + 2)
+      else
+        lines[#lines + 1] = string.rep(' ', line_indent) .. prefix .. key .. ': ' .. presentation.value(child)
+      end
+      first = false
+    end
+  end
+end
+
 --- Append one recursively structured report value.
 ---@param lines string[]
 ---@param value any
 ---@param indent integer
-local function append_value(lines, value, indent)
+append_value = function(lines, value, indent)
   if value == nil or value == vim.NIL then
     lines[#lines + 1] = string.rep(' ', indent) .. 'none'
   elseif type(value) ~= 'table' then
@@ -19,26 +46,13 @@ local function append_value(lines, value, indent)
   elseif vim.islist(value) then
     for _, item in ipairs(value) do
       if type(item) == 'table' then
-        lines[#lines + 1] = string.rep(' ', indent) .. '-'
-        append_value(lines, item, indent + 2)
+        append_map(lines, item, indent, true)
       else
         lines[#lines + 1] = string.rep(' ', indent) .. '- ' .. presentation.value(item)
       end
     end
   else
-    local keys = vim.tbl_keys(value)
-    table.sort(keys)
-    for _, key in ipairs(keys) do
-      local child = value[key]
-      if not empty(child) then
-        if type(child) == 'table' then
-          lines[#lines + 1] = string.rep(' ', indent) .. key .. ':'
-          append_value(lines, child, indent + 2)
-        else
-          lines[#lines + 1] = string.rep(' ', indent) .. key .. ': ' .. presentation.value(child)
-        end
-      end
-    end
+    append_map(lines, value, indent)
   end
 end
 
