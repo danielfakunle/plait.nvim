@@ -109,6 +109,10 @@ mv node_modules/.bin/tsc.plait-hidden node_modules/.bin/tsc
 
 Restart and confirm `tsc` returns to `satisfied`.
 
+## 5. Preserve the shared app
+
+Quit Neovim, but keep `plait-beta-ux` and `/tmp/plait-beta-ux` for the composition procedure. Its final cleanup removes the shared Neovim directories, Lua project, TypeScript project, and installed project dependencies together.
+
 ## Feedback rubric
 
 | Area | Pass | Hesitation | Failure | Notes |

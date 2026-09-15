@@ -132,7 +132,15 @@ Start Neovim. Expected: validation and apply succeed; the Mason window uses a si
 
 ## 3. Test guarded provider ownership
 
-Use another new app name with the canonical config and add this before `validate()`:
+Use another new app name with the canonical config:
+
+```fish
+set -gx NVIM_APPNAME plait-beta-guarded-ux
+mkdir -p ~/.config/$NVIM_APPNAME
+cp ~/.config/plait-beta-ux/init.lua ~/.config/$NVIM_APPNAME/init.lua
+```
+
+Add this before `validate()`:
 
 ```lua
 config:providers({
@@ -164,7 +172,15 @@ Assess whether the accepted and rejected examples make the provider escape-hatch
 
 ## 4. Test managed-effect collision preflight
 
-Use a new app name with the canonical config. Before requiring Plait, add a foreign mapping:
+Use a new app name with the canonical config:
+
+```fish
+set -gx NVIM_APPNAME plait-beta-collision-ux
+mkdir -p ~/.config/$NVIM_APPNAME
+cp ~/.config/plait-beta-ux/init.lua ~/.config/$NVIM_APPNAME/init.lua
+```
+
+Before requiring Plait, add a foreign mapping:
 
 ```lua
 vim.keymap.set('n', '<leader>cf', function() end, { desc = 'Foreign formatter' })
@@ -183,7 +199,14 @@ Repeat with the collision removed and confirm application succeeds. Then test a 
 
 ## 5. Test conflict and dependency diagnostics
 
-Use a final new app name with this minimal config:
+Use a final new app name:
+
+```fish
+set -gx NVIM_APPNAME plait-beta-invalid-ux
+mkdir -p ~/.config/$NVIM_APPNAME
+```
+
+Create `~/.config/$NVIM_APPNAME/init.lua` with this minimal config:
 
 ```lua
 vim.opt.runtimepath:prepend(vim.env.PLAIT_REPO)
@@ -205,6 +228,41 @@ Start Neovim and render the invalid validation result before inspecting its stru
 ```
 
 Expected diagnostics include the missing `language` dependency, invalid conflicting configuration, precise source locations, related sources where applicable, and concrete repairs. The invalid snapshot contains diagnostics but no effective modules, capabilities, packages, tools, or effects.
+
+## 6. Clean up all remaining Beta test data
+
+Quit every Beta test Neovim instance. Then remove each app's config, provider packages, state, and cache, followed by the shared Lua and TypeScript project workspace:
+
+```fish
+rm -rf \
+  ~/.config/plait-beta-ux \
+  ~/.local/share/plait-beta-ux \
+  ~/.local/state/plait-beta-ux \
+  ~/.cache/plait-beta-ux \
+  ~/.config/plait-beta-compose-ux \
+  ~/.local/share/plait-beta-compose-ux \
+  ~/.local/state/plait-beta-compose-ux \
+  ~/.cache/plait-beta-compose-ux \
+  ~/.config/plait-beta-provider-ux \
+  ~/.local/share/plait-beta-provider-ux \
+  ~/.local/state/plait-beta-provider-ux \
+  ~/.cache/plait-beta-provider-ux \
+  ~/.config/plait-beta-guarded-ux \
+  ~/.local/share/plait-beta-guarded-ux \
+  ~/.local/state/plait-beta-guarded-ux \
+  ~/.cache/plait-beta-guarded-ux \
+  ~/.config/plait-beta-collision-ux \
+  ~/.local/share/plait-beta-collision-ux \
+  ~/.local/state/plait-beta-collision-ux \
+  ~/.cache/plait-beta-collision-ux \
+  ~/.config/plait-beta-invalid-ux \
+  ~/.local/share/plait-beta-invalid-ux \
+  ~/.local/state/plait-beta-invalid-ux \
+  ~/.cache/plait-beta-invalid-ux \
+  /tmp/plait-beta-ux
+```
+
+All targets are literal Beta-test paths; the command does not depend on the current value of `NVIM_APPNAME` or `PLAIT_UX`. After cleanup, the complete suite can be rerun from the first bootstrap step without stale lockfiles, packages, tools, editor state, caches, or project dependencies.
 
 ## Feedback rubric
 

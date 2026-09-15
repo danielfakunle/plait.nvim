@@ -135,6 +135,10 @@ config:configure({
 
 Restart and verify the observed behavior matches every configured value: completion requires an explicit trigger, documentation/signature help stay off, save does not format, `<leader>f` formats, `K` is unmanaged, and `<leader>ch` hovers. Inspect the three capabilities and confirm their effective values explain the result.
 
+## 6. Preserve the shared app
+
+Quit Neovim, but do not delete `plait-beta-ux` or `/tmp/plait-beta-ux` yet. The TypeScript and composition procedures reuse this app, its qualified provider packages, and its project workspace. They are removed by the final cleanup in the composition and failure-feedback procedure.
+
 ## Feedback rubric
 
 | Area | Pass | Hesitation | Failure | Notes |

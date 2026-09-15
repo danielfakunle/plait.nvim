@@ -149,6 +149,20 @@ Wait until the operation is no longer pending and inspect again. Expected:
 - Successful packages become `restart_required`; apply is not retried in the mutated process.
 - After quitting and restarting, all packages recompute as `satisfied` and apply completes.
 
+## 6. Clean up the synchronization app
+
+Quit Neovim, then remove the disposable synchronization app's config, provider packages, state, and cache:
+
+```fish
+rm -rf \
+  ~/.config/plait-beta-sync-ux \
+  ~/.local/share/plait-beta-sync-ux \
+  ~/.local/state/plait-beta-sync-ux \
+  ~/.cache/plait-beta-sync-ux
+```
+
+Keep `plait-beta-ux` and `/tmp/plait-beta-ux` for the remaining Beta procedures. The final cleanup in the composition and failure-feedback procedure removes them.
+
 ## Feedback rubric
 
 | Area | Pass | Hesitation | Failure | Notes |
