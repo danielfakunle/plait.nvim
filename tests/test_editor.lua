@@ -68,6 +68,42 @@ describe('editor capability application', function()
     expect.equality(child.lua_get([[vim.fn.maparg(' w', 'n', false, true).callback ~= nil]]), true)
   end)
 
+  it('defaults to UI2 and adds a configurable alias for the native message pager', function()
+    restart_with_init('tests/fixtures/editor_apply/init.lua')
+
+    expect.equality(child.lua_get([[vim.fn.maparg(' m', 'n')]]), 'g<')
+    expect.equality(child.lua_get([[vim.fn.maparg('g<', 'n')]]), '')
+    expect.equality(child.lua_get([[#vim.api.nvim_get_autocmds({ event = 'UIEnter', group = 'plait.editor.ui2' })]]), 1)
+    child.lua([[
+      local editor = require('plait.editor')
+      local mappings = {
+        save = false, delete_word = false, clear_search = false, focus_left = false,
+        focus_down = false, focus_up = false, focus_right = false, message_pager = '<F8>',
+      }
+      editor.apply_effect('editor/mappings', { ui2 = true, mappings = mappings })
+    ]])
+    expect.equality(child.lua_get([[vim.fn.maparg('<F8>', 'n')]]), 'g<')
+  end)
+
+  it('lets an owner opt out of UI2 while keeping the pager alias', function()
+    restart_with_init('tests/fixtures/editor_ui2_off/init.lua')
+
+    expect.equality(child.lua_get([[apply_result.status]]), 'performed')
+    expect.equality(child.lua_get([[vim.fn.maparg(' m', 'n')]]), 'g<')
+    expect.equality(
+      child.lua_get([[pcall(vim.api.nvim_get_autocmds, { event = 'UIEnter', group = 'plait.editor.ui2' })]]),
+      false
+    )
+  end)
+
+  it('lets an owner disable the pager alias while keeping UI2 enabled', function()
+    restart_with_init('tests/fixtures/editor_pager_off/init.lua')
+
+    expect.equality(child.lua_get([[apply_result.status]]), 'performed')
+    expect.equality(child.lua_get([[vim.fn.maparg(' m', 'n')]]), '')
+    expect.equality(child.lua_get([[#vim.api.nvim_get_autocmds({ event = 'UIEnter', group = 'plait.editor.ui2' })]]), 1)
+  end)
+
   it('re-resolves and applies configured native behavior during init.lua', function()
     restart_with_init('tests/fixtures/editor_apply/init.lua')
 

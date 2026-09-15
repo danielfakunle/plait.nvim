@@ -123,6 +123,20 @@ local function apply_options(configuration)
   else
     pcall(vim.api.nvim_del_var, 'clipboard')
   end
+
+  if configuration.ui2 then
+    local ok, ui2 = pcall(require, 'vim._core.ui2')
+    if not ok or type(ui2.enable) ~= 'function' then
+      error('plait: Neovim UI2 is unavailable in this supported Neovim version')
+    end
+    --- Enable UI2 only after Neovim has an attached UI.
+    local function enable_ui2()
+      if #vim.api.nvim_list_uis() > 0 then ui2.enable({ enable = true, msg = { targets = 'cmd' } }) end
+    end
+    local group = vim.api.nvim_create_augroup('plait.editor.ui2', { clear = true })
+    vim.api.nvim_create_autocmd('UIEnter', { group = group, callback = enable_ui2 })
+    enable_ui2()
+  end
 end
 
 --- Install one configured global mapping for all fixed modes.
@@ -130,7 +144,7 @@ end
 ---@param lhs string|false
 ---@param callback function|string
 local function map(modes, lhs, callback)
-  if lhs ~= false then vim.keymap.set(modes, lhs, callback) end
+  if lhs ~= false and lhs ~= nil then vim.keymap.set(modes, lhs, callback) end
 end
 
 --- Apply the editor's fixed mapping modes and scopes.
@@ -140,6 +154,7 @@ local function apply_mappings(configuration)
   map({ 'n', 'i', 'x', 's' }, mappings.save, M.actions.save)
   map({ 'i', 'c' }, mappings.delete_word, '<C-w>')
   map('n', mappings.clear_search, M.actions.clear_search)
+  map('n', mappings.message_pager, 'g<')
   map('n', mappings.focus_left, function() M.actions.focus('left') end)
   map('n', mappings.focus_down, function() M.actions.focus('down') end)
   map('n', mappings.focus_up, function() M.actions.focus('up') end)
@@ -162,18 +177,24 @@ end
 ---@return table[]
 function M.preflight_effect(identity, configuration)
   local collisions = {}
-  if identity == 'editor/mappings' then
+  if identity == 'editor/native-options' and configuration.ui2 then
+    local group = 'plait.editor.ui2'
+    if vim.fn.exists('#' .. group) == 1 then
+      collisions[#collisions + 1] = { identity = 'augroup:' .. group, observed_owner = 'augroup' }
+    end
+  elseif identity == 'editor/mappings' then
     local mappings = {
       { { 'n', 'i', 'x', 's' }, configuration.mappings.save },
       { { 'i', 'c' }, configuration.mappings.delete_word },
       { { 'n' }, configuration.mappings.clear_search },
+      { { 'n' }, configuration.mappings.message_pager },
       { { 'n' }, configuration.mappings.focus_left },
       { { 'n' }, configuration.mappings.focus_down },
       { { 'n' }, configuration.mappings.focus_up },
       { { 'n' }, configuration.mappings.focus_right },
     }
     for _, mapping in ipairs(mappings) do
-      if mapping[2] ~= false then
+      if mapping[2] ~= false and mapping[2] ~= nil then
         for _, mode in ipairs(mapping[1]) do
           local observed = vim.fn.maparg(mapping[2], mode, false, true)
           -- Neovim's built-ins and Lua-created mappings both use sid -8.

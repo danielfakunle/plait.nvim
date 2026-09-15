@@ -178,6 +178,10 @@ local function reference_artifact()
     '',
     markdown_table(rows),
     '',
+    'Selecting `editor` enables Neovim UI2 with its default message target (`cmd`). UI2 is experimental.',
+    'Set `editor.ui2 = false` to opt out. `<leader>m` opens the native `g<` message pager;',
+    '`editor.mappings.message_pager` can replace that key or disable the alias with `false`.',
+    '',
   }, '\n')
 end
 

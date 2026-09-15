@@ -8,6 +8,7 @@ M.editor = {
     line_numbers = { type = 'enum', values = { 'absolute', 'relative', 'off' }, default = 'relative' },
     persistent_undo = { type = 'boolean', default = true },
     yank_highlight = { type = 'boolean', default = true },
+    ui2 = { type = 'boolean', default = true },
     splits = {
       type = 'map',
       fields = {
@@ -30,6 +31,7 @@ M.editor = {
         save = { type = 'mapping', default = '<C-s>' },
         delete_word = { type = 'mapping', default = '<A-BS>' },
         clear_search = { type = 'mapping', default = '<Esc>' },
+        message_pager = { type = 'mapping', default = '<leader>m' },
         focus_left = { type = 'mapping', default = '<C-h>' },
         focus_down = { type = 'mapping', default = '<C-j>' },
         focus_up = { type = 'mapping', default = '<C-k>' },

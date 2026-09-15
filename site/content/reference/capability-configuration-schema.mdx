@@ -29,10 +29,12 @@ description: Generated facts for supported capability configuration.
 | `editor.mappings.focus_left`                    | `non-empty key string \| false`                    | `<C-h>`                                   |
 | `editor.mappings.focus_right`                   | `non-empty key string \| false`                    | `<C-l>`                                   |
 | `editor.mappings.focus_up`                      | `non-empty key string \| false`                    | `<C-k>`                                   |
+| `editor.mappings.message_pager`                 | `non-empty key string \| false`                    | `<leader>m`                               |
 | `editor.mappings.save`                          | `non-empty key string \| false`                    | `<C-s>`                                   |
 | `editor.persistent_undo`                        | `boolean`                                          | `true`                                    |
 | `editor.splits.horizontal`                      | `below \| above`                                   | `below`                                   |
 | `editor.splits.vertical`                        | `right \| left`                                    | `right`                                   |
+| `editor.ui2`                                    | `boolean`                                          | `true`                                    |
 | `editor.wrap`                                   | `boolean`                                          | `false`                                   |
 | `editor.yank_highlight`                         | `boolean`                                          | `true`                                    |
 | `formatting.lsp_fallback`                       | `if_no_formatter \| never`                         | `if_no_formatter`                         |
@@ -54,3 +56,7 @@ description: Generated facts for supported capability configuration.
 | `language.mappings.rename`                      | `non-empty key string \| false`                    | `<leader>cr`                              |
 | `operation_feedback`                            | `errors \| all \| silent`                          | `errors`                                  |
 | `tooling.check_on_startup`                      | `boolean`                                          | `true`                                    |
+
+Selecting `editor` enables Neovim UI2 with its default message target (`cmd`). UI2 is experimental.
+Set `editor.ui2 = false` to opt out. `<leader>m` opens the native `g<` message pager;
+`editor.mappings.message_pager` can replace that key or disable the alias with `false`.

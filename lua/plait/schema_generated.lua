@@ -11,9 +11,10 @@
 ---@field clipboard? "auto"|"system"|"osc52"|"disabled"
 ---@field indentation? { style?: "spaces"|"tabs", width?: integer }
 ---@field line_numbers? "absolute"|"relative"|"off"
----@field mappings? { clear_search?: string|false, delete_word?: string|false, focus_down?: string|false, focus_left?: string|false, focus_right?: string|false, focus_up?: string|false, save?: string|false }
+---@field mappings? { clear_search?: string|false, delete_word?: string|false, focus_down?: string|false, focus_left?: string|false, focus_right?: string|false, focus_up?: string|false, message_pager?: string|false, save?: string|false }
 ---@field persistent_undo? boolean
 ---@field splits? { horizontal?: "below"|"above", vertical?: "right"|"left" }
+---@field ui2? boolean
 ---@field wrap? boolean
 ---@field yank_highlight? boolean
 
@@ -183,6 +184,10 @@ return {
             default = '<C-k>',
             type = 'mapping',
           },
+          message_pager = {
+            default = '<leader>m',
+            type = 'mapping',
+          },
           save = {
             default = '<C-s>',
             type = 'mapping',
@@ -214,6 +219,10 @@ return {
           },
         },
         type = 'map',
+      },
+      ui2 = {
+        default = true,
+        type = 'boolean',
       },
       wrap = {
         default = false,
