@@ -7,7 +7,8 @@ local state = require('plait.state')
 
 local M = {}
 
-local sections = { 'modules', 'capabilities', 'effects', 'packages', 'tools', 'diagnostics', 'operations' }
+local sections =
+  { 'modules', 'capabilities', 'effects', 'language_servers', 'packages', 'tools', 'diagnostics', 'operations' }
 local subcommands = { 'format', 'inspect', 'packages', 'tooling', 'validate' }
 local package_actions = { 'sync', 'sync!' }
 local tooling_actions = { 'check', 'ensure', 'install', 'update' }
@@ -29,7 +30,8 @@ local function snapshot_identities(section)
   if not state.snapshot or not vim.tbl_contains(sections, section) then return {} end
   local identities = {}
   local seen = {}
-  for _, record in ipairs(state.snapshot[section] or {}) do
+  local records = section == 'language_servers' and plait.inspect(section) or state.snapshot[section] or {}
+  for _, record in ipairs(records) do
     local identity = section == 'diagnostics' and record.code or record.identity
     if type(identity) == 'string' and not seen[identity] then
       identities[#identities + 1] = identity

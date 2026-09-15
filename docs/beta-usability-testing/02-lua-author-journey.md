@@ -55,7 +55,7 @@ print(message)
 print(unknown_name)
 ```
 
-Run `:checkhealth vim.lsp`, confirm `lua_ls` appears under the active clients for the buffer, and wait for it to attach. Then test:
+Run `:checkhealth vim.lsp`, confirm `lua_ls` appears under the active clients for the buffer, and wait for it to attach. Before editing, run `:Plait inspect language_servers lua_ls` from the Lua buffer. It reports the live workspace root for this buffer; if LuaLS is attached without one, it explains that initial diagnostics may be delayed and names project root markers to add. This is inspection-only, with no automatic notification. Then test:
 
 1. Put the cursor on `greet` in the call and press `gd`.
 2. Press `gr` and verify references are shown immediately, without waiting for a second key. Confirm `grr`, `gra`, `grn`, `gri`, and `grt` no longer trigger the superseded native LSP mappings.

@@ -15,6 +15,54 @@ local function activate_language()
 end
 
 describe('language capability facade', function()
+  it('inspects a rootless attached LuaLS without publishing a diagnostic', function()
+    activate_language()
+    child.lua([[
+      local state = require('plait.state')
+      state.language_servers.lua_ls = {
+        filetypes = { 'lua' }, tool = 'lua-language-server', state = 'satisfied', language = 'lang.lua',
+      }
+      vim.bo.filetype = 'lua'
+      vim.lsp.get_clients = function() return { { name = 'lua_ls', root_dir = nil } } end
+      rootless = M.inspect('language_servers', 'lua_ls')
+      plait_diagnostics = M.inspect('diagnostics')
+      vim.lsp.get_clients = function() return { { name = 'lua_ls', root_dir = '/tmp/lua-project' } } end
+      rooted = M.inspect('language_servers', 'lua_ls')
+    ]])
+
+    expect.equality(child.lua_get([[rootless.state]]), 'attached')
+    expect.equality(child.lua_get([[rootless.workspace_root]]), vim.NIL)
+    expect.equality(child.lua_get([[rootless.note:find('initial diagnostics may be delayed', 1, true) ~= nil]]), true)
+    expect.equality(child.lua_get([[rootless.repair:find('.luarc.json', 1, true) ~= nil]]), true)
+    expect.equality(child.lua_get([[rooted.workspace_root]]), '/tmp/lua-project')
+    expect.equality(child.lua_get([[rooted.note]]), vim.NIL)
+    expect.equality(child.lua_get([[plait_diagnostics]]), {})
+  end)
+
+  it('closes a references quickfix window with q without mapping ordinary buffers', function()
+    child.lua([[
+      local language = require('plait.language')
+      vim.lsp.get_clients = function() return {} end
+      language.apply_effect('language/actions-and-mappings', {
+        mappings = { previous_diagnostic = false, next_diagnostic = false, definition = false, references = 'gr',
+          hover = false, rename = false, code_action = false },
+      })
+      source_buffer = vim.api.nvim_get_current_buf()
+      source_q = vim.fn.maparg('q', 'n', false, true)
+      vim.fn.setqflist({ { filename = 'main.lua', lnum = 1, text = 'reference' } })
+      vim.cmd.copen()
+      quickfix_buffer = vim.api.nvim_get_current_buf()
+      quickfix_q = vim.fn.maparg('q', 'n', false, true)
+      if quickfix_q.callback then quickfix_q.callback() end
+      quickfix_window_closed = vim.fn.getqflist({ winid = 0 }).winid == 0
+    ]])
+
+    expect.equality(child.lua_get([[next(source_q)]]), vim.NIL)
+    expect.equality(child.lua_get([[quickfix_buffer ~= source_buffer]]), true)
+    expect.equality(child.lua_get([[quickfix_q.buffer]]), 1)
+    expect.equality(child.lua_get([[quickfix_window_closed]]), true)
+  end)
+
   it('installs client-supported mappings after a late LSP attach', function()
     child.lua([[
       local language = require('plait.language')

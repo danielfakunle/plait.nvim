@@ -54,7 +54,7 @@ does not mutate the table, replace `vim.print`, or open an inspection buffer. Di
 reserved for steps that deliberately verify Lua data.
 
 Inspection commands open one read-only Plait report. They may reuse an empty unnamed window, otherwise they
-open a dedicated tab; press `q` to close the report without losing an editing buffer. Repeated inspection should
+open a dedicated tab; press `q` to close the report without losing an editing buffer. `language_servers` is the live, current-buffer exception to the completed-snapshot sections; inspect it from a source buffer to see attachment and workspace-root status. Repeated inspection should
 refresh that report. Command-line validation and actions should remain concise, name affected targets, give a
 repair for unavailable work, and direct started operations to `:Plait inspect operations <operation-id>`. Use a
 trailing `--json` only when the procedure needs deterministic machine-readable inspection output.

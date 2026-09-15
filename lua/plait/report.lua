@@ -93,6 +93,17 @@ local definitions = {
       { 'Sources', 'sources' },
     },
   },
+  language_servers = {
+    heading = 'Language servers (current buffer)',
+    empty = 'No managed language servers for this buffer.',
+    fields = {
+      { 'Tool state', 'tool_state' },
+      { 'Buffer', 'buffer' },
+      { 'Workspace root', 'workspace_root' },
+      { 'Note', 'note' },
+      { 'Repair', 'repair' },
+    },
+  },
   packages = {
     heading = 'Packages',
     empty = 'No package requirements.',

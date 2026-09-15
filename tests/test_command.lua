@@ -23,6 +23,7 @@ describe('Plait command', function()
       'capabilities',
       'diagnostics',
       'effects',
+      'language_servers',
       'modules',
       'operations',
       'packages',
@@ -102,6 +103,28 @@ describe('Plait command', function()
       child.cmd_capture('Plait inspect diagnostics config.invalid --json'):match('^diagnostics: %['),
       'diagnostics: ['
     )
+  end)
+
+  it('renders current-buffer language server inspection without notifications', function()
+    child.lua([[
+      local state = require('plait.state')
+      state.snapshot = {
+        diagnostics = {}, operations = {}, modules = {}, capabilities = {}, effects = {}, packages = {}, tools = {},
+      }
+      state.language_servers.lua_ls = {
+        filetypes = { 'lua' }, tool = 'lua-language-server', state = 'satisfied', language = 'lang.lua',
+      }
+      vim.bo.filetype = 'lua'
+      vim.lsp.get_clients = function() return { { name = 'lua_ls' } } end
+    ]])
+
+    expect.equality(child.lua_get([[vim.fn.getcompletion('Plait inspect language_servers ', 'cmdline')]]), {
+      '--json',
+      'lua_ls',
+    })
+    local json = child.cmd_capture('Plait inspect language_servers lua_ls --json')
+    expect.equality(json:find('initial diagnostics may be delayed', 1, true) ~= nil, true)
+    expect.equality(json:find('.luarc.json', 1, true) ~= nil, true)
   end)
 
   it('registers one process-wide dispatcher', function()
@@ -259,6 +282,7 @@ describe('Plait command', function()
           modules = { { identity = 'demo', state = 'invalid', provides = {}, requires = { 'base' }, contributions = {}, selection_sources = { { file = 'init.lua', line = 12, path = 'select[1]' } } } },
           capabilities = { { identity = 'demo', state = 'degraded', responsible_integration = 'demo/native', providers = { 'native' }, dependents = {}, actions = {}, degradation_reasons = { 'tool.absent' }, configuration = { values = { nested = { enabled = true } }, sources = { nested = { file = 'init.lua', line = 15, path = 'configure.demo.nested' } }, providers = { { identity = 'demo.nvim', target = 'setup', value = { mode = 'safe' } } } } } },
           effects = { { identity = 'demo/effect', state = 'pending', responsible_capability = 'demo', provider = 'demo.nvim', stage = 2, dependencies = {}, error = { summary = 'Provider stopped.', details = { cause = 'bad option' } } } },
+          language_servers = {},
           packages = { { identity = 'demo.nvim', state = 'satisfied', source = 'https://example.test/demo', required_commit = 'abc', responsible_capabilities = { 'demo' }, repair = '' } },
           tools = { { identity = 'demo', state = 'absent', executable = 'demo', constraint = '>=1,<2', ownership = 'project', affected_operations = { 'demo.run' }, repair = 'Install demo in the project.' } },
           diagnostics = { { code = 'demo.failed', severity = 'error', summary = 'Demo failed.', repair = 'Repair demo.', details = { target = 'demo' } } },

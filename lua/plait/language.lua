@@ -188,6 +188,44 @@ local function degraded_server(buffer)
   end
 end
 
+--- Inspect managed language servers relevant to the current buffer's filetype.
+---@param buffer integer
+---@return table[]
+function M.inspect_servers(buffer)
+  local clients = vim.lsp.get_clients({ bufnr = buffer })
+  local records = {}
+  local identities = vim.tbl_keys(state.language_servers)
+  table.sort(identities)
+  for _, identity in ipairs(identities) do
+    local managed = state.language_servers[identity]
+    if vim.list_contains(managed.filetypes, vim.bo[buffer].filetype) then
+      local client
+      for _, attached in ipairs(clients) do
+        if attached.name == identity then
+          client = attached
+          break
+        end
+      end
+      local record = {
+        identity = identity,
+        state = client and 'attached' or 'not_attached',
+        tool_state = managed.state,
+        buffer = vim.api.nvim_buf_get_name(buffer),
+      }
+      if client then
+        record.workspace_root = client.root_dir or vim.NIL
+        if identity == 'lua_ls' and not client.root_dir then
+          record.note =
+            'LuaLS is attached without a workspace root; initial diagnostics may be delayed until the buffer changes.'
+          record.repair = 'Add a Lua project root marker such as .luarc.json or .git, then restart the language server.'
+        end
+      end
+      records[#records + 1] = record
+    end
+  end
+  return records
+end
+
 --- Return whether one attached client supports a method in a buffer.
 ---@param buffer integer
 ---@param method string
@@ -311,6 +349,13 @@ function M.attach(buffer, mappings)
   end
 end
 
+--- Install a close mapping only in a native quickfix buffer.
+---@param buffer integer
+local function map_quickfix_close(buffer)
+  if vim.bo[buffer].buftype ~= 'quickfix' or vim.bo[buffer].filetype ~= 'qf' then return end
+  vim.keymap.set('n', 'q', function() vim.cmd.cclose() end, { buffer = buffer, silent = true, desc = 'Close quickfix' })
+end
+
 --- Return buffer-local mapping identities that this language effect would overwrite.
 ---@param identity string
 ---@param configuration table
@@ -378,6 +423,15 @@ function M.apply_effect(identity, configuration, effective_plan)
       buffer = buffer,
       callback = function() M.attach(buffer, configuration.mappings) end,
     })
+    local quickfix_group = vim.api.nvim_create_augroup('plait.language.quickfix', { clear = true })
+    vim.api.nvim_create_autocmd('FileType', {
+      group = quickfix_group,
+      pattern = 'qf',
+      callback = function(event) map_quickfix_close(event.buf) end,
+    })
+    for _, existing in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.api.nvim_buf_is_loaded(existing) then map_quickfix_close(existing) end
+    end
   elseif identity:match('^language/server%-definition/') then
     local server_identity = assert(identity:match('^language/server%-definition/(.+)$'))
     local declaration = require('plait.plan').language_requirements(effective_plan)[server_identity]

@@ -36,6 +36,7 @@ local inspection_sections = {
   modules = true,
   capabilities = true,
   effects = true,
+  language_servers = true,
   packages = true,
   tools = true,
   diagnostics = true,
@@ -368,7 +369,7 @@ function M.replace(value) return { kind = 'replace', value = vim.deepcopy(value)
 ---@return table
 function M.disable() return { kind = 'disable' } end
 
---- Inspect the latest completed Plait snapshot.
+--- Inspect the latest completed Plait snapshot, or live servers for the current buffer.
 ---@param section string
 ---@param identity? string
 ---@return table
@@ -379,7 +380,9 @@ function M.inspect(section, identity)
   end
   if not state.snapshot then misuse('inspection requires a completed snapshot') end
   if not inspection_sections[section] then misuse('unknown inspection section') end
-  local records = state.snapshot[section]
+  local records = section == 'language_servers'
+      and require('plait.language').inspect_servers(vim.api.nvim_get_current_buf())
+    or state.snapshot[section]
   --- Copy an inspection value while replacing functions with source descriptors.
   ---@param value any
   ---@param ancestors? table<table, boolean>
