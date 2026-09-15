@@ -150,7 +150,7 @@ local function setup_options(configuration)
   end
   return vim.tbl_deep_extend('force', options, {
     keymap = { preset = 'none' },
-    enabled = true,
+    enabled = function() return true end,
     completion = {
       menu = { enabled = true, auto_show = configuration.automatic },
       trigger = {

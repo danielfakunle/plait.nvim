@@ -109,9 +109,10 @@ vim.system = function(arguments, options)
   if arguments[1] == fixture_root .. '/bin/stylua' then return result('stylua 2.5.2\n') end
   return original_system(arguments, options)
 end
-vim.pack.add = function(specs)
+vim.pack.add = function(specs, options)
   if not specs[1] or not specs[1].name then return end
   _G.lua_quickstart_provider_package_calls = (_G.lua_quickstart_provider_package_calls or 0) + 1
+  _G.lua_quickstart_provider_package_options = vim.deepcopy(options)
   if mode == 'sync_failure' then error('fixture package mutation failed') end
   if mode ~= 'interactive' and mode ~= 'sync_success' then return end
   for _, spec in ipairs(specs) do
@@ -128,7 +129,10 @@ if mode == 'interactive' then
     if feature == 'ttyin' then return 1 end
     return original_has(feature)
   end
-  vim.fn.confirm = function() return 1 end
+  vim.fn.confirm = function()
+    _G.lua_quickstart_consent_calls = (_G.lua_quickstart_consent_calls or 0) + 1
+    return 1
+  end
 end
 if mode == 'unsupported_neovim' then vim.version = function() return { major = 0, minor = 11, patch = 0 } end end
 if mode == 'package_path' then vim.opt.packpath:remove(original_stdpath('data') .. '/site') end
@@ -215,6 +219,8 @@ if result.status ~= 'performed' then
     result = result,
     effects = plait.inspect('effects'),
     provider_package_calls = _G.lua_quickstart_provider_package_calls or 0,
+    provider_package_options = _G.lua_quickstart_provider_package_options,
+    consent_calls = _G.lua_quickstart_consent_calls or 0,
   }
   return
 end
@@ -319,5 +325,7 @@ _G.lua_quickstart = {
   inspection_detached = inspection_detached,
   lifecycle_errors = lifecycle_errors,
   provider_package_calls = _G.lua_quickstart_provider_package_calls or 0,
+  provider_package_options = _G.lua_quickstart_provider_package_options,
+  consent_calls = _G.lua_quickstart_consent_calls or 0,
   nested_semantics_hash = vim.fn.sha256(require('plait.canonical').encode(nested_semantics)),
 }

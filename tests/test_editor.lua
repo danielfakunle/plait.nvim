@@ -315,11 +315,16 @@ describe('editor capability application', function()
         failed = { 'editor/mappings' },
         skipped = { 'editor/yank-highlight' },
         message = 'Managed editor effect failed.',
+        cause = child.lua_get([[M.inspect('effects', 'editor/mappings').error.details.cause]]),
       },
     })
     expect.equality(
       child.lua_get([[M.inspect('diagnostics', 'effect.failed')[1].details.message]]),
       'Managed editor effect failed.'
+    )
+    expect.equality(
+      child.lua_get([[M.inspect('diagnostics', 'effect.failed')[1].details.cause:find('raw failure', 1, true) ~= nil]]),
+      true
     )
     expect.equality(child.lua_get([[vim.inspect(M.inspect('diagnostics')):find('SECRET', 1, true) == nil]]), true)
     expect.equality(child.lua_get([[M.actions.editor.focus('right').status]]), 'performed')

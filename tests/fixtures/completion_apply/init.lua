@@ -3,7 +3,11 @@ vim.opt.packpath:append(vim.fn.stdpath('data') .. '/site')
 
 package.preload['blink.cmp'] = function()
   return {
-    setup = function(value) _G.blink_setup = vim.deepcopy(value) end,
+    setup = function(value)
+      -- blink.cmp 1.10.2 validates this field as a function, not a boolean.
+      assert(type(value.enabled) == 'function', 'config.enabled: expected function')
+      _G.blink_setup = vim.deepcopy(value)
+    end,
     is_active = function() return false end,
     show = function() return false end,
     select_next = function() return false end,

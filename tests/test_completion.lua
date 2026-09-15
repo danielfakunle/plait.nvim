@@ -61,10 +61,12 @@ describe('completion capability facade', function()
     child.restart({ '--clean', '-u', 'tests/fixtures/completion_apply/init.lua' })
 
     expect.equality(child.lua_get([[completion_apply_result.status]]), 'performed')
-    expect.equality(child.lua_get([[blink_setup]]), {
+    expect.equality(child.lua_get([[type(blink_setup.enabled)]]), 'function')
+    expect.equality(child.lua_get([[blink_setup.enabled()]]), true)
+    child.lua([[blink_setup_without_enabled = vim.deepcopy(blink_setup); blink_setup_without_enabled.enabled = nil]])
+    expect.equality(child.lua_get([[blink_setup_without_enabled]]), {
       appearance = { nerd_font_variant = 'mono' },
       keymap = { preset = 'none' },
-      enabled = true,
       completion = {
         menu = { enabled = true, auto_show = false },
         trigger = { show_on_keyword = false, show_on_trigger_character = false },
@@ -77,6 +79,12 @@ describe('completion capability facade', function()
     expect.equality(child.lua_get([[vim.fn.maparg('<CR>', 'i', false, true)]]), {})
     expect.equality(child.lua_get([[(vim.fn.maparg('<Tab>', 'i', false, true).sid or 0) <= 0]]), true)
     expect.equality(child.lua_get([[vim.fn.maparg('<C-n>', 'i', false, true).callback()]]), '<C-n>')
+  end)
+
+  it('satisfies the qualified Blink revision enabled contract', function()
+    child.restart({ '--clean', '-u', 'tests/fixtures/completion_apply/init.lua' })
+
+    expect.equality(child.lua_get([[type(blink_setup.enabled)]]), 'function')
   end)
 
   it('shows documentation when a candidate is explicitly selected by default', function()

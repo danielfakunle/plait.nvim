@@ -72,6 +72,22 @@ describe('Plait health', function()
     expect.equality(health_output():find('Configuration: not configured', 1, true) ~= nil, true)
   end)
 
+  it('scopes compatibility tools and providers to the effective plan', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'language', 'formatting', 'tooling', 'lang.lua' })
+      config:validate()
+    ]])
+
+    local output = health_output()
+    expect.equality(output:find('Tool lua-language-server', 1, true) ~= nil, true)
+    expect.equality(output:find('Tool stylua', 1, true) ~= nil, true)
+    expect.equality(output:find('Tool tsc', 1, true) == nil, true)
+    expect.equality(output:find('Tool oxfmt', 1, true) == nil, true)
+    expect.equality(output:find('Provider blink.cmp', 1, true) == nil, true)
+    expect.equality(output:find('Blink fuzzy path', 1, true) == nil, true)
+  end)
+
   it('reports an incompatible authoritative tool candidate', function()
     child.lua([[
       tool_directory = vim.fn.tempname()

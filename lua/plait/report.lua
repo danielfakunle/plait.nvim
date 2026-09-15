@@ -2,6 +2,46 @@ local presentation = require('plait.presentation')
 
 local M = {}
 
+--- Return whether an optional report value has no visible content.
+---@param value any
+---@return boolean
+local function empty(value) return value == '' or (type(value) == 'table' and next(value) == nil) end
+
+--- Append one recursively structured report value.
+---@param lines string[]
+---@param value any
+---@param indent integer
+local function append_value(lines, value, indent)
+  if value == nil or value == vim.NIL then
+    lines[#lines + 1] = string.rep(' ', indent) .. 'none'
+  elseif type(value) ~= 'table' then
+    lines[#lines + 1] = string.rep(' ', indent) .. tostring(value)
+  elseif vim.islist(value) then
+    for _, item in ipairs(value) do
+      if type(item) == 'table' then
+        lines[#lines + 1] = string.rep(' ', indent) .. '-'
+        append_value(lines, item, indent + 2)
+      else
+        lines[#lines + 1] = string.rep(' ', indent) .. '- ' .. presentation.value(item)
+      end
+    end
+  else
+    local keys = vim.tbl_keys(value)
+    table.sort(keys)
+    for _, key in ipairs(keys) do
+      local child = value[key]
+      if not empty(child) then
+        if type(child) == 'table' then
+          lines[#lines + 1] = string.rep(' ', indent) .. key .. ':'
+          append_value(lines, child, indent + 2)
+        else
+          lines[#lines + 1] = string.rep(' ', indent) .. key .. ': ' .. presentation.value(child)
+        end
+      end
+    end
+  end
+end
+
 local definitions = {
   modules = {
     heading = 'Modules',
@@ -109,17 +149,12 @@ function M.section(section, records)
     lines[#lines + 1] = ('  [%s] %s'):format(tostring(state):upper(), identity)
     for _, field in ipairs(definition.fields) do
       local value = item[field[2]]
-      if value ~= nil and value ~= vim.NIL then
-        local rendered = presentation.value(value)
-        local line = ('    %s: %s'):format(field[1], rendered)
-        if #line <= 88 then
-          lines[#lines + 1] = line
-        else
+      if value ~= nil and value ~= vim.NIL and not empty(value) then
+        if type(value) == 'table' then
           lines[#lines + 1] = ('    %s:'):format(field[1])
-          local separator = rendered:find('; ', 1, true) and '; ' or ', '
-          for part in vim.gsplit(rendered, separator, { plain = true }) do
-            lines[#lines + 1] = '      - ' .. part
-          end
+          append_value(lines, value, 6)
+        else
+          lines[#lines + 1] = ('    %s: %s'):format(field[1], presentation.value(value))
         end
       end
     end

@@ -7,6 +7,7 @@ local plan = require('plait.plan')
 local snapshot = require('plait.snapshot')
 local state = require('plait.state')
 local validation = require('plait.validation')
+local text = require('plait.text')
 
 local M = {}
 
@@ -31,6 +32,17 @@ local integrations = {
   formatting = formatting.integration,
   tooling = tooling.integration,
 }
+
+--- Normalize, bound, and redact one caught provider failure.
+---@param value any
+---@return string
+local function safe_failure(value)
+  local message = text.normalize(tostring(value))
+  message = message:gsub('[%w_]*[Tt][Oo][Kk][Ee][Nn][%w_]*=[^%s]+', '<redacted>')
+  message = message:gsub('[%w_]*[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd][%w_]*=[^%s]+', '<redacted>')
+  message = message:gsub('[%w_]*[Ss][Ee][Cc][Rr][Ee][Tt][%w_]*=[^%s]+', '<redacted>')
+  return text.truncate_sentence(message, 512)
+end
 
 --- Return the closed apply result for an invalid re-resolution.
 ---@param diagnostics table[]
@@ -76,7 +88,7 @@ end
 ---@param effect table
 ---@param partition table
 ---@param diagnostics table[]
-local function record_failure(effect, partition, diagnostics)
+local function record_failure(effect, partition, diagnostics, failure)
   local integration = assert(integrations[effect.responsible_capability])
   local details = {
     operation_id = 'apply',
@@ -88,12 +100,13 @@ local function record_failure(effect, partition, diagnostics)
     failed = vim.deepcopy(partition.failed),
     skipped = vim.deepcopy(partition.skipped),
     message = integration.failure_message,
+    cause = safe_failure(failure),
   }
   local diagnostic = {
     code = 'effect.failed',
     severity = 'error',
     summary = 'Effect ' .. effect.identity .. ' failed.',
-    repair = 'Repair the named effect/provider, restart, and apply once.',
+    repair = 'Inspect the cause below, repair the named effect/provider, then restart and apply once.',
     source = vim.deepcopy(effect.sources[1]),
     related_sources = {},
     details = details,
@@ -230,6 +243,7 @@ function M.run(effective_plan, diagnostics, schema)
         partition.completed[#partition.completed + 1] = effect.identity
       else
         failed_effect = effect
+        effect.failure = result
         effect.state = 'failed'
         partition.failed[#partition.failed + 1] = effect.identity
       end
@@ -238,7 +252,10 @@ function M.run(effective_plan, diagnostics, schema)
 
   local plan_id = plan.id(effective_plan, schema)
   effective_plan.snapshot_state = failed_effect and 'failed' or 'applied'
-  if failed_effect then record_failure(failed_effect, partition, diagnostics) end
+  if failed_effect then
+    record_failure(failed_effect, partition, diagnostics, failed_effect.failure)
+    failed_effect.failure = nil
+  end
   snapshot.publish(effective_plan, diagnostics)
   for identity, integration in pairs(integrations) do
     if configurations[identity] and vim.list_contains(partition.completed, integration.activation_effect) then

@@ -269,6 +269,8 @@ T['canonical Lua quickstart']['installs a wholly absent provider set interactive
 
   expect.equality(child.lua_get([[lua_quickstart.validation.status]]), 'valid')
   expect.equality(child.lua_get([[lua_quickstart.result.status]]), 'performed')
+  expect.equality(child.lua_get([[lua_quickstart.consent_calls]]), 1)
+  expect.equality(child.lua_get([[lua_quickstart.provider_package_options]]), { load = false, confirm = false })
   expect.equality(child.lua_get([[vim.tbl_map(function(item) return item.state end, M.inspect('packages'))]]), {
     'satisfied',
     'satisfied',

@@ -141,7 +141,7 @@ describe('provider package synchronization', function()
             version = '615d7b2712efb2f530a83a9d0466acafba6b1d6f',
           },
         },
-        options = { load = false },
+        options = { load = false, confirm = false },
       },
     })
     child.lua([[vim.wait(1000, function() return M.inspect('operations')[1].state ~= 'pending' end)]])

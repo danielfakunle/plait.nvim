@@ -174,7 +174,7 @@ describe('Plait command', function()
     expect.equality(child.lua_get([[vim.fn.maparg('q', 'n', false, true).buffer]]), 1)
     local report = child.lua_get([[table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), '\n')]])
     expect.equality(report:find('Modules\n  [ACTIVE] editor', 1, true) ~= nil, true)
-    expect.equality(report:find('    Provides: editor', 1, true) ~= nil, true)
+    expect.equality(report:find('    Provides:\n      - editor', 1, true) ~= nil, true)
     expect.equality(report:find('Capabilities\n  [ACTIVE] editor', 1, true) ~= nil, true)
     expect.equality(report:find('Managed effects\n  [PENDING] editor/native-options', 1, true) ~= nil, true)
     expect.equality(report:find('Packages\n  No package requirements.', 1, true) ~= nil, true)
@@ -256,10 +256,10 @@ describe('Plait command', function()
     child.lua([[
       M.inspect = function(section)
         local fixtures = {
-          modules = { { identity = 'demo', state = 'invalid', provides = {}, requires = { 'base' }, contributions = {} } },
-          capabilities = { { identity = 'demo', state = 'degraded', responsible_integration = 'demo/native', providers = { 'native' }, dependents = {}, actions = {}, degradation_reasons = { 'tool.absent' } } },
-          effects = { { identity = 'demo/effect', state = 'pending', responsible_capability = 'demo', stage = 2, dependencies = {} } },
-          packages = { { identity = 'demo.nvim', state = 'satisfied', source = 'https://example.test/demo', required_commit = 'abc', responsible_capabilities = { 'demo' } } },
+          modules = { { identity = 'demo', state = 'invalid', provides = {}, requires = { 'base' }, contributions = {}, selection_sources = { { file = 'init.lua', line = 12, path = 'select[1]' } } } },
+          capabilities = { { identity = 'demo', state = 'degraded', responsible_integration = 'demo/native', providers = { 'native' }, dependents = {}, actions = {}, degradation_reasons = { 'tool.absent' }, configuration = { values = { nested = { enabled = true } }, sources = { nested = { file = 'init.lua', line = 15, path = 'configure.demo.nested' } }, providers = { { identity = 'demo.nvim', target = 'setup', value = { mode = 'safe' } } } } } },
+          effects = { { identity = 'demo/effect', state = 'pending', responsible_capability = 'demo', provider = 'demo.nvim', stage = 2, dependencies = {}, error = { summary = 'Provider stopped.', details = { cause = 'bad option' } } } },
+          packages = { { identity = 'demo.nvim', state = 'satisfied', source = 'https://example.test/demo', required_commit = 'abc', responsible_capabilities = { 'demo' }, repair = '' } },
           tools = { { identity = 'demo', state = 'absent', executable = 'demo', constraint = '>=1,<2', ownership = 'project', affected_operations = { 'demo.run' }, repair = 'Install demo in the project.' } },
           diagnostics = { { code = 'demo.failed', severity = 'error', summary = 'Demo failed.', repair = 'Repair demo.', details = { target = 'demo' } } },
           operations = {
@@ -284,10 +284,15 @@ describe('Plait command', function()
       '[FAILED] op-00000002',
       'Version constraint: >=1,<2',
       'Repair: Install demo in the project.',
-      'Affected: (target: demo)',
+      'Affected:\n      target: demo',
+      'Selected at:\n      -\n        file: init.lua\n        line: 12\n        path: select[1]',
+      'Configuration:\n      providers:\n        -\n          identity: demo.nvim',
+      'values:\n        nested:\n          enabled: true',
+      'Error:\n      details:\n        cause: bad option',
     }) do
       expect.equality(report:find(text, 1, true) ~= nil, true)
     end
+    expect.equality(report:find('Repair:\n', 1, true) == nil, true)
   end)
 
   it('renders unavailable action context and repair guidance without JSON', function()

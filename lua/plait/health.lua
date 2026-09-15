@@ -144,23 +144,32 @@ end
 ---@return table<string, { path: string, qualified: boolean }>
 local function report_providers()
   local paths = {}
+  local active
+  if state.snapshot then
+    active = {}
+    for _, package in ipairs(state.snapshot.packages) do
+      active[package.identity] = true
+    end
+  end
   for _, provider in ipairs(compatibility.providers) do
-    local path = provider_path(provider.identity)
+    local path = (not active or active[provider.identity]) and provider_path(provider.identity) or nil
     local source = path and command_output_line({ 'git', '-C', path, 'remote', 'get-url', 'origin' }) or nil
     local commit = path and command_output_line({ 'git', '-C', path, 'rev-parse', 'HEAD' }) or nil
     local qualified = source == provider.source and commit == provider.commit
     if path then paths[provider.identity] = { path = path, qualified = qualified } end
     local observed = path and ('source=' .. (source or 'unknown') .. ', revision=' .. (commit or 'unknown'))
       or 'checkout absent'
-    qualification(
-      ('Provider %s: %s; required source=%s, revision=%s'):format(
-        provider.identity,
-        observed,
-        provider.source,
-        provider.commit
-      ),
-      qualified
-    )
+    if not active or active[provider.identity] then
+      qualification(
+        ('Provider %s: %s; required source=%s, revision=%s'):format(
+          provider.identity,
+          observed,
+          provider.source,
+          provider.commit
+        ),
+        qualified
+      )
+    end
   end
   return paths
 end
@@ -180,41 +189,50 @@ local function report_registry()
   )
 end
 
---- Report authoritative local tool candidates and semantic-version qualification.
-local function report_tools()
-  local contributions = {}
-  for _, tool in ipairs(compatibility.tools) do
-    contributions[#contributions + 1] = 'tooling.tools.' .. tool.identity
+--- Report one effective tool and its semantic-version qualification.
+---@param tool table
+local function report_tool(tool)
+  if tool.state == 'satisfied' then
+    vim.health.ok(
+      ('Tool %s: version %s (%s, %s); required %s'):format(
+        tool.identity,
+        tool.version,
+        tool.path,
+        tool.source,
+        tool.constraint
+      )
+    )
+  elseif tool.state == 'incompatible' then
+    vim.health.warn(
+      ('Tool %s: incompatible version %s (%s, %s); required %s'):format(
+        tool.identity,
+        tool.version,
+        tool.path,
+        tool.source,
+        tool.constraint
+      )
+    )
+  elseif tool.state == 'unprobeable' then
+    vim.health.warn(
+      ('Tool %s: unprobeable (%s, %s); required %s'):format(tool.identity, tool.path, tool.source, tool.constraint)
+    )
+  else
+    vim.health.warn(('Tool %s: absent; required %s'):format(tool.identity, tool.constraint))
   end
-  local records = tools.resolve({ effective_contributions = contributions, modules = {}, contribution_values = {} })
-  for _, tool in ipairs(records) do
-    if tool.state == 'satisfied' then
-      vim.health.ok(
-        ('Tool %s: version %s (%s, %s); required %s'):format(
-          tool.identity,
-          tool.version,
-          tool.path,
-          tool.source,
-          tool.constraint
-        )
-      )
-    elseif tool.state == 'incompatible' then
-      vim.health.warn(
-        ('Tool %s: incompatible version %s (%s, %s); required %s'):format(
-          tool.identity,
-          tool.version,
-          tool.path,
-          tool.source,
-          tool.constraint
-        )
-      )
-    elseif tool.state == 'unprobeable' then
-      vim.health.warn(
-        ('Tool %s: unprobeable (%s, %s); required %s'):format(tool.identity, tool.path, tool.source, tool.constraint)
-      )
-    else
-      vim.health.warn(('Tool %s: absent; required %s'):format(tool.identity, tool.constraint))
+end
+
+--- Report authoritative local tool candidates scoped to the effective plan.
+local function report_tools()
+  local records = state.snapshot and state.snapshot.tools
+  if not records then
+    local contributions = {}
+    for _, tool in ipairs(compatibility.tools) do
+      contributions[#contributions + 1] = 'tooling.tools.' .. tool.identity
     end
+    records = tools.resolve({ effective_contributions = contributions, modules = {}, contribution_values = {} })
+  end
+  for _, tool in ipairs(records) do
+    report_tool(tool)
   end
 end
 
@@ -262,20 +280,49 @@ local function report_blink(blink)
   end
 end
 
+--- Distinguish an apply's primary failure from its resulting degradation.
+local function report_snapshot_state()
+  if not state.snapshot then return end
+  for _, diagnostic in ipairs(state.snapshot.diagnostics) do
+    if diagnostic.code == 'effect.failed' then
+      vim.health.error(('Primary failure: %s Repair: %s'):format(diagnostic.summary, diagnostic.repair))
+    end
+  end
+  for _, capability in ipairs(state.snapshot.capabilities) do
+    if capability.state == 'degraded' and #capability.degradation_reasons > 0 then
+      vim.health.warn(
+        ('Resulting degradation: capability %s (%s)'):format(
+          capability.identity,
+          table.concat(capability.degradation_reasons, ', ')
+        )
+      )
+    end
+  end
+end
+
 --- Report Plait compatibility and current local observations without mutating state.
 function M.check()
   vim.health.start('Plait')
   vim.health.info('Plait version: ' .. compatibility.version)
   vim.health.info('Configuration: ' .. (state.snapshot and 'configured' or 'not configured'))
+  report_snapshot_state()
   report_neovim()
   report_platform()
   report_package_path()
   report_git()
   local providers = report_providers()
-  report_registry()
+  local tooling_active = not state.snapshot
+  local completion_active = not state.snapshot
+  if state.snapshot then
+    for _, capability in ipairs(state.snapshot.capabilities) do
+      tooling_active = tooling_active or capability.identity == 'tooling'
+      completion_active = completion_active or capability.identity == 'completion'
+    end
+  end
+  if tooling_active then report_registry() end
   report_tools()
   report_clipboard()
-  report_blink(providers['blink.cmp'])
+  if completion_active then report_blink(providers['blink.cmp']) end
 end
 
 return M

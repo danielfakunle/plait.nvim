@@ -195,7 +195,9 @@ local function activate(records)
   for _, record in ipairs(records) do
     specs[#specs + 1] = { name = record.identity, src = record.source, version = record.required_commit }
   end
-  local ok = pcall(vim.pack.add, specs, { load = false })
+  -- Plait has already obtained consent for this complete operation. Passing it
+  -- through prevents vim.pack from asking the owner a second time.
+  local ok = pcall(vim.pack.add, specs, { load = false, confirm = false })
   if not ok then return false, 'Provider package activation failed.' end
   local locks = lock_entries()
   for _, record in ipairs(records) do
