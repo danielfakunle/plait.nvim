@@ -9,6 +9,12 @@ local directions = {
   right = 'l',
 }
 
+local native_mapping_descriptions = {
+  ['i:<C-s>'] = 'vim.lsp.buf.signature_help()',
+  ['s:<C-s>'] = 'vim.lsp.buf.signature_help()',
+  ['n:<C-l>'] = ':help CTRL-L-default',
+}
+
 --- Return an unavailable result when the editor capability has not been applied.
 ---@param operation string
 ---@return table|nil
@@ -122,7 +128,7 @@ end
 --- Install one configured global mapping for all fixed modes.
 ---@param modes string[]|string
 ---@param lhs string|false
----@param callback function
+---@param callback function|string
 local function map(modes, lhs, callback)
   if lhs ~= false then vim.keymap.set(modes, lhs, callback) end
 end
@@ -132,6 +138,7 @@ end
 local function apply_mappings(configuration)
   local mappings = configuration.mappings
   map({ 'n', 'i', 'x', 's' }, mappings.save, M.actions.save)
+  map({ 'i', 'c' }, mappings.delete_word, '<C-w>')
   map('n', mappings.clear_search, M.actions.clear_search)
   map('n', mappings.focus_left, function() M.actions.focus('left') end)
   map('n', mappings.focus_down, function() M.actions.focus('down') end)
@@ -158,6 +165,7 @@ function M.preflight_effect(identity, configuration)
   if identity == 'editor/mappings' then
     local mappings = {
       { { 'n', 'i', 'x', 's' }, configuration.mappings.save },
+      { { 'i', 'c' }, configuration.mappings.delete_word },
       { { 'n' }, configuration.mappings.clear_search },
       { { 'n' }, configuration.mappings.focus_left },
       { { 'n' }, configuration.mappings.focus_down },
@@ -168,9 +176,11 @@ function M.preflight_effect(identity, configuration)
       if mapping[2] ~= false then
         for _, mode in ipairs(mapping[1]) do
           local observed = vim.fn.maparg(mapping[2], mode, false, true)
-          -- Neovim's built-in mappings use a negative script ID. Positive IDs
-          -- identify mappings created by the configuration owner or a plugin.
-          if next(observed) and observed.sid > 0 then
+          -- Neovim's built-ins and Lua-created mappings both use sid -8.
+          -- Recognize only the native mappings this effect can supersede.
+          local native_description = native_mapping_descriptions[mode .. ':' .. mapping[2]]
+          local native = native_description ~= nil and observed.desc == native_description
+          if next(observed) and not native and (observed.sid > 0 or observed.sid == -8) then
             collisions[#collisions + 1] =
               { identity = 'mapping:' .. mode .. ':' .. mapping[2], observed_owner = 'mapping' }
           end

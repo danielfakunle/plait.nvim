@@ -19,6 +19,7 @@ local minimal_editor = [[
       clipboard = 'auto',
       mappings = {
         save = '<C-s>',
+        delete_word = '<A-BS>',
         clear_search = '<Esc>',
         focus_left = '<C-h>',
         focus_down = '<C-j>',
@@ -119,6 +120,7 @@ describe('effective plan', function()
             clipboard = 'auto',
             mappings = {
               save = '<C-s>',
+              delete_word = '<A-BS>',
               clear_search = '<Esc>',
               focus_left = '<C-h>',
               focus_down = '<C-j>',

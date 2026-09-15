@@ -28,6 +28,7 @@ M.editor = {
       type = 'map',
       fields = {
         save = { type = 'mapping', default = '<C-s>' },
+        delete_word = { type = 'mapping', default = '<A-BS>' },
         clear_search = { type = 'mapping', default = '<Esc>' },
         focus_left = { type = 'mapping', default = '<C-h>' },
         focus_down = { type = 'mapping', default = '<C-j>' },

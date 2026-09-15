@@ -8,6 +8,59 @@ teardown(function() child.stop() end)
 local function restart_with_init(path) child.restart({ '--clean', '-u', path }) end
 
 describe('editor capability application', function()
+  it('deletes the previous word with Alt-Backspace in insert mode', function()
+    restart_with_init('tests/fixtures/editor_apply/init.lua')
+
+    expect.equality(child.lua_get([[apply_result.status]]), 'performed')
+    expect.equality(child.lua_get([[vim.fn.maparg('<A-BS>', 'i')]]), '<C-W>')
+    expect.equality(child.lua_get([[vim.fn.maparg('<A-BS>', 'n')]]), '')
+    child.type_keys('ihello planet')
+    expect.equality(child.lua_get([[vim.api.nvim_get_current_line()]]), 'hello planet')
+    child.type_keys('<A-BS><Esc>')
+    expect.equality(child.lua_get([[vim.api.nvim_get_current_line()]]), 'hello ')
+  end)
+
+  it('deletes the previous word with Alt-Backspace in the command line', function()
+    restart_with_init('tests/fixtures/editor_apply/init.lua')
+
+    child.type_keys(':echo hello planet')
+    expect.equality(child.lua_get([[vim.fn.getcmdline()]]), 'echo hello planet')
+    child.type_keys('<A-BS>')
+    expect.equality(child.lua_get([[vim.fn.getcmdline()]]), 'echo hello ')
+    expect.equality(child.lua_get([[vim.fn.maparg('<A-BS>', 'c')]]), '<C-W>')
+    child.type_keys('<Esc>')
+  end)
+
+  it('allows the delete-word mapping to be replaced or disabled and preflights owner collisions', function()
+    child.lua([[
+      local editor = require('plait.editor')
+      local mappings = {
+        save = false, clear_search = false, focus_left = false, focus_down = false,
+        focus_up = false, focus_right = false, delete_word = '<A-BS>',
+      }
+      vim.keymap.set('i', '<A-BS>', '<BS>')
+      vim.keymap.set('c', '<A-BS>', '<BS>')
+      collisions = editor.preflight_effect('editor/mappings', { mappings = mappings })
+      mappings.delete_word = false
+      editor.apply_effect('editor/mappings', { mappings = mappings })
+      preserved = vim.fn.maparg('<A-BS>', 'i')
+      preserved_cmdline = vim.fn.maparg('<A-BS>', 'c')
+      mappings.delete_word = '<F8>'
+      editor.apply_effect('editor/mappings', { mappings = mappings })
+      replacement = vim.fn.maparg('<F8>', 'i')
+      replacement_cmdline = vim.fn.maparg('<F8>', 'c')
+    ]])
+
+    expect.equality(child.lua_get([[collisions]]), {
+      { identity = 'mapping:i:<A-BS>', observed_owner = 'mapping' },
+      { identity = 'mapping:c:<A-BS>', observed_owner = 'mapping' },
+    })
+    expect.equality(child.lua_get([[preserved]]), '<BS>')
+    expect.equality(child.lua_get([[preserved_cmdline]]), '<BS>')
+    expect.equality(child.lua_get([[replacement]]), '<C-W>')
+    expect.equality(child.lua_get([[replacement_cmdline]]), '<C-W>')
+  end)
+
   it('uses Space as the conventional mapping leader', function()
     restart_with_init('tests/fixtures/editor_apply/init.lua')
 

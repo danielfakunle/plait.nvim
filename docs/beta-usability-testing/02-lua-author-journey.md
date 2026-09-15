@@ -2,7 +2,7 @@
 
 This procedure validates Mason-owned tools, Lua language intelligence, completion, formatting, provider-independent actions, and capability customization. Complete the bootstrap procedure first and return to `NVIM_APPNAME=plait-beta-ux`.
 
-The default mapping leader is Space. Relative line numbers are on by default; check `:set number? relativenumber?` in the applied editor, and press Space then `c` then `r` for `<leader>cr`.
+The default mapping leader is Space. Relative line numbers are on by default; check `:set number? relativenumber?` in the applied editor, and press Space then `c` then `r` for `<leader>cr`. In insert and command-line modes, Option/Alt+Backspace (`<A-BS>`) deletes the previous word using `<C-w>`; confirm the terminal sends that key sequence if it does not work.
 
 ## 1. Resolve the Lua tools
 

@@ -11,7 +11,7 @@
 ---@field clipboard? "auto"|"system"|"osc52"|"disabled"
 ---@field indentation? { style?: "spaces"|"tabs", width?: integer }
 ---@field line_numbers? "absolute"|"relative"|"off"
----@field mappings? { clear_search?: string|false, focus_down?: string|false, focus_left?: string|false, focus_right?: string|false, focus_up?: string|false, save?: string|false }
+---@field mappings? { clear_search?: string|false, delete_word?: string|false, focus_down?: string|false, focus_left?: string|false, focus_right?: string|false, focus_up?: string|false, save?: string|false }
 ---@field persistent_undo? boolean
 ---@field splits? { horizontal?: "below"|"above", vertical?: "right"|"left" }
 ---@field wrap? boolean
@@ -161,6 +161,10 @@ return {
         fields = {
           clear_search = {
             default = '<Esc>',
+            type = 'mapping',
+          },
+          delete_word = {
+            default = '<A-BS>',
             type = 'mapping',
           },
           focus_down = {
