@@ -51,7 +51,7 @@ print(message)
 print(unknown_name)
 ```
 
-Run `:LspInfo` and wait for `lua_ls` to attach. Then test:
+Run `:checkhealth vim.lsp`, confirm `lua_ls` appears under the active clients for the buffer, and wait for it to attach. Then test:
 
 1. Put the cursor on `greet` in the call and press `gd`.
 2. Press `gr` and verify references are shown.

@@ -42,7 +42,7 @@ For example, the second row is a hesitation because the operation succeeded but 
 | --- | --- | --- | --- | --- |
 | Install consent | ✓ | | | One prompt covered all four packages. |
 | Tool discovery/repair | | ✓ | | In Lua procedure step 1, `:Plait tooling ensure` succeeded, but neither its result nor the procedure made clear whether I needed to restart. I restarted and the tools worked. |
-| Completion behavior | | | ✓ | In Lua procedure step 3, `<C-Space>` opened no menu in an attached Lua buffer. `:LspInfo` showed `lua_ls`; retrying in insert mode did not help. |
+| Completion behavior | | | ✓ | In Lua procedure step 3, `<C-Space>` opened no menu in an attached Lua buffer. `:checkhealth vim.lsp` showed `lua_ls`; retrying in insert mode did not help. |
 
 Also preserve useful evidence such as operation IDs, relevant `:Plait inspect` output, and health messages. Do not mark a confusing experience as a pass merely because the final editor state was correct; usability friction is part of the result.
 
