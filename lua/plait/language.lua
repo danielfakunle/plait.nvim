@@ -372,6 +372,12 @@ function M.apply_effect(identity, configuration, effective_plan)
     map('n', configuration.mappings.previous_diagnostic, M.actions.previous_diagnostic, buffer)
     map('n', configuration.mappings.next_diagnostic, M.actions.next_diagnostic, buffer)
     M.attach(buffer, configuration.mappings)
+    local group = vim.api.nvim_create_augroup('plait.language.attach.' .. buffer, { clear = true })
+    vim.api.nvim_create_autocmd('LspAttach', {
+      group = group,
+      buffer = buffer,
+      callback = function() M.attach(buffer, configuration.mappings) end,
+    })
   elseif identity:match('^language/server%-definition/') then
     local server_identity = assert(identity:match('^language/server%-definition/(.+)$'))
     local declaration = require('plait.plan').language_requirements(effective_plan)[server_identity]

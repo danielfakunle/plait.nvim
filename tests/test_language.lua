@@ -15,6 +15,26 @@ local function activate_language()
 end
 
 describe('language capability facade', function()
+  it('installs client-supported mappings after a late LSP attach', function()
+    child.lua([[
+      local language = require('plait.language')
+      local clients = {}
+      vim.lsp.get_clients = function() return clients end
+      language.apply_effect('language/actions-and-mappings', {
+        mappings = { previous_diagnostic = false, next_diagnostic = false, definition = false, references = 'gr',
+          hover = false, rename = false, code_action = false },
+      })
+      before_attach = vim.fn.maparg('gr', 'n', false, true)
+      clients = { { supports_method = function(_, method) return method == 'textDocument/references' end } }
+      vim.api.nvim_exec_autocmds('LspAttach', { buffer = 0, data = { client_id = 1 } })
+      after_attach = vim.fn.maparg('gr', 'n', false, true)
+    ]])
+
+    expect.equality(child.lua_get([[next(before_attach)]]), vim.NIL)
+    expect.equality(child.lua_get([[after_attach.buffer]]), 1)
+    expect.equality(child.lua_get([[type(after_attach.callback)]]), 'function')
+  end)
+
   it('replaces the native gr mapping family when language is applied', function()
     child.lua([[
       local language = require('plait.language')
