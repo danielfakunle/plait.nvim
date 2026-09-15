@@ -7,12 +7,15 @@ description: Generated facts for supported capability configuration.
 | ----------------------------------------------- | -------------------------------------------------- | ----------------------------------------- |
 | `completion.automatic`                          | `boolean`                                          | `true`                                    |
 | `completion.documentation`                      | `selected \| automatic \| off`                     | `selected`                                |
-| `completion.mappings.accept`                    | `non-empty key string \| false`                    | `<C-y>`                                   |
-| `completion.mappings.cancel`                    | `non-empty key string \| false`                    | `<C-e>`                                   |
+| `completion.mappings.accept`                    | `non-empty key string \| false`                    | `<CR>`                                    |
+| `completion.mappings.hide`                      | `non-empty key string \| false`                    | `<C-e>`                                   |
 | `completion.mappings.next`                      | `non-empty key string \| false`                    | `<C-n>`                                   |
+| `completion.mappings.next_arrow`                | `non-empty key string \| false`                    | `<Down>`                                  |
 | `completion.mappings.previous`                  | `non-empty key string \| false`                    | `<C-p>`                                   |
+| `completion.mappings.previous_arrow`            | `non-empty key string \| false`                    | `<Up>`                                    |
 | `completion.mappings.scroll_documentation_down` | `non-empty key string \| false`                    | `<C-f>`                                   |
 | `completion.mappings.scroll_documentation_up`   | `non-empty key string \| false`                    | `<C-b>`                                   |
+| `completion.mappings.select_and_accept`         | `non-empty key string \| false`                    | `<C-y>`                                   |
 | `completion.mappings.trigger`                   | `non-empty key string \| false`                    | `<C-Space>`                               |
 | `completion.signature_help`                     | `boolean`                                          | `true`                                    |
 | `completion.sources`                            | `dense array of lsp \| buffer \| path \| snippets` | `{ "lsp", "path", "snippets", "buffer" }` |

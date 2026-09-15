@@ -110,7 +110,7 @@ T['canonical Lua quickstart']['locks the successful author journey'] = function(
   expect.equality(child.lua_get([[lua_quickstart.inspection_detached]]), true)
   expect.equality(
     child.lua_get([[lua_quickstart.nested_semantics_hash]]),
-    'f35539744cad81d7c2cefbf36050b0e29b439f829cd05140d132954d84000695'
+    '92f5b03f2ed31ecbba391ed7433a7228169420438ac3831bc278dc339ade3949'
   )
   expect.equality(child.lua_get([[lua_quickstart.lifecycle_errors]]), {
     'plait: apply may only be called once',

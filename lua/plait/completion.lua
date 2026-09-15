@@ -42,9 +42,14 @@ local function trigger()
   if vim.api.nvim_get_mode().mode:sub(1, 1) ~= 'i' then
     return unavailable_in_buffer('completion.trigger', 'completion_inactive', buffer)
   end
-  if require('blink.cmp').show() ~= true then
-    return unavailable_in_buffer('completion.trigger', 'completion_inactive', buffer)
+  local provider = require('blink.cmp')
+  if provider.is_active() then
+    local documentation = provider.is_documentation_visible()
+    local action = documentation and provider.hide_documentation or provider.show_documentation
+    if action() ~= true then return unavailable_in_buffer('completion.trigger', 'documentation_unavailable', buffer) end
+    return performed_in_buffer('completion.trigger', buffer)
   end
+  if provider.show() ~= true then return unavailable_in_buffer('completion.trigger', 'completion_inactive', buffer) end
   return performed_in_buffer('completion.trigger', buffer)
 end
 
@@ -82,11 +87,39 @@ end
 
 --- Accept the selected completion candidate.
 ---@return table
-local function accept() return session_action('accept', 'accept', 'no_candidate') end
+local function accept()
+  local operation = 'completion.accept'
+  local unavailable = inactive(operation)
+  if unavailable then return unavailable end
+  local buffer = vim.api.nvim_get_current_buf()
+  local provider = require('blink.cmp')
+  if not provider.is_active() or provider.get_selected_item() == nil then
+    return unavailable_in_buffer(operation, 'no_candidate', buffer)
+  end
+  if provider.accept() ~= true then return unavailable_in_buffer(operation, 'no_candidate', buffer) end
+  return performed_in_buffer(operation, buffer)
+end
+
+--- Select the first completion candidate when needed, then accept it.
+---@return table
+local function select_and_accept()
+  local operation = 'completion.select_and_accept'
+  local unavailable = inactive(operation)
+  if unavailable then return unavailable end
+  local buffer = vim.api.nvim_get_current_buf()
+  local provider = require('blink.cmp')
+  if not provider.is_active() then return unavailable_in_buffer(operation, 'completion_inactive', buffer) end
+  if provider.select_and_accept() ~= true then return unavailable_in_buffer(operation, 'no_candidate', buffer) end
+  return performed_in_buffer(operation, buffer)
+end
 
 --- Cancel the active completion session.
 ---@return table
 local function cancel() return session_action('cancel', 'cancel') end
+
+--- Hide the active completion session without undoing its preview.
+---@return table
+local function hide() return session_action('hide', 'hide') end
 
 --- Select the next completion candidate.
 ---@return table
@@ -99,7 +132,9 @@ local function select_previous() return session_action('previous', 'select_prev'
 M.actions = {
   trigger = trigger,
   accept = accept,
+  select_and_accept = select_and_accept,
   cancel = cancel,
+  hide = hide,
   next = select_next,
   previous = select_previous,
   scroll_documentation = scroll_documentation,
@@ -199,8 +234,11 @@ function M.apply_effect(identity, configuration)
     map(mappings.trigger, M.actions.trigger)
     map(mappings.next, M.actions.next)
     map(mappings.previous, M.actions.previous)
+    map(mappings.previous_arrow, M.actions.previous)
+    map(mappings.next_arrow, M.actions.next)
     map(mappings.accept, M.actions.accept)
-    map(mappings.cancel, M.actions.cancel)
+    map(mappings.select_and_accept, M.actions.select_and_accept)
+    map(mappings.hide, M.actions.hide)
     map(mappings.scroll_documentation_down, M.actions.scroll_documentation, 1)
     map(mappings.scroll_documentation_up, M.actions.scroll_documentation, -1)
   end

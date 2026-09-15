@@ -11,7 +11,7 @@ package.preload.mason = function()
   return { setup = function() end }
 end
 package.preload['blink.cmp'] = function()
-  return { setup = function() end }
+  return { setup = function() end, is_active = function() return false end, show = function() return false end }
 end
 
 -- luacheck: push ignore 122

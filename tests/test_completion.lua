@@ -93,7 +93,10 @@ describe('completion capability facade', function()
     })
     expect.equality(child.lua_get([[type(blink_cmdline_auto_show)]]), 'function')
     expect.equality(child.lua_get([[blink_cmdline_auto_show()]]), false)
-    expect.equality(child.lua_get([[vim.fn.maparg('<CR>', 'i', false, true)]]), {})
+    expect.equality(child.lua_get([[vim.fn.maparg('<CR>', 'i', false, true).callback()]]), '<CR>')
+    expect.equality(child.lua_get([[vim.fn.maparg('<C-y>', 'i', false, true).callback()]]), '<C-y>')
+    expect.equality(child.lua_get([[vim.fn.maparg('<Up>', 'i', false, true).callback()]]), '<Up>')
+    expect.equality(child.lua_get([[vim.fn.maparg('<Down>', 'i', false, true).callback()]]), '<Down>')
     expect.equality(child.lua_get([[(vim.fn.maparg('<Tab>', 'i', false, true).sid or 0) <= 0]]), true)
     expect.equality(child.lua_get([[vim.fn.maparg('<C-n>', 'i', false, true).callback()]]), '<C-n>')
   end)
@@ -102,6 +105,76 @@ describe('completion capability facade', function()
     child.restart({ '--clean', '-u', 'tests/fixtures/completion_apply/init.lua' })
 
     expect.equality(child.lua_get([[type(blink_setup.enabled)]]), 'function')
+  end)
+
+  it('accepts on Enter only after selection and lets Ctrl-Y select the first candidate', function()
+    child.restart({ '--clean', '-u', 'tests/fixtures/completion_apply/init.lua' })
+    child.lua([[
+      local selected = false
+      local calls = {}
+      package.loaded['blink.cmp'] = {
+        is_active = function() return true end,
+        get_selected_item = function() return selected and { label = 'first' } or nil end,
+        select_and_accept = function()
+          if not selected then selected = true; calls[#calls + 1] = 'select' end
+          calls[#calls + 1] = 'accept'
+          return true
+        end,
+        accept = function() calls[#calls + 1] = 'accept'; return true end,
+      }
+      enter_without_selection = vim.fn.maparg('<CR>', 'i', false, true).callback()
+      ctrl_y = vim.fn.maparg('<C-y>', 'i', false, true).callback()
+      enter_with_selection = vim.fn.maparg('<CR>', 'i', false, true).callback()
+      accepted_calls = calls
+    ]])
+    expect.equality(child.lua_get([[enter_without_selection]]), '<CR>')
+    expect.equality(child.lua_get([[ctrl_y]]), '')
+    expect.equality(child.lua_get([[enter_with_selection]]), '')
+    expect.equality(child.lua_get([[accepted_calls]]), { 'select', 'accept', 'accept' })
+  end)
+
+  it('uses Ctrl-Space to show completion and toggle documentation', function()
+    child.restart({ '--clean', '-u', 'tests/fixtures/completion_apply/init.lua' })
+    child.type_keys('i')
+    child.lua([[
+      local active, documentation = false, false
+      local calls = {}
+      package.loaded['blink.cmp'] = {
+        is_active = function() return active end,
+        is_documentation_visible = function() return documentation end,
+        show = function() active = true; calls[#calls + 1] = 'show'; return true end,
+        show_documentation = function() documentation = true; calls[#calls + 1] = 'show_documentation'; return true end,
+        hide_documentation = function() documentation = false; calls[#calls + 1] = 'hide_documentation'; return true end,
+      }
+      local callback = vim.fn.maparg('<C-Space>', 'i', false, true).callback
+      trigger_results = { callback(), callback(), callback() }
+      trigger_calls = calls
+    ]])
+    expect.equality(child.lua_get([[trigger_results]]), { '', '', '' })
+    expect.equality(child.lua_get([[trigger_calls]]), { 'show', 'show_documentation', 'hide_documentation' })
+  end)
+
+  it('navigates with arrows and Ctrl keys, and hides completion with Ctrl-E', function()
+    child.restart({ '--clean', '-u', 'tests/fixtures/completion_apply/init.lua' })
+    child.lua([[
+      local calls = {}
+      package.loaded['blink.cmp'] = {
+        is_active = function() return true end,
+        select_prev = function() calls[#calls + 1] = 'previous'; return true end,
+        select_next = function() calls[#calls + 1] = 'next'; return true end,
+        hide = function() calls[#calls + 1] = 'hide'; return true end,
+      }
+      navigation_results = {
+        vim.fn.maparg('<Up>', 'i', false, true).callback(),
+        vim.fn.maparg('<Down>', 'i', false, true).callback(),
+        vim.fn.maparg('<C-p>', 'i', false, true).callback(),
+        vim.fn.maparg('<C-n>', 'i', false, true).callback(),
+        vim.fn.maparg('<C-e>', 'i', false, true).callback(),
+      }
+      navigation_calls = calls
+    ]])
+    expect.equality(child.lua_get([[navigation_results]]), { '', '', '', '', '' })
+    expect.equality(child.lua_get([[navigation_calls]]), { 'previous', 'next', 'previous', 'next', 'hide' })
   end)
 
   it('shows documentation when a candidate is explicitly selected by default', function()

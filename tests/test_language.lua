@@ -278,7 +278,7 @@ describe('language capability facade', function()
       end
       local state = require('plait.state')
       state.completion_active = true
-      package.loaded['blink.cmp'] = { show = function() return true end }
+      package.loaded['blink.cmp'] = { is_active = function() return false end, show = function() return true end }
       vim.api.nvim_get_mode = function() return { mode = 'i' } end
       completion_result = M.actions.completion.trigger()
     ]])

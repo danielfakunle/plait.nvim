@@ -114,9 +114,11 @@ local capability_catalog = {
     actions = {
       'completion.accept',
       'completion.cancel',
+      'completion.hide',
       'completion.next',
       'completion.previous',
       'completion.scroll_documentation',
+      'completion.select_and_accept',
       'completion.trigger',
     },
   },

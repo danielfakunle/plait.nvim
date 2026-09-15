@@ -9,11 +9,17 @@ package.preload['blink.cmp'] = function()
       _G.blink_setup = vim.deepcopy(value)
     end,
     is_active = function() return false end,
+    is_documentation_visible = function() return false end,
+    show_documentation = function() return false end,
+    hide_documentation = function() return false end,
+    get_selected_item = function() return nil end,
     show = function() return false end,
     select_next = function() return false end,
     select_prev = function() return false end,
     accept = function() return false end,
     cancel = function() return false end,
+    hide = function() return false end,
+    select_and_accept = function() return false end,
     scroll_documentation_down = function() return false end,
     scroll_documentation_up = function() return false end,
   }

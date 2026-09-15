@@ -80,13 +80,13 @@ Enter insert mode after `vim.` and observe the completion menu.
 
 Exercise:
 
-- `<C-n>` and `<C-p>` to move through candidates
+- `<C-n>` and `<C-p>`, or `<Down>` and `<Up>`, to move through candidates
 - `<C-f>` and `<C-b>` when documentation is visible
-- `<C-y>` to accept
-- `<C-e>` to cancel
+- `<CR>` to accept a selected candidate, or `<C-y>` to select the first candidate and accept
+- `<C-e>` to hide completion
 - `<C-Space>` to trigger completion explicitly
 
-Expected: automatic LSP completion appears without preselecting its first candidate. Navigate to select a candidate before accepting it; `<C-y>` can also select and accept. Documentation appears after a selection (200 ms delay), signature help follows its default, and normal Enter/Tab behavior remains untouched. Source priority is LSP, path, snippets, buffer. In `:` command-line mode completion opens automatically; search command lines do not auto-open the menu. `<Left>` and `<Right>` retain their native command-line behavior.
+Expected: automatic LSP completion appears without preselecting its first candidate. Enter inserts a newline unless a candidate has been selected; `<C-y>` selects the first candidate if needed and accepts it. Repeating `<C-Space>` while completion is open shows or hides documentation. `<C-n>` and `<C-p>` retain their native behavior when completion is unavailable. Documentation appears after a selection (200 ms delay), signature help follows its default, and Tab retains its native behavior. Source priority is LSP, path, snippets, buffer. In `:` command-line mode completion opens automatically; search command lines do not auto-open the menu. `<Left>` and `<Right>` retain their native command-line behavior.
 
 Outside insert mode run:
 

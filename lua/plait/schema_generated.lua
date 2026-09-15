@@ -3,7 +3,7 @@
 ---@class PlaitCompletionConfiguration
 ---@field automatic? boolean
 ---@field documentation? "selected"|"automatic"|"off"
----@field mappings? { accept?: string|false, cancel?: string|false, next?: string|false, previous?: string|false, scroll_documentation_down?: string|false, scroll_documentation_up?: string|false, trigger?: string|false }
+---@field mappings? { accept?: string|false, hide?: string|false, next?: string|false, next_arrow?: string|false, previous?: string|false, previous_arrow?: string|false, scroll_documentation_down?: string|false, scroll_documentation_up?: string|false, select_and_accept?: string|false, trigger?: string|false }
 ---@field signature_help? boolean
 ---@field sources? ("lsp"|"buffer"|"path"|"snippets")[]
 
@@ -50,10 +50,10 @@ return {
       mappings = {
         fields = {
           accept = {
-            default = '<C-y>',
+            default = '<CR>',
             type = 'mapping',
           },
-          cancel = {
+          hide = {
             default = '<C-e>',
             type = 'mapping',
           },
@@ -61,8 +61,16 @@ return {
             default = '<C-n>',
             type = 'mapping',
           },
+          next_arrow = {
+            default = '<Down>',
+            type = 'mapping',
+          },
           previous = {
             default = '<C-p>',
+            type = 'mapping',
+          },
+          previous_arrow = {
+            default = '<Up>',
             type = 'mapping',
           },
           scroll_documentation_down = {
@@ -71,6 +79,10 @@ return {
           },
           scroll_documentation_up = {
             default = '<C-b>',
+            type = 'mapping',
+          },
+          select_and_accept = {
+            default = '<C-y>',
             type = 'mapping',
           },
           trigger = {
