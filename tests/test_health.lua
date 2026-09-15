@@ -88,6 +88,32 @@ describe('Plait health', function()
     expect.equality(output:find('Blink fuzzy path', 1, true) == nil, true)
   end)
 
+  it('does not warn about an absent registry when effective Mason tools are satisfied', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'language', 'formatting', 'tooling', 'lang.lua' })
+      config:validate()
+      local state = require('plait.state')
+      for _, tool in ipairs(state.snapshot.tools) do
+        tool.state = 'satisfied'
+        tool.path = '/qualified/' .. tool.identity
+        tool.source = 'PATH'
+        tool.version = tool.identity == 'stylua' and '2.5.2' or '3.19.1'
+      end
+      local fs_stat = vim.uv.fs_stat
+      vim.uv.fs_stat = function(path)
+        if path:find('/mason/registries/', 1, true) then return nil end
+        return fs_stat(path)
+      end
+    ]])
+
+    local output = health_output()
+    expect.equality(
+      output:find('Mason registry: not installed; not required by the satisfied effective tools', 1, true) ~= nil,
+      true
+    )
+  end)
+
   it('reports an incompatible authoritative tool candidate', function()
     child.lua([[
       tool_directory = vim.fn.tempname()

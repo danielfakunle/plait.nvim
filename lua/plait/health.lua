@@ -175,10 +175,15 @@ local function report_providers()
 end
 
 --- Report the pinned Mason registry from local, non-mutating metadata.
-local function report_registry()
+---@param required boolean
+local function report_registry(required)
   local registry = compatibility.registry
   local root = vim.fs.normalize(vim.fn.stdpath('data') .. '/mason/registries/github/mason-org/mason-registry')
   local commit = is_directory(root) and command_output_line({ 'git', '-C', root, 'rev-parse', 'HEAD' }) or nil
+  if not commit and not required then
+    vim.health.info('Mason registry: not installed; not required by the satisfied effective tools')
+    return
+  end
   qualification(
     ('Mason registry: %s; required release=%s, revision=%s'):format(
       commit and ('revision=' .. commit) or 'not installed',
@@ -187,6 +192,16 @@ local function report_registry()
     ),
     commit == registry.commit
   )
+end
+
+--- Return whether an effective unsatisfied tool may require Mason mutation.
+---@return boolean
+local function registry_required()
+  if not state.snapshot then return true end
+  for _, tool in ipairs(state.snapshot.tools) do
+    if tool.state ~= 'satisfied' and (tool.ownership == 'mason' or tool.ownership == 'hybrid') then return true end
+  end
+  return false
 end
 
 --- Report one effective tool and its semantic-version qualification.
@@ -319,7 +334,7 @@ function M.check()
       completion_active = completion_active or capability.identity == 'completion'
     end
   end
-  if tooling_active then report_registry() end
+  if tooling_active then report_registry(registry_required()) end
   report_tools()
   report_clipboard()
   if completion_active then report_blink(providers['blink.cmp']) end
