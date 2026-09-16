@@ -154,6 +154,20 @@ describe('completion capability facade', function()
     expect.equality(child.lua_get([[trigger_calls]]), { 'show', 'show_documentation', 'hide_documentation' })
   end)
 
+  it('does not insert text when Ctrl-Space is pressed with an open completion menu', function()
+    child.restart({ '--clean', '-u', 'tests/fixtures/completion_apply/init.lua' })
+    child.type_keys('iword<Esc>a')
+    child.lua([[
+      package.loaded['blink.cmp'] = {
+        is_active = function() return true end,
+        is_documentation_visible = function() return false end,
+        show_documentation = function() return false end,
+      }
+    ]])
+    child.type_keys('<C-Space>')
+    expect.equality(child.lua_get([[vim.api.nvim_get_current_line()]]), 'word')
+  end)
+
   it('navigates with arrows and Ctrl keys, and hides completion with Ctrl-E', function()
     child.restart({ '--clean', '-u', 'tests/fixtures/completion_apply/init.lua' })
     child.lua([[

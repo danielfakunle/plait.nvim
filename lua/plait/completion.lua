@@ -210,16 +210,16 @@ local function setup_options(configuration)
   })
 end
 
---- Install an insert mapping that preserves native behavior when unavailable.
+--- Install an insert mapping with an optional native fallback when unavailable.
 ---@param lhs string|false
 ---@param action function
----@param ... any
-local function map(lhs, action, ...)
+---@param argument? any
+---@param preserve_native? boolean
+local function map(lhs, action, argument, preserve_native)
   if lhs == false then return end
-  local arguments = { ... }
   vim.keymap.set('i', lhs, function()
-    local result = action(arguments[1])
-    return result.status == 'unavailable' and lhs or ''
+    local result = action(argument)
+    return result.status == 'unavailable' and preserve_native ~= false and lhs or ''
   end, { expr = true })
 end
 
@@ -231,7 +231,8 @@ function M.apply_effect(identity, configuration)
     require('blink.cmp').setup(setup_options(configuration))
   elseif identity == 'completion/actions-and-mappings' then
     local mappings = configuration.mappings
-    map(mappings.trigger, M.actions.trigger)
+    -- Ctrl-Space is Ctrl-@ in Neovim and replays the previous insert when fed back.
+    map(mappings.trigger, M.actions.trigger, nil, false)
     map(mappings.next, M.actions.next)
     map(mappings.previous, M.actions.previous)
     map(mappings.previous_arrow, M.actions.previous)
