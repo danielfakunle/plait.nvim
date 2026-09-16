@@ -94,11 +94,40 @@ describe('external tool resolution', function()
 
     expect.equality(child.lua_get([[tsc.state]]), 'satisfied')
     expect.equality(child.lua_get([[oxfmt.state]]), 'incompatible')
+    expect.equality(child.lua_get([[oxfmt.version]]), '0.66.0')
+    expect.equality(child.lua_get([[oxfmt.runtime.executable]]), 'node')
+    expect.equality(child.lua_get([[oxfmt.runtime.version]]), '18.0.0')
+    expect.equality(child.lua_get([[oxfmt.runtime.constraint]]), '>=22.12.0')
     expect.equality(
       child.lua_get([[vim.tbl_contains(vim.tbl_map(function(d) return d.code end,
       result.diagnostics), 'tool.incompatible')]]),
       true
     )
+  end)
+
+  it('probes a Node symlink by its Node name when its target is a multi-call executable', function()
+    child.lua([[
+      local root = vim.fn.tempname()
+      local workspace = root .. '/node_modules/.bin'
+      local runtime = root .. '/runtime'
+      vim.fn.mkdir(workspace, 'p')
+      vim.fn.mkdir(runtime, 'p')
+      vim.fn.writefile({ '#!/bin/sh', 'echo "Version 7.0.2"' }, workspace .. '/tsc')
+      vim.fn.setfperm(workspace .. '/tsc', 'rwxr-xr-x')
+      vim.fn.writefile({ '#!/bin/sh', 'case "$0" in */node) echo v24.21.0 ;; *) echo "vp v0.3.1" ;; esac' }, runtime .. '/vp')
+      vim.fn.setfperm(runtime .. '/vp', 'rwxr-xr-x')
+      vim.uv.fs_symlink(runtime .. '/vp', runtime .. '/node')
+      vim.fn.setenv('PATH', runtime)
+      vim.cmd.cd(root)
+      local config = M.config()
+      config:select({ 'language', 'formatting', 'tooling', 'lang.typescript' })
+      config:validate()
+      tsc = M.inspect('tools', 'tsc')
+    ]])
+
+    expect.equality(child.lua_get([[tsc.state]]), 'satisfied')
+    expect.equality(child.lua_get([[tsc.version]]), '7.0.2')
+    expect.equality(child.lua_get([[tsc.runtime]]), vim.NIL)
   end)
 
   it('keeps a present incompatible workspace oxfmt authoritative over Mason', function()

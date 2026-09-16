@@ -13,8 +13,8 @@ set -gx PLAIT_UX /tmp/plait-beta-ux
 
 mkdir -p $PLAIT_UX/typescript-project/src
 cd $PLAIT_UX/typescript-project
-npm init -y
-npm install --save-dev typescript@'>=7.0.0 <8.0.0' @oxc-project/oxfmt@0.66.0
+pnpm init -y
+pnpm add -D typescript@7 oxfmt@0.66.0
 printf '{"compilerOptions":{"strict":true},"include":["src"]}\n' >tsconfig.json
 printf 'const greeting: string = "hello"\nconsole.log(greeting)\n' >src/main.ts
 ```

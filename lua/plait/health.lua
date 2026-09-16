@@ -207,6 +207,22 @@ end
 --- Report one effective tool and its semantic-version qualification.
 ---@param tool table
 local function report_tool(tool)
+  if tool.runtime ~= vim.NIL then
+    local runtime = tool.runtime
+    vim.health.warn(
+      ('Tool %s: version %s (%s, %s); Node runtime %s (version %s, path %s); required %s'):format(
+        tool.identity,
+        tool.version,
+        tool.path,
+        tool.source,
+        runtime.state,
+        runtime.version,
+        runtime.path,
+        runtime.constraint
+      )
+    )
+    return
+  end
   if tool.state == 'satisfied' then
     vim.health.ok(
       ('Tool %s: version %s (%s, %s); required %s'):format(

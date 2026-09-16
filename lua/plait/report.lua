@@ -126,6 +126,7 @@ local definitions = {
       { 'Resolved path', 'path' },
       { 'Resolved source', 'source' },
       { 'Resolved version', 'version' },
+      { 'Runtime', 'runtime' },
       { 'Operations', 'affected_operations' },
       { 'Repair', 'repair' },
     },

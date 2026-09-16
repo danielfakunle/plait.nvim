@@ -158,6 +158,7 @@ T['canonical Lua quickstart']['locks the successful author journey'] = function(
       'ownership',
       'path',
       'repair',
+      'runtime',
       'source',
       'sources',
       'state',

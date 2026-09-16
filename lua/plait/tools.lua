@@ -360,8 +360,9 @@ end
 
 --- Directly probe one authoritative candidate.
 ---@param candidate table
+---@param preserve_name? boolean
 ---@return table|nil, string|nil
-local function probe(candidate)
+local function probe(candidate, preserve_name)
   if candidate.state == 'rejected' then return nil, candidate.reason end
   local stdout, stderr, exceeded = '', '', false
   local process
@@ -386,9 +387,11 @@ local function probe(candidate)
     end
   end
   local ok
-  ok, process = pcall(vim.system, { assert(candidate.real_path), '--version' }, {
+  -- Multi-call binaries can choose their behavior from argv[0] (for example Vite+'s node symlink to vp).
+  local executable = preserve_name and candidate.path or assert(candidate.real_path)
+  ok, process = pcall(vim.system, { executable, '--version' }, {
     text = true,
-    cwd = vim.fs.dirname(assert(candidate.real_path)),
+    cwd = vim.fs.dirname(executable),
     stdout = capture('stdout'),
     stderr = capture('stderr'),
   })
@@ -419,7 +422,7 @@ local function node_state(identity)
     end
   end
   if not candidate then return 'absent', nil, nil end
-  local observed, reason = probe(candidate)
+  local observed, reason = probe(candidate, true)
   if not observed then return 'unprobeable', { path = candidate.path }, reason end
   local allowed = requirement.minimum and compare(observed.parsed, requirement.minimum) >= 0
   return allowed and 'satisfied' or 'incompatible', { path = candidate.path, version = observed.text }, nil
@@ -477,6 +480,7 @@ function M.resolve(resolution)
       path = vim.NIL,
       source = vim.NIL,
       version = vim.NIL,
+      runtime = vim.NIL,
       state = 'absent',
       affected_operations = array(requirement.affected_operations),
       sources = array(requirement.sources),
@@ -505,7 +509,17 @@ function M.resolve(resolution)
       local runtime_state, runtime, runtime_reason = node_state(identity)
       if runtime_state ~= 'satisfied' then
         record.state = runtime_state
-        record.repair = repair_for(runtime_state)
+        record.repair = runtime_state == 'incompatible'
+            and 'Install a Node version satisfying ' .. compatibility.node[identity].constraint .. ' on PATH.'
+          or repair_for(runtime_state)
+        record.runtime = {
+          executable = 'node',
+          constraint = compatibility.node[identity].constraint,
+          path = runtime and runtime.path or vim.NIL,
+          version = runtime and runtime.version or vim.NIL,
+          state = runtime_state,
+          reason = runtime_reason or vim.NIL,
+        }
         local runtime_requirement = vim.deepcopy(requirement)
         runtime_requirement.constraint = compatibility.node[identity].constraint
         local diagnostic_record = vim.deepcopy(record)
