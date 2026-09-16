@@ -69,12 +69,17 @@ end
 ---@field owner_init function|nil
 local Collector = {}
 Collector.__index = Collector
+local resolution_caches = setmetatable({}, { __mode = 'k' })
 
 --- Reject collection after the first apply entry.
 ---@param collector PlaitCollector
 local function ensure_collecting(collector)
   if collector.sealed then misuse('configuration collector is sealed') end
 end
+
+--- Invalidate the private point-in-time resolution after collection changes.
+---@param collector PlaitCollector
+local function invalidate_resolution(collector) resolution_caches[collector] = nil end
 
 --- Select modules for this Plait configuration.
 ---@param entries string[]
@@ -84,6 +89,7 @@ function Collector:select(entries)
   -- Local modules are opaque handles.  Copying them would discard their
   -- private marker and turn a valid declaration into an arbitrary table.
   self.selection_calls[#self.selection_calls + 1] = { value = entries, source = source('select[1]') }
+  invalidate_resolution(self)
   return self
 end
 
@@ -94,6 +100,7 @@ function Collector:configure(declaration)
   ensure_collecting(self)
   self.configuration_calls[#self.configuration_calls + 1] =
     { value = vim.deepcopy(declaration), source = source('configure') }
+  invalidate_resolution(self)
   return self
 end
 
@@ -103,6 +110,7 @@ end
 function Collector:override(declaration)
   ensure_collecting(self)
   self.override_calls[#self.override_calls + 1] = { value = vim.deepcopy(declaration), source = source('override') }
+  invalidate_resolution(self)
   return self
 end
 
@@ -112,6 +120,7 @@ end
 function Collector:providers(declaration)
   ensure_collecting(self)
   self.provider_calls[#self.provider_calls + 1] = { value = vim.deepcopy(declaration), source = source('providers') }
+  invalidate_resolution(self)
   return self
 end
 
@@ -238,6 +247,8 @@ end
 ---@param collector PlaitCollector
 ---@return table|nil, table[]
 local function resolve(collector)
+  local cached = resolution_caches[collector]
+  if cached then return cached.effective_plan, cached.diagnostics end
   local selections, selection_sources = combine_selections(collector.selection_calls, collector.collector_source)
   local declaration, configuration_source, configuration_sources =
     combine_configuration(collector.configuration_calls, collector.collector_source)
@@ -255,14 +266,21 @@ local function resolve(collector)
   vim.list_extend(diagnostics, vim.deepcopy(state.bootstrap_diagnostics))
   vim.list_extend(diagnostics, vim.deepcopy(state.operation_diagnostics))
   validation.sort_diagnostics(diagnostics)
-  if not configuration or not resolution or semantic_diagnostic_count > 0 then return nil, diagnostics end
+  if not configuration or not resolution or semantic_diagnostic_count > 0 then
+    resolution_caches[collector] = { diagnostics = diagnostics }
+    return nil, diagnostics
+  end
   local provider_diagnostics = providers.resolve(collector.provider_calls, resolution)
   vim.list_extend(diagnostics, provider_diagnostics)
   validation.sort_diagnostics(diagnostics)
-  if #provider_diagnostics > 0 then return nil, diagnostics end
+  if #provider_diagnostics > 0 then
+    resolution_caches[collector] = { diagnostics = diagnostics }
+    return nil, diagnostics
+  end
   local effective_plan, package_diagnostics = plan.build(configuration, resolution)
   vim.list_extend(diagnostics, package_diagnostics)
   validation.sort_diagnostics(diagnostics)
+  resolution_caches[collector] = { effective_plan = effective_plan, diagnostics = diagnostics }
   return effective_plan, diagnostics
 end
 
@@ -287,6 +305,13 @@ function Collector:validate()
   return vim.deepcopy({ status = 'valid', diagnostics = diagnostics, plan = effective_plan, plan_id = plan_id })
 end
 
+--- Re-observe the effective plan at an explicit internal refresh boundary.
+---@return table
+function Collector:_refresh()
+  invalidate_resolution(self)
+  return self:validate()
+end
+
 --- Seal, re-resolve, and synchronously apply the effective editor plan.
 ---@param ... any
 ---@return table
@@ -300,6 +325,7 @@ function Collector:apply(...)
 
   local effective_plan, diagnostics = resolve(self)
   if not effective_plan then return application.invalid(diagnostics) end
+  diagnostics = vim.deepcopy(diagnostics)
   local environment_diagnostics = environment.observe(#effective_plan.packages > 0)
   vim.list_extend(diagnostics, environment_diagnostics)
   validation.sort_diagnostics(diagnostics)
@@ -317,13 +343,12 @@ function Collector:apply(...)
     local installed, reason = packages.install_for_apply(effective_plan.packages)
     if not installed then
       if reason == 'partial_unknown' then
+        invalidate_resolution(self)
         effective_plan, diagnostics = resolve(self)
         if not effective_plan then return application.invalid(diagnostics) end
       end
       return application.unavailable(effective_plan, diagnostics, reason or 'partial_unknown')
     end
-    effective_plan, diagnostics = resolve(self)
-    if not effective_plan then return application.invalid(diagnostics) end
   elseif package_state ~= 'satisfied' then
     return application.unavailable(effective_plan, diagnostics, packages.apply_reason(package_state))
   else
@@ -336,7 +361,9 @@ function Collector:apply(...)
     validation.sort_diagnostics(diagnostics)
     return application.invalid(diagnostics)
   end
-  return application.run(effective_plan, diagnostics, schema)
+  local applied = application.run(effective_plan, diagnostics, schema)
+  invalidate_resolution(self)
+  return applied
 end
 
 --- Create the process-wide Plait configuration collector.

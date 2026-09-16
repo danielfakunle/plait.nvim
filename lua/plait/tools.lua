@@ -361,9 +361,16 @@ end
 --- Directly probe one authoritative candidate.
 ---@param candidate table
 ---@param preserve_name? boolean
+---@param probe_cache? table<string, table>
 ---@return table|nil, string|nil
-local function probe(candidate, preserve_name)
+local function probe(candidate, preserve_name, probe_cache)
   if candidate.state == 'rejected' then return nil, candidate.reason end
+  local executable = preserve_name and candidate.path or assert(candidate.real_path)
+  local cache_key = executable .. '\0--version'
+  if probe_cache and probe_cache[cache_key] then
+    local cached = probe_cache[cache_key]
+    return cached.observed, cached.reason
+  end
   local stdout, stderr, exceeded = '', '', false
   local process
   --- Capture one bounded process stream.
@@ -388,29 +395,41 @@ local function probe(candidate, preserve_name)
   end
   local ok
   -- Multi-call binaries can choose their behavior from argv[0] (for example Vite+'s node symlink to vp).
-  local executable = preserve_name and candidate.path or assert(candidate.real_path)
   ok, process = pcall(vim.system, { executable, '--version' }, {
     text = true,
     cwd = vim.fs.dirname(executable),
     stdout = capture('stdout'),
     stderr = capture('stderr'),
   })
-  if not ok then return nil, 'exit_nonzero' end
+  if not ok then
+    if probe_cache then probe_cache[cache_key] = { reason = 'exit_nonzero' } end
+    return nil, 'exit_nonzero'
+  end
   local result = process:wait(2000)
-  if exceeded then return nil, 'output_limit' end
-  if result.code == 124 or result.signal == 15 then return nil, 'timeout' end
-  if result.code ~= 0 then return nil, 'exit_nonzero' end
+  local reason = exceeded and 'output_limit'
+    or (result.code == 124 or result.signal == 15) and 'timeout'
+    or result.code ~= 0 and 'exit_nonzero'
+  if reason then
+    if probe_cache then probe_cache[cache_key] = { reason = reason } end
+    return nil, reason
+  end
   local token = stdout:match('%f[%d](%d+%.%d+%.%d+%-?[%w%.%-]*%+?[%w%.%-]*)%f[^%w%.%+%-]')
     or stderr:match('%f[%d](%d+%.%d+%.%d+%-?[%w%.%-]*%+?[%w%.%-]*)%f[^%w%.%+%-]')
   local parsed = token and parse_semver(token)
-  if not parsed then return nil, 'version_missing' end
-  return { parsed = parsed, text = token }
+  if not parsed then
+    if probe_cache then probe_cache[cache_key] = { reason = 'version_missing' } end
+    return nil, 'version_missing'
+  end
+  local observed = { parsed = parsed, text = token }
+  if probe_cache then probe_cache[cache_key] = { observed = observed } end
+  return observed
 end
 
 --- Observe the Node runtime required by a built-in JavaScript tool.
 ---@param identity string
+---@param probe_cache table<string, table>
 ---@return 'satisfied'|'absent'|'incompatible'|'unprobeable', table|nil, string|nil
-local function node_state(identity)
+local function node_state(identity, probe_cache)
   local requirement = compatibility.node[identity]
   if not requirement then return 'satisfied', nil, nil end
   local candidate
@@ -422,7 +441,7 @@ local function node_state(identity)
     end
   end
   if not candidate then return 'absent', nil, nil end
-  local observed, reason = probe(candidate, true)
+  local observed, reason = probe(candidate, true, probe_cache)
   if not observed then return 'unprobeable', { path = candidate.path }, reason end
   local allowed = requirement.minimum and compare(observed.parsed, requirement.minimum) >= 0
   return allowed and 'satisfied' or 'incompatible', { path = candidate.path, version = observed.text }, nil
@@ -432,6 +451,7 @@ end
 ---@param resolution table
 ---@return table[], table[], table<string, table>
 function M.resolve(resolution)
+  local probe_cache = {}
   local requirements = {}
   for _, definition in ipairs(compatibility.tools) do
     if vim.list_contains(resolution.effective_contributions, 'tooling.tools.' .. definition.identity) then
@@ -489,7 +509,7 @@ function M.resolve(resolution)
     if authoritative then
       local candidate = found[authoritative]
       record.path, record.source = candidate.path, candidate.source
-      local observed, reason = probe(candidate)
+      local observed, reason = probe(candidate, nil, probe_cache)
       if not observed then
         record.state, record.repair = 'unprobeable', repair_for('unprobeable')
         diagnostics[#diagnostics + 1] = diagnostic('tool.unprobeable', requirement, record, reason)
@@ -506,7 +526,7 @@ function M.resolve(resolution)
       diagnostics[#diagnostics + 1] = diagnostic('tool.absent', requirement, record)
     end
     if record.state == 'satisfied' and compatibility.node[identity] then
-      local runtime_state, runtime, runtime_reason = node_state(identity)
+      local runtime_state, runtime, runtime_reason = node_state(identity, probe_cache)
       if runtime_state ~= 'satisfied' then
         record.state = runtime_state
         record.repair = runtime_state == 'incompatible'

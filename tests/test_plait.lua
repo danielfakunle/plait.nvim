@@ -371,6 +371,53 @@ describe('effective plan', function()
     expect.equality(child.lua_get([[first.plan_id ~= second.plan_id]]), true)
   end)
 
+  it('caches invalid resolutions while returning detached validation results', function()
+    child.lua([[
+      local validation = require('plait.validation')
+      local validate = validation.validate
+      validation_calls = 0
+      validation.validate = function(...)
+        validation_calls = validation_calls + 1
+        return validate(...)
+      end
+      local config = M.config()
+      config:select({ 'missing' })
+      first = config:validate()
+      first.diagnostics[1].code = 'mutated'
+      second = config:validate()
+    ]])
+
+    expect.equality(child.lua_get([[validation_calls]]), 1)
+    expect.equality(child.lua_get([[first.status]]), 'invalid')
+    expect.equality(child.lua_get([[second.status]]), 'invalid')
+    expect.equality(child.lua_get([[second.diagnostics[1].code]]), 'config.invalid')
+  end)
+
+  it('invalidates cached resolution after every declaration kind changes', function()
+    child.lua([[
+      local validation = require('plait.validation')
+      local validate = validation.validate
+      validation_calls = 0
+      validation.validate = function(...)
+        validation_calls = validation_calls + 1
+        return validate(...)
+      end
+      local config = M.config()
+      config:select({ 'editor' })
+      config:validate()
+      config:select({ 'editor' })
+      config:validate()
+      config:configure({ editor = {} })
+      config:validate()
+      config:override({})
+      config:validate()
+      config:providers({})
+      config:validate()
+    ]])
+
+    expect.equality(child.lua_get([[validation_calls]]), 5)
+  end)
+
   it('resolves every supported capability default and owner configuration', function()
     child.lua([[
       local config = M.config()

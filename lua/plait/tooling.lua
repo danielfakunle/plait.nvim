@@ -79,7 +79,10 @@ end
 --- Re-observe the current effective plan without refreshing registries or mutating tools.
 ---@return table
 local function refresh()
-  if state.collector then state.collector:validate() end
+  if state.collector then
+    -- Tool actions are explicit observation boundaries after the environment may have changed.
+    state.collector:_refresh()
+  end
   return assert(state.snapshot)
 end
 
@@ -292,10 +295,9 @@ function M.apply_effect(identity, configuration, effective_plan)
   elseif identity == 'tooling/actions' then
     state.tooling_active = true
   elseif identity == 'tooling/tool-resolution' then
-    local observed = refresh()
-    if effective_plan then effective_plan.tools = vim.deepcopy(observed.tools) end
+    if not effective_plan then refresh() end
   elseif identity == 'tooling/startup-check' and configuration.check_on_startup then
-    M.check()
+    if not effective_plan then M.check() end
   end
 end
 

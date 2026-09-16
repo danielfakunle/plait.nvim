@@ -18,6 +18,12 @@ T['qualified local integrations']['run the canonical TypeScript author journey']
 
   expect.equality(child.lua_get([[typescript_validation_result.status]]), 'valid')
   expect.equality(child.lua_get([[typescript_apply_result.status]]), 'performed')
+  expect.equality(child.lua_get([[typescript_resolution_counts]]), { providers = 1, packages = 1, tools = 1 })
+  expect.equality(child.lua_get([[vim.tbl_count(typescript_probe_counts)]]), 5)
+  expect.equality(
+    child.lua_get([[vim.iter(typescript_probe_counts):all(function(_, count) return count == 1 end)]]),
+    true
+  )
   expect.equality(child.lua_get([[enabled_servers]]), { 'lua_ls', 'tsc' })
   expect.equality(child.lua_get([[tsc_config.filetypes]]), {
     'javascript',

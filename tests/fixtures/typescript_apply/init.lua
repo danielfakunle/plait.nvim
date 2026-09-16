@@ -51,6 +51,28 @@ end
 
 require('plait.packages').install_for_apply = function() return true end
 
+_G.typescript_resolution_counts = { providers = 0, packages = 0, tools = 0 }
+for name, module_name in pairs({ providers = 'plait.providers', packages = 'plait.packages', tools = 'plait.tools' }) do
+  local module = require(module_name)
+  local resolve = module.resolve
+  module.resolve = function(...)
+    _G.typescript_resolution_counts[name] = _G.typescript_resolution_counts[name] + 1
+    return resolve(...)
+  end
+end
+
+local system = vim.system
+_G.typescript_probe_counts = {}
+-- luacheck: push ignore 122
+vim.system = function(command, options)
+  if command[2] == '--version' then
+    local identity = table.concat(command, '\0')
+    _G.typescript_probe_counts[identity] = (_G.typescript_probe_counts[identity] or 0) + 1
+  end
+  return system(command, options)
+end
+-- luacheck: pop
+
 local plait = require('plait')
 _G.M = plait
 local config = plait.config()
@@ -73,5 +95,6 @@ config:override({
   },
 })
 _G.typescript_validation_result = config:validate()
+_G.typescript_validation_result.plan.effects[1].identity = 'mutated-public-result'
 _G.typescript_apply_result = config:apply()
 _G.tsc_config = vim.deepcopy(vim.lsp.config.tsc)
