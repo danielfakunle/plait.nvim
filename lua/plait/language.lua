@@ -158,15 +158,6 @@ local requests = {
   code_action = { method = 'textDocument/codeAction', invoke = function() vim.lsp.buf.code_action() end },
 }
 
-local superseded_native_mappings = { 'grr', 'gra', 'grn', 'gri', 'grt' }
-local native_mapping_descriptions = {
-  grr = 'vim.lsp.buf.references()',
-  gra = 'vim.lsp.buf.code_action()',
-  grn = 'vim.lsp.buf.rename()',
-  gri = 'vim.lsp.buf.implementation()',
-  grt = 'vim.lsp.buf.type_definition()',
-}
-
 --- Find the bytewise-first degraded managed server matching a buffer.
 ---@param buffer integer
 ---@return table|nil
@@ -334,19 +325,7 @@ M.actions = {
 ---@param callback function
 ---@param buffer integer
 local function map(modes, lhs, callback, buffer)
-  if lhs ~= false then vim.keymap.set(modes, lhs, callback, { buffer = buffer }) end
-end
-
---- Install mappings supported by clients attached to one buffer.
----@param buffer integer
----@param mappings table
-function M.attach(buffer, mappings)
-  local clients = vim.lsp.get_clients({ bufnr = buffer })
-  for name, descriptor in pairs(requests) do
-    if supports_method(buffer, descriptor.method, clients) then
-      map(name == 'code_action' and { 'n', 'x' } or 'n', mappings[name], M.actions[name], buffer)
-    end
-  end
+  if lhs ~= false then vim.keymap.set(modes, lhs, callback, { buffer = buffer, nowait = true }) end
 end
 
 --- Install a close mapping only in a native quickfix buffer.
@@ -362,36 +341,7 @@ end
 ---@return table[]
 function M.preflight_effect(identity, configuration)
   if identity ~= 'language/actions-and-mappings' then return {} end
-  local buffer = vim.api.nvim_get_current_buf()
-  local mappings = {
-    { modes = { 'n' }, lhs = configuration.mappings.previous_diagnostic },
-    { modes = { 'n' }, lhs = configuration.mappings.next_diagnostic },
-  }
-  local clients = vim.lsp.get_clients({ bufnr = buffer })
-  for name, descriptor in pairs(requests) do
-    if supports_method(buffer, descriptor.method, clients) then
-      mappings[#mappings + 1] = {
-        modes = name == 'code_action' and { 'n', 'x' } or { 'n' },
-        lhs = configuration.mappings[name],
-      }
-    end
-  end
-  local collisions = {}
-  for _, mapping in ipairs(mappings) do
-    if mapping.lhs ~= false then
-      for _, mode in ipairs(mapping.modes) do
-        local observed = vim.fn.maparg(mapping.lhs, mode, false, true)
-        if next(observed) and observed.buffer == 1 then
-          collisions[#collisions + 1] = {
-            identity = 'mapping:' .. mode .. ':' .. mapping.lhs .. ':buffer:' .. buffer,
-            observed_owner = 'mapping',
-          }
-        end
-      end
-    end
-  end
-  table.sort(collisions, function(left, right) return left.identity < right.identity end)
-  return collisions
+  return require('plait.language_mappings').preflight(configuration.mappings, requests)
 end
 
 --- Apply one language effect by its stable identity.
@@ -405,24 +355,9 @@ function M.apply_effect(identity, configuration, effective_plan)
     vim.diagnostic.config(vim.deepcopy(configuration.diagnostics))
     vim.lsp.inlay_hint.enable(configuration.inlay_hints, { bufnr = buffer })
   elseif identity == 'language/actions-and-mappings' then
-    local native = {}
-    for _, mapping in ipairs(vim.api.nvim_get_keymap('n')) do
-      if mapping.sid and mapping.sid < 0 and mapping.desc == native_mapping_descriptions[mapping.lhs] then
-        native[mapping.lhs] = true
-      end
-    end
-    for _, lhs in ipairs(superseded_native_mappings) do
-      if native[lhs] then vim.keymap.del('n', lhs) end
-    end
     map('n', configuration.mappings.previous_diagnostic, M.actions.previous_diagnostic, buffer)
     map('n', configuration.mappings.next_diagnostic, M.actions.next_diagnostic, buffer)
-    M.attach(buffer, configuration.mappings)
-    local group = vim.api.nvim_create_augroup('plait.language.attach.' .. buffer, { clear = true })
-    vim.api.nvim_create_autocmd('LspAttach', {
-      group = group,
-      buffer = buffer,
-      callback = function() M.attach(buffer, configuration.mappings) end,
-    })
+    require('plait.language_mappings').apply(configuration.mappings, M.actions, requests)
     local quickfix_group = vim.api.nvim_create_augroup('plait.language.quickfix', { clear = true })
     vim.api.nvim_create_autocmd('FileType', {
       group = quickfix_group,

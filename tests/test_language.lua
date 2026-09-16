@@ -83,7 +83,24 @@ describe('language capability facade', function()
     expect.equality(child.lua_get([[type(after_attach.callback)]]), 'function')
   end)
 
-  it('replaces the native gr mapping family when language is applied', function()
+  it('maps references in subsequently opened buffers', function()
+    child.restart({ '--clean', '-u', 'tests/fixtures/language_apply/init.lua' })
+    child.lua([[
+      applied = language_apply_result
+      vim.cmd.enew()
+      vim.bo.filetype = 'typescript'
+      vim.lsp.get_clients = function()
+        return { { id = 1, supports_method = function(_, method) return method == 'textDocument/references' end } }
+      end
+      vim.api.nvim_exec_autocmds('LspAttach', { buffer = 0, data = { client_id = 1 } })
+      references_map = vim.fn.maparg('gr', 'n', false, true)
+    ]])
+    expect.equality(child.lua_get([[applied.status]]), 'performed')
+    expect.equality(child.lua_get([[references_map.buffer]]), 1)
+    expect.equality(child.lua_get([[type(references_map.callback)]]), 'function')
+  end)
+
+  it('preserves native gr mappings and dispatches buffer references without waiting', function()
     child.lua([[
       local language = require('plait.language')
       vim.lsp.get_clients = function()
@@ -96,12 +113,13 @@ describe('language capability facade', function()
     ]])
 
     expect.equality(child.lua_get([[vim.fn.maparg('gr', 'n', false, true).callback ~= nil]]), true)
+    expect.equality(child.lua_get([[vim.fn.maparg('gr', 'n', false, true).nowait]]), 1)
     for _, mapping in ipairs({ 'grr', 'gra', 'grn', 'gri', 'grt' }) do
-      expect.equality(child.lua_get(([[vim.fn.maparg(%q, 'n')]]):format(mapping)), '')
+      expect.equality(child.lua_get(([[vim.fn.maparg(%q, 'n', false, true).callback ~= nil]]):format(mapping)), true)
     end
   end)
 
-  it('preserves owner and plugin gr mappings while removing only native defaults', function()
+  it('preserves owner and plugin gr mappings alongside native defaults', function()
     child.lua([[
       local language = require('plait.language')
       vim.keymap.set('n', 'grr', function() end, { desc = 'Owner references' })
@@ -118,7 +136,7 @@ describe('language capability facade', function()
     expect.equality(child.lua_get([[plugin_gra.desc]]), 'Plugin action')
     expect.equality(child.lua_get([[plugin_gra.buffer]]), 1)
     for _, mapping in ipairs({ 'grn', 'gri', 'grt' }) do
-      expect.equality(child.lua_get(([[vim.fn.maparg(%q, 'n')]]):format(mapping)), '')
+      expect.equality(child.lua_get(([[vim.fn.maparg(%q, 'n', false, true).callback ~= nil]]):format(mapping)), true)
     end
   end)
 
