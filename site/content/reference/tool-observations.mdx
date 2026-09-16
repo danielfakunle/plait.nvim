@@ -1,0 +1,39 @@
+---
+title: Tool Observations
+description: When Plait observes external tools and how to refresh their state.
+---
+
+The effective plan contains a point-in-time environment snapshot of external tools: their
+candidates, selected paths, versions, states, and diagnostics. Repeated `config:validate()` calls
+before application and subsequent `config:apply()` reuse that observation while the collected
+declarations remain unchanged. Changing declarations invalidates it. Application also invalidates
+the collector cache after publishing its completed snapshot, so a later validation builds a new
+observation.
+
+`tooling.check_on_startup = true` (the default) uses the current startup observation. Tool
+resolution and startup checking do not repeat external version probes during synchronous startup.
+Setting it to `false` removes the startup-check managed effect; tool requirements are still observed
+when building the effective plan.
+
+After installing or repairing a tool outside Plait, run:
+
+```vim
+Plait tooling check
+```
+
+Or call the same capability action from Lua:
+
+```lua
+local result = require('plait').actions.tooling.check()
+```
+
+Each explicit check invalidates the cached observation and resolves tools once. It publishes
+refreshed tool records and diagnostics to the current snapshot, so
+`require('plait').inspect('tools')` and `inspect('diagnostics')` show the repaired state without
+restarting Neovim. Inspection itself does not probe tools. The check does not install tools or
+refresh a Mason registry. Successful Plait-managed tool mutations also refresh their resulting tool
+state.
+
+The structured result retains `status = 'performed'`, `operation = 'tooling.check'`, and
+`details.tools` / `details.states`. Command feedback follows `operation_feedback`: `errors`
+suppresses successful check output, `all` displays it, and `silent` suppresses automatic feedback.

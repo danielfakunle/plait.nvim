@@ -235,6 +235,75 @@ describe('external tool resolution', function()
 end)
 
 describe('tooling capability actions', function()
+  it('refreshes repaired tools exactly once per explicit check and preserves feedback policy', function()
+    child.restart({ '--clean', '-u', 'tests/fixtures/tooling_freshness/init.lua' })
+    child.lua([[
+      vim.fn.writefile({ '#!/bin/sh', 'echo 1.2.3' }, tool_path)
+      stale = M.inspect('tools', 'demo')
+      stale_diagnostics = M.inspect('diagnostics', 'tool.incompatible')
+      checked = M.actions.tooling.check()
+    ]])
+    expect.equality(child.lua_get([[stale.state]]), 'incompatible')
+    expect.equality(child.lua_get([[#stale_diagnostics]]), 1)
+    expect.equality(child.lua_get([[tool_probes]]), 2)
+    expect.equality(child.lua_get([[checked]]), {
+      status = 'performed',
+      operation = 'tooling.check',
+      details = { tools = { 'demo' }, states = { demo = 'satisfied' } },
+    })
+    expect.equality(child.lua_get([[M.inspect('tools', 'demo').version]]), '1.2.3')
+    expect.equality(
+      child.lua_get([[vim.tbl_filter(function(item) return item.code == 'tool.incompatible' end,
+        M.inspect('diagnostics'))]]),
+      {}
+    )
+    child.lua([[
+      output = {}
+      print = function(message) output[#output + 1] = message end
+      vim.cmd('Plait tooling check')
+    ]])
+    expect.equality(child.lua_get([[tool_probes]]), 3)
+    expect.equality(child.lua_get([[#output]]), 0)
+    for _, policy in ipairs({ 'all', 'silent' }) do
+      child.restart({
+        '--clean',
+        '--cmd',
+        'lua feedback_policy = "' .. policy .. '"',
+        '-u',
+        'tests/fixtures/tooling_freshness/init.lua',
+      })
+      child.lua([[
+        output = {}
+        print = function(message) output[#output + 1] = message end
+        vim.cmd('Plait tooling check')
+      ]])
+      expect.equality(child.lua_get([[tool_probes]]), 2)
+      expect.equality(child.lua_get([[#output]]), policy == 'all' and 1 or 0)
+    end
+  end)
+
+  it('reuses one startup observation with and without startup checking or prior validation', function()
+    for _, startup_check in ipairs({ true, false }) do
+      for _, skip_validation in ipairs({ false, true }) do
+        child.restart({
+          '--clean',
+          '--cmd',
+          'lua check_on_startup = ' .. tostring(startup_check) .. '; skip_validation = ' .. tostring(skip_validation),
+          '-u',
+          'tests/fixtures/tooling_freshness/init.lua',
+        })
+        expect.equality(child.lua_get([[applied.status]]), 'performed')
+        expect.equality(child.lua_get([[tool_probes]]), 1)
+        expect.equality(child.lua_get([[M.inspect('tools', 'demo').state]]), 'incompatible')
+        if not skip_validation then expect.equality(child.lua_get([[startup_probes]]), 1) end
+        expect.equality(
+          child.lua_get([[vim.tbl_contains(applied.details.effects.completed, 'tooling/startup-check')]]),
+          startup_check
+        )
+      end
+    end
+  end)
+
   it('enforces not-configured, inactive, and invalid snapshot preconditions', function()
     child.lua([[not_configured = M.actions.tooling.check()]])
     expect.equality(child.lua_get([[not_configured]]), {

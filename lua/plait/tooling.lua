@@ -278,8 +278,7 @@ end
 --- Apply one tooling lifecycle effect.
 ---@param identity string
 ---@param configuration table
----@param effective_plan? table
-function M.apply_effect(identity, configuration, effective_plan)
+function M.apply_effect(identity, configuration)
   if identity == 'tooling/provider-setup' then
     local setup = { PATH = 'skip', registries = { registry_source }, firewall = { auto_managed = false } }
     for _, provider in ipairs(configuration.providers or {}) do
@@ -294,10 +293,10 @@ function M.apply_effect(identity, configuration, effective_plan)
     require('mason').setup(setup)
   elseif identity == 'tooling/actions' then
     state.tooling_active = true
-  elseif identity == 'tooling/tool-resolution' then
-    if not effective_plan then refresh() end
-  elseif identity == 'tooling/startup-check' and configuration.check_on_startup then
-    if not effective_plan then M.check() end
+  elseif identity == 'tooling/tool-resolution' or identity == 'tooling/startup-check' then
+    -- Plan construction already observed tools for this synchronous startup.
+    -- Only explicit actions refresh that point-in-time observation.
+    return
   end
 end
 

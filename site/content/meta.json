@@ -3,6 +3,7 @@
     "./(index)/index",
     "---Reference---",
     "./reference/capability-configuration-schema",
+    "./reference/tool-observations",
     "---Guides---",
     "./guides/guide-1"
   ]
