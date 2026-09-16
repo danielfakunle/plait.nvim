@@ -280,10 +280,21 @@ local function setup_options(configuration, effective_plan)
       record = assert(record)
       local qualification = assert(compatibility.qualified_definitions.formatting[identity])
       local qualified = require('conform.formatters.' .. qualification.definition)
-      if type(qualified) ~= 'table' or type(qualified.command) ~= 'string' then
-        error('qualified formatter definition must have a static command')
+      if type(qualified) ~= 'table' then error('qualified formatter definition is invalid') end
+      if qualification.command == 'static' then
+        if type(qualified.command) ~= 'string' then
+          error('qualified formatter definition must have a static command')
+        end
+        if qualified.command ~= record.executable then
+          error('qualified formatter executable does not match its tool')
+        end
+      elseif qualification.command == 'dynamic' then
+        if type(qualified.command) ~= 'function' then
+          error('qualified formatter definition must have a dynamic command')
+        end
+      else
+        error('qualified formatter command qualification is invalid')
       end
-      if qualified.command ~= record.executable then error('qualified formatter executable does not match its tool') end
       definitions[identity] = vim.tbl_deep_extend('force', vim.deepcopy(qualified), formatter_payloads[identity] or {})
       definitions[identity].command = command[1]
     end

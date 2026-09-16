@@ -5,6 +5,18 @@ before_each(function() child.setup() end)
 teardown(function() child.stop() end)
 
 describe('formatting capability facade', function()
+  it('applies a qualified formatter whose provider command is dynamic', function()
+    child.restart({ '--clean', '-u', vim.fn.getcwd() .. '/tests/fixtures/formatting_dynamic_apply/init.lua' })
+
+    expect.equality(child.lua_get([[formatting_apply_result.status]]), 'performed')
+    expect.equality(
+      child.lua_get([[conform_setup.formatters.oxfmt.command]]),
+      child.lua_get([[
+      vim.uv.fs_realpath(vim.fn.getcwd() .. '/node_modules/.bin/oxfmt')
+    ]])
+    )
+  end)
+
   it('applies the qualified Conform policy, mappings, and independently configurable save behavior', function()
     child.restart({ '--clean', '-u', 'tests/fixtures/formatting_apply/init.lua' })
 

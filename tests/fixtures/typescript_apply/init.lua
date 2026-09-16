@@ -26,7 +26,7 @@ package.preload.conform = function()
   return { setup = function(value) _G.conform_setup = vim.deepcopy(value) end }
 end
 package.preload['conform.formatters.oxfmt'] = function()
-  return { command = 'oxfmt', args = { '--stdin-filepath', '$FILENAME' }, stdin = true }
+  return { command = function() return 'oxfmt' end, args = { '--stdin-filepath', '$FILENAME' }, stdin = true }
 end
 package.preload['conform.formatters.stylua'] = function()
   return { command = 'stylua', args = { '--stdin-filepath', '$FILENAME', '-' }, stdin = true }

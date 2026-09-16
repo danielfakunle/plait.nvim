@@ -50,7 +50,7 @@ local M = {
       tsc = { command = 'managed', executable = 'tsc', arguments = { '--lsp', '--stdio' }, local_definition = false },
     },
     formatting = {
-      oxfmt = { definition = 'oxfmt', command = 'static', executable = 'oxfmt' },
+      oxfmt = { definition = 'oxfmt', command = 'dynamic', executable = 'oxfmt' },
       ruff = { definition = 'ruff_format', command = 'static', executable = 'ruff' },
       stylua = { definition = 'stylua', command = 'static', executable = 'stylua' },
     },
