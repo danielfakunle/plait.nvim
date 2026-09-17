@@ -64,6 +64,7 @@ end
 local original_stdpath = vim.fn.stdpath
 local original_globpath = vim.fn.globpath
 local original_exepath = vim.fn.exepath
+_G.lua_startup_probe_counts = {}
 local original_system = vim.system
 -- luacheck: push ignore 122
 vim.fn.stdpath = function(kind)
@@ -94,6 +95,10 @@ vim.fn.exepath = function(executable)
   return original_exepath(executable)
 end
 vim.system = function(arguments, options)
+  if arguments[2] == '--version' then
+    local identity = table.concat(arguments, '\0')
+    _G.lua_startup_probe_counts[identity] = (_G.lua_startup_probe_counts[identity] or 0) + 1
+  end
   local function result(stdout)
     return { wait = function() return { code = 0, stdout = stdout, stderr = '' } end }
   end
@@ -192,7 +197,9 @@ if mode == 'satisfied' or mode == 'recomputed' then
       level = level + 1
     end
   end, 'l')
+  vim.api.nvim_buf_set_name(0, fixture_root .. '/main.lua')
   dofile('tests/fixtures/lua_quickstart/config.lua')
+  _G.lua_startup_probe_counts_at_apply = vim.deepcopy(_G.lua_startup_probe_counts)
   debug.sethook()
   quickstart = {
     config = _G.lua_quickstart_config,

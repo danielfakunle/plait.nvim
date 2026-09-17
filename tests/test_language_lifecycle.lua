@@ -85,6 +85,48 @@ describe('language mapping lifecycle', function()
     end
   end)
 
+  for _, filetype in ipairs({ 'lua', 'typescript' }) do
+    for _, phase in ipairs({ 'initial', 'new' }) do
+      it('dispatches all language request mappings in ' .. phase .. ' ' .. filetype .. ' buffers', function()
+        child.restart({ '--clean', '-u', 'tests/fixtures/language_lifecycle_apply.lua' })
+        child.lua(([[
+          if %q == 'initial' then
+            buffer = initial_buffers[%d]
+          else
+            buffer = vim.api.nvim_create_buf(true, false)
+            vim.bo[buffer].filetype = %q
+            vim.lsp.get_clients = function()
+              return { { id = 2, supports_method = function() return true end } }
+            end
+            vim.api.nvim_exec_autocmds('LspAttach', { buffer = buffer, data = { client_id = 2 } })
+          end
+          vim.api.nvim_set_current_buf(buffer)
+          calls = {}
+          for _, action in ipairs({ 'definition', 'references', 'hover', 'rename', 'code_action' }) do
+            vim.lsp.buf[action] = function() calls[#calls + 1] = action end
+          end
+          references_map = vim.fn.maparg('gr', 'n', false, true)
+          vim.o.timeoutlen = 10000
+        ]]):format(phase, filetype == 'lua' and 1 or 2, filetype))
+        child.type_keys('gr')
+        child.lua([[vim.wait(1000, function() return #calls == 1 end)]])
+        expect.equality(child.lua_get([[calls]]), { 'references' })
+        expect.equality(child.lua_get([[references_map.nowait]]), 1)
+        child.lua([[
+          for _, key in ipairs({ 'gd', 'K', '<leader>cr', '<leader>ca' }) do
+            vim.fn.maparg(key, 'n', false, true).callback()
+          end
+          native = {}
+          for _, key in ipairs({ 'grr', 'gra', 'grn', 'gri', 'grt' }) do
+            native[#native + 1] = vim.fn.maparg(key, 'n', false, true).buffer
+          end
+        ]])
+        expect.equality(child.lua_get([[calls]]), { 'references', 'definition', 'hover', 'rename', 'code_action' })
+        expect.equality(child.lua_get([[native]]), { 0, 0, 0, 0, 0 })
+      end)
+    end
+  end
+
   it('releases owned callbacks when a managed buffer is wiped', function()
     child.lua([[
       clients[buffer] = { client(1, { 'textDocument/references' }) }

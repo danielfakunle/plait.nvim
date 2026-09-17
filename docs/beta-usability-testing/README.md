@@ -20,6 +20,10 @@ The Alpha editor behavior remains covered by [`../alpha-usability-testing.md`](.
 3. [`03-typescript-author-journey.md`](03-typescript-author-journey.md)
 4. [`04-composition-and-failure-feedback.md`](04-composition-and-failure-feedback.md)
 
+Automated startup and mapping evidence is recorded in
+[startup and language qualification](startup-language-qualification.md), including
+reproducible before/after probe counts and the limits of controlled fixtures.
+
 ## Using the feedback rubrics
 
 Before testing, copy each procedure's rubric into a results file and record the Neovim version, operating system, terminal, date, and `NVIM_APPNAME`. Fill in the rubric as you perform the procedure rather than from memory afterward.

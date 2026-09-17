@@ -11,7 +11,7 @@ vim.bo[initial_buffers[1]].filetype = 'lua'
 vim.bo[initial_buffers[2]].filetype = 'typescript'
 vim.lsp.get_clients = function(options)
   if options and vim.list_contains(initial_buffers, options.bufnr) then
-    return { { id = 1, supports_method = function(_, method) return method == 'textDocument/references' end } }
+    return { { id = 1, supports_method = function() return true end } }
   end
   return {}
 end

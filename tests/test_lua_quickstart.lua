@@ -27,6 +27,11 @@ T['canonical Lua quickstart'] = MiniTest.new_set()
 T['canonical Lua quickstart']['locks the successful author journey'] = function()
   child.restart({ '--clean', '-u', 'tests/fixtures/lua_quickstart/init.lua' })
 
+  expect.equality(child.lua_get([[vim.tbl_count(lua_startup_probe_counts_at_apply)]]), 2)
+  expect.equality(
+    child.lua_get([[vim.iter(lua_startup_probe_counts_at_apply):all(function(_, count) return count == 1 end)]]),
+    true
+  )
   expect.equality(child.lua_get([[lua_quickstart.validation.status]]), 'valid')
   expect.equality(child.lua_get([[lua_quickstart.provider_package_calls]]), 1)
   expect.equality(child.lua_get([[lua_quickstart.result.status]]), 'performed')
