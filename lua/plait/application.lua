@@ -46,13 +46,19 @@ end
 
 --- Return the closed apply result for an invalid re-resolution.
 ---@param diagnostics table[]
+---@param effective_plan? table Valid plan whose application was blocked by preflight.
 ---@return table
-function M.invalid(diagnostics)
+function M.invalid(diagnostics, effective_plan)
   local codes = {}
   for _, diagnostic in ipairs(diagnostics) do
     if not vim.list_contains(codes, diagnostic.code) then codes[#codes + 1] = diagnostic.code end
   end
-  snapshot.publish_empty('invalid', diagnostics)
+  if effective_plan then
+    effective_plan.snapshot_state = 'invalid'
+    snapshot.publish(effective_plan, diagnostics)
+  else
+    snapshot.publish_empty('invalid', diagnostics)
+  end
   return {
     status = 'unavailable',
     operation = 'apply',

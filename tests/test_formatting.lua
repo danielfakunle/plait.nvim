@@ -5,6 +5,82 @@ before_each(function() child.setup() end)
 teardown(function() child.stop() end)
 
 describe('formatting capability facade', function()
+  it('visibly explains collision preflight while preserving foreign mappings and pending effects', function()
+    child.restart({
+      '--clean',
+      '--cmd',
+      'lua vim.g.formatting_collision = true',
+      '-u',
+      'tests/fixtures/formatting_apply/init.lua',
+    })
+    expect.equality(child.lua_get([[formatting_apply_result.reason]]), 'invalid_plan')
+    expect.equality(child.lua_get([[apply_notifications]]), {
+      {
+        'Plait application was blocked; no managed effects were applied. '
+          .. 'Managed identity mapping:n:<leader>f:global already exists. '
+          .. 'Remove or rename the external effect before apply. '
+          .. 'Inspect: :Plait inspect diagnostics effect.collision',
+        child.lua_get([[vim.log.levels.ERROR]]),
+      },
+    })
+    expect.equality(child.lua_get([[#M.inspect('effects') > 0]]), true)
+    expect.equality(
+      child.lua_get([[vim.iter(M.inspect('effects')):all(function(effect)
+      return effect.state == 'pending'
+    end)]]),
+      true
+    )
+    expect.equality(child.lua_get([[#M.inspect('diagnostics', 'effect.collision')]]), 2)
+    expect.equality(child.lua_get([[vim.fn.maparg('<leader>f', 'n')]]), '<Cmd>echo "foreign formatter"<CR>')
+    expect.equality(child.lua_get([[vim.fn.maparg('<leader>f', 'x')]]), '<Cmd>echo "foreign range formatter"<CR>')
+    expect.equality(child.lua_get([[conform_setup]]), vim.NIL)
+  end)
+
+  for _, policy in ipairs({ 'errors', 'all', 'silent' }) do
+    it('respects ' .. policy .. ' feedback for a blocked attempt and repaired restart', function()
+      child.restart({
+        '--clean',
+        '--cmd',
+        ('lua vim.g.formatting_collision = true; vim.g.apply_feedback = %q'):format(policy),
+        '-u',
+        'tests/fixtures/formatting_apply/init.lua',
+      })
+      expect.equality(child.lua_get([[#apply_notifications]]), policy == 'silent' and 0 or 1)
+      expect.equality(child.lua_get([[formatting_apply_result]]), {
+        status = 'unavailable',
+        operation = 'apply',
+        reason = 'invalid_plan',
+        details = { diagnostic_codes = { 'effect.collision', 'package.absent' } },
+      })
+      local diagnostics = child.cmd_capture('Plait inspect diagnostics effect.collision --json')
+      expect.equality(
+        vim.json.decode(diagnostics:sub(#'diagnostics: ' + 1)),
+        child.lua_get([[M.inspect('diagnostics', 'effect.collision')]])
+      )
+      child.restart({
+        '--clean',
+        '--cmd',
+        ('lua vim.g.apply_feedback = %q'):format(policy),
+        '-u',
+        'tests/fixtures/formatting_apply/init.lua',
+      })
+      expect.equality(child.lua_get([[formatting_apply_result.status]]), 'performed')
+      expect.equality(child.lua_get([[apply_notifications]]), {})
+      expect.equality(
+        child.lua_get([[vim.iter(M.inspect('diagnostics')):any(function(item)
+        return item.code == 'effect.collision'
+      end)]]),
+        false
+      )
+      expect.equality(
+        child.lua_get([[vim.iter(M.inspect('effects')):all(function(effect)
+        return effect.state == 'completed'
+      end)]]),
+        true
+      )
+    end)
+  end
+
   it('explains an explicitly disabled local chain and retains managed LSP fallback', function()
     child.restart({
       '--clean',

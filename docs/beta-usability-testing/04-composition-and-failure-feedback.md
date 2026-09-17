@@ -189,16 +189,18 @@ Before requiring Plait, add a foreign mapping:
 vim.keymap.set('n', '<leader>cf', function() end, { desc = 'Foreign formatter' })
 ```
 
-Start Neovim and render `_G.plait_apply` before inspecting diagnostics:
+Start Neovim and check the visible feedback before rendering `_G.plait_apply` and inspecting diagnostics:
 
 ```vim
 :lua print(require('plait').render(_G.plait_apply))
 :Plait inspect diagnostics
 ```
 
-Expected: apply is invalid before any managed effect runs; a collision diagnostic identifies the mapping and the Plait effect that would overwrite it; all effects remain pending; and the foreign mapping remains intact.
+Expected: one concise error notification says application was blocked and no managed effects were applied, names the foreign format mapping, gives a repair, and points to `:Plait inspect diagnostics effect.collision`. Apply is invalid before any managed effect runs; a collision diagnostic identifies the mapping and the Plait effect that would overwrite it; all effects remain pending in `:Plait inspect effects`; and the foreign mapping remains intact.
 
-Repeat with the collision removed and confirm application succeeds. Then test a compatible repair by setting `formatting.mappings.format = false`; expected: Plait deliberately owns no format mapping and does not report a collision.
+Repeat after restarting with `operation_feedback = 'all'` and then `'silent'`. Both `errors` (the default) and `all` produce one notification; `silent` produces none. The explicit apply result and inspection diagnostics remain available under every setting.
+
+Restart with the collision removed and confirm application succeeds without a stale blocked-application notification. Then test a compatible repair by setting `formatting.mappings.format = false`; expected: Plait deliberately owns no format mapping and does not report a collision or a blocked-application notification. Routine partial unavailability still uses existing action-time feedback.
 
 ## 5. Test conflict and dependency diagnostics
 

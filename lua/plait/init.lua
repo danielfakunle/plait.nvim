@@ -359,7 +359,9 @@ function Collector:apply(...)
   if #preflight_diagnostics > 0 then
     vim.list_extend(diagnostics, preflight_diagnostics)
     validation.sort_diagnostics(diagnostics)
-    return application.invalid(diagnostics)
+    local result = application.invalid(diagnostics, effective_plan)
+    require('plait.feedback').blocked_application(preflight_diagnostics[1])
+    return result
   end
   local applied = application.run(effective_plan, diagnostics, schema)
   invalidate_resolution(self)

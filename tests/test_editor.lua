@@ -227,7 +227,13 @@ describe('editor capability application', function()
       reason = 'invalid_plan',
       details = { diagnostic_codes = { 'effect.collision' } },
     })
-    expect.equality(child.lua_get([[M.inspect('effects')]]), {})
+    expect.equality(child.lua_get([[#M.inspect('effects') > 0]]), true)
+    expect.equality(
+      child.lua_get([[vim.iter(M.inspect('effects')):all(function(effect)
+      return effect.state == 'pending'
+    end)]]),
+      true
+    )
     expect.equality(child.lua_get([[M.inspect('diagnostics', 'effect.collision')]]), {
       {
         code = 'effect.collision',
@@ -261,7 +267,13 @@ describe('editor capability application', function()
       ),
       { 'augroup:plait.editor.yank_highlight' }
     )
-    expect.equality(child.lua_get([[M.inspect('effects')]]), {})
+    expect.equality(child.lua_get([[#M.inspect('effects') > 0]]), true)
+    expect.equality(
+      child.lua_get([[vim.iter(M.inspect('effects')):all(function(effect)
+      return effect.state == 'pending'
+    end)]]),
+      true
+    )
   end)
 
   it('does not collide with an autocmd owned by another augroup', function()

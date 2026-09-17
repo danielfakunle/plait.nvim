@@ -46,6 +46,13 @@ local lua_formatting = plait.module({
 })
 local config = plait.config()
 config:select({ 'formatting', 'tooling', lua_formatting })
+_G.apply_notifications = {}
+-- luacheck: ignore 122
+vim.notify = function(message, level) _G.apply_notifications[#_G.apply_notifications + 1] = { message, level } end
+if vim.g.formatting_collision then
+  vim.keymap.set('n', '<leader>f', '<Cmd>echo "foreign formatter"<CR>')
+  vim.keymap.set('x', '<leader>f', '<Cmd>echo "foreign range formatter"<CR>')
+end
 if vim.g.formatting_disable_python then
   local python = plait.module({
     name = 'local.lang.python',
@@ -57,6 +64,7 @@ if vim.g.formatting_disable_python then
   config:override({ formatting = { by_filetype = { python = plait.disable() } } })
 end
 config:configure({
+  operation_feedback = vim.g.apply_feedback or 'errors',
   formatting = {
     on_save = vim.g.formatting_on_save == true,
     timeout_ms = 1375,

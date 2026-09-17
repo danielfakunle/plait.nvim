@@ -2,6 +2,22 @@ local state = require('plait.state')
 
 local M = {}
 
+--- Present the primary preflight failure when automatic error feedback is enabled.
+---@param diagnostic table
+function M.blocked_application(diagnostic)
+  if not M.present_completion(false) then return end
+  pcall(
+    vim.notify,
+    'Plait application was blocked; no managed effects were applied. '
+      .. diagnostic.summary
+      .. ' '
+      .. diagnostic.repair
+      .. ' Inspect: :Plait inspect diagnostics '
+      .. diagnostic.code,
+    vim.log.levels.ERROR
+  )
+end
+
 --- Return whether the configured policy automatically presents an action result.
 ---@param result table
 ---@return boolean
