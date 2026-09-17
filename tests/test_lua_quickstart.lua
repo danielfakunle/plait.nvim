@@ -171,7 +171,17 @@ T['canonical Lua quickstart']['locks the successful author journey'] = function(
     },
   }
   for section, fields in pairs(schemas) do
-    assert_schema(([[M.inspect(%q)]]):format(section), fields)
+    if section == 'capabilities' then
+      assert_schema(
+        [[vim.tbl_filter(function(item) return item.identity ~= 'formatting' end, M.inspect('capabilities'))]],
+        fields
+      )
+      local formatting_fields = vim.list_extend(vim.deepcopy(fields), { 'formatter_chains', 'lsp_fallback' })
+      table.sort(formatting_fields)
+      assert_schema([[{ M.inspect('capabilities', 'formatting') }]], formatting_fields)
+    else
+      assert_schema(([[M.inspect(%q)]]):format(section), fields)
+    end
   end
   assert_schema(
     [[vim.iter(M.inspect('modules')):map(function(item) return item.selection_sources end):flatten():totable()]],

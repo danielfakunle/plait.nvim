@@ -43,6 +43,9 @@ local function without_provenance(plan)
   end
   for _, capability in ipairs(semantic.capabilities) do
     capability.configuration.sources = nil
+    for _, chain in ipairs(capability.formatter_chains or {}) do
+      chain.sources = nil
+    end
   end
   for _, package in ipairs(semantic.packages) do
     package.sources = nil
@@ -266,7 +269,15 @@ describe('effective plan', function()
       child.lua_get([[vim.tbl_map(function(module) return module.identity end, M.inspect('modules'))]]),
       vim.tbl_map(function(module) return module.identity end, first_modules)
     )
-    expect.equality(child.lua_get([[M.inspect('capabilities')]]), first_capabilities)
+    local second_capabilities = child.lua_get([[M.inspect('capabilities')]])
+    for _, capabilities in ipairs({ first_capabilities, second_capabilities }) do
+      for _, capability in ipairs(capabilities) do
+        for _, chain in ipairs(capability.formatter_chains or {}) do
+          chain.sources = nil
+        end
+      end
+    end
+    expect.equality(second_capabilities, first_capabilities)
   end)
 
   it('produces identical semantics for declaration and table iteration permutations', function()

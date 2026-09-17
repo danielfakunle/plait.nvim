@@ -39,6 +39,50 @@ function M.resolve(resolution)
   return result
 end
 
+--- Explain effective and explicitly disabled chains with declaration provenance.
+---@param resolution table
+---@return table[]
+function M.inspect_chains(resolution)
+  local chains = M.resolve(resolution).by_filetype
+  local records = {}
+  for target in pairs(resolution.contribution_overrides or {}) do
+    local filetype = target:match('^formatting%.by_filetype%.(.+)$')
+    if filetype and chains[filetype] == nil then chains[filetype] = {} end
+  end
+  local filetypes = vim.tbl_keys(chains)
+  table.sort(filetypes)
+  for _, filetype in ipairs(filetypes) do
+    local target = 'formatting.by_filetype.' .. filetype
+    local overrides = (resolution.contribution_overrides or {})[target]
+    local peer = (resolution.contribution_values or {})[target]
+    local sources, declaration = {}, peer and peer.module or ''
+    if overrides then
+      declaration = 'owner override (' .. overrides[1].operation.kind .. ')'
+      for _, override in ipairs(overrides) do
+        sources[#sources + 1] = vim.deepcopy(override.source)
+      end
+    elseif peer then
+      sources[1] = vim.deepcopy(peer.source)
+    else
+      for _, module in ipairs(resolution.modules) do
+        if vim.list_contains(module.contributions, target) then
+          declaration = module.identity
+          vim.list_extend(sources, vim.deepcopy(module.selection_sources))
+        end
+      end
+    end
+    records[#records + 1] = {
+      filetype = filetype,
+      chain = chains[filetype],
+      state = overrides and overrides[1].operation.kind == 'disable' and 'disabled' or 'effective',
+      declaration = declaration,
+      reason = overrides and 'Explicit owner override supersedes module contributions.' or 'Module contribution.',
+      sources = sources,
+    }
+  end
+  return records
+end
+
 --- Declare the formatting capability's complete managed effect family.
 ---@param sources table[]
 ---@return table[]

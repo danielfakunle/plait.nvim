@@ -46,6 +46,16 @@ local lua_formatting = plait.module({
 })
 local config = plait.config()
 config:select({ 'formatting', 'tooling', lua_formatting })
+if vim.g.formatting_disable_python then
+  local python = plait.module({
+    name = 'local.lang.python',
+    provides = { 'local.lang.python' },
+    requires = { 'language', 'formatting', 'tooling' },
+    contribute = { formatting = { by_filetype = { python = { 'stylua' } } } },
+  })
+  config:select({ 'language', python })
+  config:override({ formatting = { by_filetype = { python = plait.disable() } } })
+end
 config:configure({
   formatting = {
     on_save = vim.g.formatting_on_save == true,

@@ -84,11 +84,14 @@ nvim
 :lua print(require('plait').render(_G.plait_validation))
 :Plait inspect modules local.lang.python
 :Plait inspect capabilities formatting
+:Plait inspect capabilities formatting --json
 :Plait inspect tools ruff
 :Plait inspect diagnostics
 ```
 
-Expected: validation is valid; the local module and its dependency edges are visible; Python formatting is deliberately disabled rather than silently won by call order; and the replacement retains explicit provenance.
+Expected: validation is valid; the local module and its dependency edges are visible; Python's external formatter chain is explicitly disabled by the owner override, which supersedes the local module's contribution; and the replacement retains explicit provenance. The formatting report identifies the disabled Python chain and the responsible override declaration. JSON inspection retains the full source details.
+
+Disabling the Python chain does not disable all Python formatting. The default `formatting.lsp_fallback = 'if_no_formatter'` still permits formatting when an attached managed LSP client supports it. With `lsp_fallback = 'never'`, no LSP fallback is permitted; this policy applies to the whole formatting capability, not just Python. After apply, check that a Python buffer with a managed formatting-capable LSP client can still use `:Plait format` with the chain disabled.
 
 ## 2. Test an accepted provider escape hatch
 

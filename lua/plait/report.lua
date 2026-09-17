@@ -77,6 +77,8 @@ local definitions = {
       { 'Dependents', 'dependents' },
       { 'Actions', 'actions' },
       { 'Degradation', 'degradation_reasons' },
+      { 'Formatter chains', 'formatter_chains' },
+      { 'LSP fallback', 'lsp_fallback' },
       { 'Configuration', 'configuration' },
       { 'Contributions', 'contributions' },
     },
@@ -175,6 +177,20 @@ function M.section(section, records)
     lines[#lines + 1] = ('  [%s] %s'):format(tostring(state):upper(), identity)
     for _, field in ipairs(definition.fields) do
       local value = item[field[2]]
+      if field[2] == 'formatter_chains' and value then
+        value = vim.tbl_map(function(chain)
+          local source = chain.sources[1]
+          local location = source and (' at %s:%s (%s)'):format(source.file, source.line, source.path) or ''
+          return ('%s: %s [%s]; %s%s; %s'):format(
+            chain.filetype,
+            presentation.value(chain.chain),
+            chain.state,
+            chain.declaration,
+            location,
+            chain.reason
+          )
+        end, value)
+      end
       if value ~= nil and value ~= vim.NIL and not empty(value) then
         if type(value) == 'table' then
           lines[#lines + 1] = ('    %s:'):format(field[1])

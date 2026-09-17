@@ -5,6 +5,53 @@ before_each(function() child.setup() end)
 teardown(function() child.stop() end)
 
 describe('formatting capability facade', function()
+  it('explains an explicitly disabled local chain and retains managed LSP fallback', function()
+    child.restart({
+      '--clean',
+      '--cmd',
+      'lua vim.g.formatting_disable_python = true',
+      '-u',
+      'tests/fixtures/formatting_apply/init.lua',
+    })
+    child.lua([[
+      inspection = M.inspect('capabilities', 'formatting')
+      vim.bo.filetype = 'python'
+      vim.lsp.get_clients = function()
+        return { { supports_method = function() return true end } }
+      end
+      package.loaded.conform.format = function(options, callback)
+        disabled_chain_options = vim.deepcopy(options)
+        callback(nil, true)
+        return true
+      end
+      disabled_chain_result = M.actions.formatting.format()
+      vim.cmd('Plait inspect capabilities formatting')
+      chain_report = table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), '\n')
+    ]])
+    expect.equality(child.lua_get([[formatting_apply_result.status]]), 'performed')
+    expect.equality(child.lua_get([[inspection.formatter_chains[1].chain]]), { 'stylua' })
+    expect.equality(child.lua_get([[inspection.formatter_chains[1].declaration]]), 'local.formatting.lua')
+    expect.equality(child.lua_get([[inspection.formatter_chains[2].filetype]]), 'python')
+    expect.equality(child.lua_get([[inspection.formatter_chains[2].state]]), 'disabled')
+    expect.equality(child.lua_get([[inspection.formatter_chains[2].chain]]), {})
+    expect.equality(child.lua_get([[inspection.formatter_chains[2].declaration]]), 'owner override (disable)')
+    expect.equality(child.lua_get([[inspection.formatter_chains[2].sources[1].path]]), 'override')
+    expect.equality(child.lua_get([[inspection.formatter_chains[2].sources[1].line > 0]]), true)
+    expect.equality(child.lua_get([[disabled_chain_result.status]]), 'started')
+    expect.equality(child.lua_get([[disabled_chain_result.details.chain]]), {})
+    expect.equality(child.lua_get([[disabled_chain_options.lsp_format]]), 'fallback')
+    expect.equality(child.lua_get([[conform_setup.formatters_by_ft.python]]), vim.NIL)
+    expect.equality(
+      child.lua_get([[chain_report:find('python: none [disabled]; owner override (disable)', 1, true) ~= nil]]),
+      true
+    )
+    expect.equality(child.lua_get([[chain_report:find('still permit formatting', 1, true) ~= nil]]), true)
+    expect.equality(
+      child.cmd_capture('Plait inspect capabilities formatting --json'):find('"path":"override"', 1, true) ~= nil,
+      true
+    )
+  end)
+
   it('applies a qualified formatter whose provider command is dynamic', function()
     child.restart({ '--clean', '-u', vim.fn.getcwd() .. '/tests/fixtures/formatting_dynamic_apply/init.lua' })
 

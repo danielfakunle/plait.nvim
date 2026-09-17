@@ -138,6 +138,14 @@ function M.build(configuration, resolution)
     tools = tool_records,
   }
   private_tool_requirements[effective_plan] = tool_requirements
+  for _, capability in ipairs(effective_plan.capabilities) do
+    if capability.identity == 'formatting' then
+      capability.formatter_chains = formatting_integration.inspect_chains(resolution)
+      capability.lsp_fallback = configuration.formatting.lsp_fallback == 'if_no_formatter'
+          and 'if_no_formatter: absent or disabled external chains still permit formatting when a managed LSP client supports it.'
+        or 'never: LSP formatting fallback is disabled.'
+    end
+  end
   private_formatting_requirements[effective_plan] = formatting_integration.resolve(resolution)
   private_language_requirements[effective_plan] = require('plait.language').resolve(resolution)
   return effective_plan, package_diagnostics
