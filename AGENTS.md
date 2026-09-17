@@ -15,6 +15,8 @@
 
 ## Code Style
 
+- All commits must follow Conventional Commits: `type(scope): description`, with an optional scope
+  and `!` for breaking changes. Use a type that describes the change, such as `feat`, `fix`, or `docs`.
 - Keep source files focused. Treat roughly 500 lines as a reorganization signal: split files approaching that
   size along coherent module boundaries unless keeping the file together materially improves the design.
 

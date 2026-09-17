@@ -20,6 +20,10 @@ The Alpha editor behavior remains covered by [`../alpha-usability-testing.md`](.
 3. [`03-typescript-author-journey.md`](03-typescript-author-journey.md)
 4. [`04-composition-and-failure-feedback.md`](04-composition-and-failure-feedback.md)
 
+For a standalone regression pass covering PRO-167 through PRO-170, use
+[isolated inspection and failure-feedback testing](05-inspection-and-failure-feedback-regression.md).
+It bootstraps its own app and workspace and can run independently of the ordered suite.
+
 Automated startup and mapping evidence is recorded in
 [startup and language qualification](startup-language-qualification.md), including
 reproducible before/after probe counts and the limits of controlled fixtures.
