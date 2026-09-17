@@ -182,6 +182,15 @@ local function reference_artifact()
     'Set `editor.ui2 = false` to opt out. `<leader>m` opens the native `g<` message pager;',
     '`editor.mappings.message_pager` can replace that key or disable the alias with `false`.',
     '',
+    "Language request mappings are buffer-local and follow attached clients' supported methods. An",
+    "existing native hover mapping (Neovim's default `K` callback or a direct `vim.lsp.buf.hover`",
+    'callback) satisfies the configured hover behavior and remains owned by Neovim or the configuration',
+    'owner. This applies to both default and explicitly configured `K`. Plait preserves that mapping on',
+    'detach; it removes only callbacks it installed. Descriptions and arbitrary wrappers do not establish',
+    'compatibility. Unrelated buffer-local mappings remain protected: application preflight reports',
+    '`effect.collision`, and later attachment reconciliation reports `language.mapping_collision`. Remove',
+    'the conflicting mapping, choose another key, or disable the action mapping with `false`.',
+    '',
   }, '\n')
 end
 

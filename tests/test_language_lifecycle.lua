@@ -21,6 +21,72 @@ end)
 teardown(function() child.stop() end)
 
 describe('language mapping lifecycle', function()
+  for _, explicit in ipairs({ false, true }) do
+    it(
+      'preserves native hover through application and detach with ' .. (explicit and 'explicit' or 'default') .. ' K',
+      function()
+        child.restart({
+          '--clean',
+          '--cmd',
+          'lua hover_explicit = ' .. tostring(explicit),
+          '-u',
+          'tests/fixtures/native_hover_apply.lua',
+        })
+        child.lua([[
+        preserved = vim.fn.maparg('K', 'n', false, true).callback == native_hover
+        vim.api.nvim_exec_autocmds('LspAttach', { buffer = buffer, data = { client_id = 1 } })
+        vim.api.nvim_exec_autocmds('LspDetach', { buffer = buffer, data = { client_id = 1 } })
+        detached = vim.fn.maparg('K', 'n', false, true).callback == native_hover
+        collisions = vim.tbl_filter(function(item) return item.code == 'language.mapping_collision' end,
+          M.inspect('diagnostics'))
+      ]])
+        expect.equality(child.lua_get([[applied.status]]), 'performed')
+        expect.equality(child.lua_get([[preserved and detached]]), true)
+        expect.equality(child.lua_get([[#collisions]]), 0)
+      end
+    )
+  end
+  it('blocks application before overwriting an unrelated hover mapping', function()
+    child.restart({ '--clean', '--cmd', 'lua hover_foreign = true', '-u', 'tests/fixtures/native_hover_apply.lua' })
+    expect.equality(child.lua_get([[applied.status]]), 'unavailable')
+    expect.equality(child.lua_get([[vim.fn.maparg('K', 'n', false, true).callback == native_hover]]), true)
+    expect.equality(
+      child.lua_get([[M.inspect('diagnostics', 'effect.collision')[1].details.identity]]),
+      child.lua_get([['mapping:n:K:buffer:' .. buffer]])
+    )
+  end)
+  it('accepts direct native hover after attach and preserves it after support disappears', function()
+    child.lua([[
+      native = vim.lsp.buf.hover
+      vim.keymap.set('n', 'K', native, { buffer = buffer, desc = 'Owner hover' })
+      clients[buffer] = { client(1, { 'textDocument/hover' }) }
+      event('LspAttach', buffer, 1)
+      event('LspDetach', buffer, 1)
+      preserved = mapping(buffer, 'K').callback == native
+      diagnostics = M.inspect('diagnostics')
+    ]])
+    expect.equality(child.lua_get([[preserved]]), true)
+    expect.equality(
+      child.lua_get([[#vim.tbl_filter(function(item)
+      return item.code == 'language.mapping_collision'
+    end, diagnostics)]]),
+      0
+    )
+  end)
+  it('protects unrelated hover mappings despite a native description', function()
+    child.lua([[
+      foreign = function() end
+      vim.keymap.set('n', 'K', foreign, { buffer = buffer, desc = 'vim.lsp.buf.hover()' })
+      clients[buffer] = { client(1, { 'textDocument/hover' }) }
+      event('LspAttach', buffer, 1)
+      event('LspDetach', buffer, 1)
+      preserved = mapping(buffer, 'K').callback == foreign
+      collision = M.inspect('diagnostics', 'language.mapping_collision')[1]
+    ]])
+    expect.equality(child.lua_get([[preserved]]), true)
+    expect.equality(child.lua_get([[collision.details.action]]), 'language.hover')
+    expect.equality(child.lua_get([[collision.repair:find('language.mappings.hover', 1, true) ~= nil]]), true)
+  end)
   it('reconciles each action against clients remaining during detach', function()
     child.lua([[
       clients[buffer] = {

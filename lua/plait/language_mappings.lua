@@ -21,6 +21,24 @@ local function observed_mapping(buffer, mode, lhs)
   end)
 end
 
+--- Recognize direct hover callbacks and the qualified native default's hover closure.
+---@param mapping table
+---@return boolean
+local function compatible_native_hover(mapping)
+  if mapping.name ~= 'hover' or mapping.mode ~= 'n' then return false end
+  local callback = mapping.observed.callback
+  if callback == vim.lsp.buf.hover then return true end
+  if type(callback) ~= 'function' then return false end
+  local info = debug.getinfo(callback, 'Su')
+  local defaults = debug.getinfo(vim.lsp._set_defaults, 'S')
+  -- In supported Neovim, the only zero-upvalue closure inside _set_defaults is
+  -- the native hover mapping. Descriptions and owner-defined wrappers prove nothing.
+  return info.source == defaults.source
+    and info.linedefined > defaults.linedefined
+    and info.lastlinedefined < defaults.lastlinedefined
+    and info.nups == 0
+end
+
 --- Inspect configured action mappings with their modes, client support, and current owners.
 ---@param buffer integer
 ---@param mappings table
@@ -71,7 +89,7 @@ function M.preflight(mappings, requests)
         selected = vim.tbl_extend('force', requests, { previous_diagnostic = {}, next_diagnostic = {} })
       end
       for _, mapping in ipairs(inspect_mappings(buffer, mappings, selected)) do
-        if mapping.supported and next(mapping.observed) then
+        if mapping.supported and next(mapping.observed) and not compatible_native_hover(mapping) then
           collisions[#collisions + 1] = {
             identity = 'mapping:' .. mapping.mode .. ':' .. mapping.lhs .. ':buffer:' .. buffer,
             observed_owner = 'mapping',
@@ -129,7 +147,9 @@ local function reconcile(buffer, mappings, actions, requests, departing)
         callbacks[identity] = callback
       elseif mapping.observed.callback ~= callback then
         callbacks[identity] = nil
-        report_collision(buffer, mapping.mode, mapping.lhs, mapping.name)
+        if not compatible_native_hover(mapping) then
+          report_collision(buffer, mapping.mode, mapping.lhs, mapping.name)
+        end
       end
     elseif callback then
       if mapping.observed.callback == callback then vim.keymap.del(mapping.mode, mapping.lhs, { buffer = buffer }) end
