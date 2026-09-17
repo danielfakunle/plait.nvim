@@ -394,3 +394,25 @@ set -e PLAIT_FEEDBACK_UX
 
 Cleanup targets only this procedure's literal app/workspace paths. Other Beta
 apps, normal Neovim data, and the repository checkout remain available.
+
+### Complete feedback policy regression
+
+Repeat with `silent`, `errors`, `info` (the default), `debug`, and `all` (the debug alias).
+Explicit inspection, validation, and tooling-check reports must remain visible at every level.
+
+- Invoke hover and formatting through Lua and Plait mappings, and formatting through `:Plait format`.
+  Routine success stays quiet at info; debug has one synchronous record or one asynchronous
+  start/completion pair. Hover completion says request dispatched, without claiming a server response.
+- Use completion keys with no menu/candidate: normal key fallback stays quiet at errors/info;
+  debug reports the unavailable result once.
+- Navigate diagnostics with none present: the Plait mapping says “No diagnostics to navigate” at
+  info, with no error classification. A direct Lua call returns its result quietly.
+- Block an action or configuration application: errors/info/debug include actionable repair guidance;
+  silent emits no incidental Plait feedback. Application has one concise summary pointing to inspection.
+- Repeat an automatic mapping collision or save-formatting failure: unchanged warnings are suppressed.
+  Change the problem, then repair it and reproduce it: each changed or recurring problem reports again.
+  Successful automatic work stays quiet at info. Explicit commands continue reporting current failures.
+- Re-run the maintenance checks: no-op confirmations, mutation progress, cancellation, restart guidance,
+  explicit tool findings, and structured operation evidence retain their existing behavior.
+
+Do not count native Neovim messages or provider UI as Plait feedback.

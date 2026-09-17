@@ -318,6 +318,9 @@ M.actions = {
   previous_diagnostic = function() return navigate('previous_diagnostic', -1) end,
   next_diagnostic = function() return navigate('next_diagnostic', 1) end,
 }
+for name, action in pairs(M.actions) do
+  M.actions[name] = require('plait.feedback').wrap(action)
+end
 
 --- Install one configured buffer-local mapping.
 ---@param modes string[]|string
@@ -325,7 +328,14 @@ M.actions = {
 ---@param callback function
 ---@param buffer integer
 local function map(modes, lhs, callback, buffer)
-  if lhs ~= false then vim.keymap.set(modes, lhs, callback, { buffer = buffer, nowait = true }) end
+  if lhs ~= false then
+    vim.keymap.set(
+      modes,
+      lhs,
+      function() return require('plait.feedback').invoke(callback, 'mapping') end,
+      { buffer = buffer, nowait = true }
+    )
+  end
 end
 
 --- Install a close mapping only in a native quickfix buffer.

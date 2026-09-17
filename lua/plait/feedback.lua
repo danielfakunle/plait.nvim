@@ -98,7 +98,7 @@ function M.maintenance(result, invocation, completion, operation_id)
   end
 end
 
---- Invoke a maintenance action with one presentation owner and restore context on misuse.
+--- Invoke a capability or maintenance action with one presentation owner and restore context on misuse.
 ---@param action function
 ---@param invocation PlaitInvocationOrigin
 ---@param ... any
@@ -110,29 +110,75 @@ function M.invoke(action, invocation, ...)
   local ok, result = pcall(action, ...)
   origin, invoking = previous, false
   if not ok then error(result, 0) end
-  if result.status ~= 'started' then M.maintenance(result, invocation) end
+  if result.status ~= 'started' then
+    if result.operation == 'packages.sync' or result.operation:match('^tooling%.') then
+      M.maintenance(result, invocation)
+    else
+      M.action_result(result, invocation)
+    end
+  end
   return result
 end
 
---- Wrap a public maintenance action so direct Lua failures use the same policy.
+--- Wrap a public action so direct Lua failures use the same policy.
 ---@param action function
 ---@return function
 function M.wrap(action)
   return function(...) return M.invoke(action, 'lua', ...) end
 end
 
---- Present a non-maintenance command result through the common presentation owner.
+--- Present a synchronous capability result without classifying normal fallback as failure.
 ---@param result table
-function M.command_result(result)
-  if M.present_result(result) then print(require('plait.result').render_command(result)) end
+---@param invocation PlaitInvocationOrigin
+function M.action_result(result, invocation)
+  local expected = result.reason == 'no_diagnostics'
+    or (
+      result.operation:match('^completion%.')
+      and (
+        result.reason == 'completion_inactive'
+        or result.reason == 'no_candidate'
+        or result.reason == 'documentation_unavailable'
+      )
+    )
+  local failed = not expected and (result.status == 'failed' or result.status == 'unavailable')
+  local empty = result.reason == 'no_diagnostics' and (invocation == 'command' or invocation == 'mapping')
+  if state.operation_feedback == 'silent' then return end
+  if not M.debug() and not failed and not (empty and state.operation_feedback == 'info') then return end
+  local message = empty and 'Plait: No diagnostics to navigate' or require('plait.result').render_command(result)
+  if M.debug() then message = require('plait.result').render(result) end
+  pcall(vim.notify, message, failed and vim.log.levels.ERROR or vim.log.levels.INFO)
 end
 
---- Present a sanitized automatic failure with repair guidance under the configured policy.
----@param message string
----@param repair string
-function M.automatic_failure(message, repair)
-  if not M.present_completion(false) then return end
-  pcall(vim.notify, message .. ' Repair: ' .. repair, vim.log.levels.ERROR)
+---@type table<string, string>
+local warnings = {}
+
+--- Observe an automatic problem, suppressing identical observations until recovery.
+---@param identity string
+---@param message? string Nil clears the observed problem.
+---@param repair? string
+---@param failure? boolean
+---@param evidence? string Opaque fingerprint of the observed problem.
+function M.automatic(identity, message, repair, failure, evidence)
+  if not message then
+    warnings[identity] = nil
+    return
+  end
+  local rendered = message .. ' Repair: ' .. (repair or '')
+  local signature = rendered .. (evidence or '')
+  local changed = warnings[identity] ~= signature
+  warnings[identity] = signature
+  if state.operation_feedback == 'silent' then return end
+  if not failure and state.operation_feedback == 'errors' then return end
+  if not changed and not M.debug() then return end
+  pcall(vim.notify, rendered, failure and vim.log.levels.ERROR or vim.log.levels.WARN)
+end
+
+--- Present a sanitized automatic formatting failure, or observe its recovery.
+---@param message? string
+---@param repair? string
+---@param evidence? string
+function M.automatic_failure(message, repair, evidence)
+  M.automatic('formatting.on_save', message, repair, true, evidence)
 end
 
 --- Present non-maintenance ledger lifecycle events through the common feedback owner.
@@ -142,33 +188,55 @@ end
 function M.lifecycle(operation, identity, event)
   if not M.present_completion(event ~= 'failed') then return end
   local message = ('Plait operation %s %s (%s)'):format(operation, event, identity)
+  if event == 'failed' then
+    message = message
+      .. '\nRepair: Inspect :Plait inspect operations '
+      .. identity
+      .. ', repair the target/provider, then retry.'
+  end
+  if event == 'succeeded' and operation:match('^language%.') then
+    message = ('Plait operation %s request dispatched (%s); server response is not tracked.'):format(
+      operation,
+      identity
+    )
+  end
   if event == 'started' then message = message .. '\nInspect progress: :Plait inspect operations ' .. identity end
   pcall(vim.notify, message, event == 'failed' and vim.log.levels.ERROR or vim.log.levels.INFO)
 end
 
---- Present the primary preflight failure when automatic error feedback is enabled.
----@param diagnostic table
-function M.blocked_application(diagnostic)
-  if not M.present_completion(false) then return end
-  pcall(
-    vim.notify,
-    'Plait application was blocked; no managed effects were applied. '
-      .. diagnostic.summary
-      .. ' '
-      .. diagnostic.repair
-      .. ' Inspect: :Plait inspect diagnostics '
-      .. diagnostic.code,
-    vim.log.levels.ERROR
-  )
-end
-
---- Return whether the configured policy automatically presents an action result.
+--- Summarize all application degradation once, retaining detailed inspection evidence.
 ---@param result table
----@return boolean
-function M.present_result(result)
-  if state.operation_feedback == 'silent' then return false end
-  if M.debug() then return result.status ~= 'started' end
-  return result.status == 'failed' or result.status == 'unavailable'
+function M.application(result)
+  local problems = {}
+  local failed = result.status ~= 'performed'
+  for _, diagnostic in ipairs(state.snapshot and state.snapshot.diagnostics or {}) do
+    if
+      (diagnostic.severity == 'error' or diagnostic.severity == 'warning')
+      and not (result.status == 'performed' and diagnostic.code:match('^package%.'))
+    then
+      problems[#problems + 1] = diagnostic
+    end
+  end
+  if failed or #problems > 0 then
+    local primary = problems[1]
+    for _, problem in ipairs(problems) do
+      if problem.severity == 'error' then
+        primary = problem
+        break
+      end
+    end
+    local message = failed and 'Plait application was blocked or failed. ' or 'Plait application is degraded. '
+    message = message
+      .. (#problems > 1 and ('%d problems. '):format(#problems) or '')
+      .. (primary and primary.summary or result.reason:gsub('_', ' '))
+    local repair = (primary and primary.repair or 'Repair the affected packages/environment and restart Neovim.')
+      .. ' Inspect: :Plait inspect diagnostics'
+    if M.debug() then message = message .. '\n' .. require('plait.result').render(result) end
+    M.automatic('apply', message, repair, failed, require('plait.canonical').encode(problems))
+  else
+    M.automatic('apply')
+    M.action_result(result, 'automatic')
+  end
 end
 
 --- Return whether the configured policy presents an asynchronous completion.

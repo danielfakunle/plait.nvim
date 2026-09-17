@@ -16,10 +16,10 @@ describe('formatting capability facade', function()
     expect.equality(child.lua_get([[formatting_apply_result.reason]]), 'invalid_plan')
     expect.equality(child.lua_get([[apply_notifications]]), {
       {
-        'Plait application was blocked; no managed effects were applied. '
+        'Plait application was blocked or failed. 4 problems. '
           .. 'Managed identity mapping:n:<leader>f:global already exists. '
-          .. 'Remove or rename the external effect before apply. '
-          .. 'Inspect: :Plait inspect diagnostics effect.collision',
+          .. 'Repair: Remove or rename the external effect before apply. '
+          .. 'Inspect: :Plait inspect diagnostics',
         child.lua_get([[vim.log.levels.ERROR]]),
       },
     })
@@ -65,7 +65,7 @@ describe('formatting capability facade', function()
         'tests/fixtures/formatting_apply/init.lua',
       })
       expect.equality(child.lua_get([[formatting_apply_result.status]]), 'performed')
-      expect.equality(child.lua_get([[apply_notifications]]), {})
+      expect.equality(child.lua_get([[#apply_notifications]]), policy == 'all' and 1 or 0)
       expect.equality(
         child.lua_get([[vim.iter(M.inspect('diagnostics')):any(function(item)
         return item.code == 'effect.collision'

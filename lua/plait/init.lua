@@ -258,6 +258,11 @@ local function resolve(collector)
   local selections, selection_sources = combine_selections(collector.selection_calls, collector.collector_source)
   local declaration, configuration_source, configuration_sources =
     combine_configuration(collector.configuration_calls, collector.collector_source)
+  -- Feedback must remain usable when an unrelated declaration blocks validation.
+  local declared_feedback = type(declaration) == 'table' and declaration.operation_feedback or nil
+  if type(declared_feedback) == 'string' and vim.list_contains(schema.operation_feedback.values, declared_feedback) then
+    state.operation_feedback = declared_feedback
+  end
   local configuration, resolution, diagnostics = validation.validate(
     selections,
     selection_sources,
@@ -321,7 +326,7 @@ end
 --- Seal, re-resolve, and synchronously apply the effective editor plan.
 ---@param ... any
 ---@return table
-function Collector:apply(...)
+local function apply(self, ...)
   if self.sealed then misuse('apply may only be called once') end
   self.sealed = true
   if select('#', ...) > 0 then misuse('apply expects no arguments') end
@@ -366,12 +371,20 @@ function Collector:apply(...)
     vim.list_extend(diagnostics, preflight_diagnostics)
     validation.sort_diagnostics(diagnostics)
     local result = application.invalid(diagnostics, effective_plan)
-    require('plait.feedback').blocked_application(preflight_diagnostics[1])
     return result
   end
   local applied = application.run(effective_plan, diagnostics, schema)
   invalidate_resolution(self)
   return applied
+end
+
+--- Apply the configuration and present one policy-controlled startup summary.
+---@param ... any
+---@return table
+function Collector:apply(...)
+  local result = apply(self, ...)
+  feedback.application(result)
+  return result
 end
 
 --- Create the process-wide Plait configuration collector.

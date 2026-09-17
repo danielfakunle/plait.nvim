@@ -110,7 +110,7 @@ end
 local function report_collision(buffer, mode, lhs, name)
   reported[buffer] = reported[buffer] or {}
   local identity = mode .. ':' .. lhs .. ':' .. name
-  if reported[buffer][identity] then return end
+  local first = not reported[buffer][identity]
   reported[buffer][identity] = true
   local diagnostic = {
     code = 'language.mapping_collision',
@@ -120,6 +120,12 @@ local function report_collision(buffer, mode, lhs, name)
     related_sources = {},
     details = { buffer = buffer, mode = mode, key = lhs, action = 'language.' .. name },
   }
+  require('plait.feedback').automatic(
+    'language.mapping:' .. buffer .. ':' .. identity,
+    diagnostic.summary,
+    diagnostic.repair
+  )
+  if not first then return end
   state.operation_diagnostics[#state.operation_diagnostics + 1] = diagnostic
   if state.snapshot then
     state.snapshot.diagnostics[#state.snapshot.diagnostics + 1] = vim.deepcopy(diagnostic)
@@ -139,10 +145,19 @@ local function reconcile(buffer, mappings, actions, requests, departing)
   local callbacks = owned[buffer]
   for _, mapping in ipairs(inspect_mappings(buffer, mappings, requests, departing)) do
     local identity = mapping.mode .. ':' .. mapping.lhs
+    local problem_identity = mapping.mode .. ':' .. mapping.lhs .. ':' .. mapping.name
+    if
+      not next(mapping.observed)
+      or mapping.observed.callback == callbacks[identity]
+      or compatible_native_hover(mapping)
+    then
+      if reported[buffer] then reported[buffer][problem_identity] = nil end
+      require('plait.feedback').automatic('language.mapping:' .. buffer .. ':' .. problem_identity)
+    end
     local callback = callbacks[identity]
     if mapping.supported then
       if not next(mapping.observed) then
-        callback = function() return actions[mapping.name]() end
+        callback = function() return require('plait.feedback').invoke(actions[mapping.name], 'mapping') end
         vim.keymap.set(mapping.mode, mapping.lhs, callback, { buffer = buffer, nowait = true })
         callbacks[identity] = callback
       elseif mapping.observed.callback ~= callback then

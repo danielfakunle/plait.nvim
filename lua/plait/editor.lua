@@ -78,6 +78,9 @@ M.actions = {
   clear_search = clear_search,
   focus = focus,
 }
+for name, action in pairs(M.actions) do
+  M.actions[name] = require('plait.feedback').wrap(action)
+end
 
 --- Deliberately write one native option, even when it already has the target value.
 ---@param name string
@@ -144,7 +147,13 @@ end
 ---@param lhs string|false
 ---@param callback function|string
 local function map(modes, lhs, callback)
-  if lhs ~= false and lhs ~= nil then vim.keymap.set(modes, lhs, callback) end
+  if lhs ~= false and lhs ~= nil then
+    if type(callback) == 'function' then
+      local action = callback
+      callback = function() return require('plait.feedback').invoke(action, 'mapping') end
+    end
+    vim.keymap.set(modes, lhs, callback)
+  end
 end
 
 --- Apply the editor's fixed mapping modes and scopes.
@@ -155,10 +164,10 @@ local function apply_mappings(configuration)
   map({ 'i', 'c' }, mappings.delete_word, '<C-w>')
   map('n', mappings.clear_search, M.actions.clear_search)
   map('n', mappings.message_pager, 'g<')
-  map('n', mappings.focus_left, function() M.actions.focus('left') end)
-  map('n', mappings.focus_down, function() M.actions.focus('down') end)
-  map('n', mappings.focus_up, function() M.actions.focus('up') end)
-  map('n', mappings.focus_right, function() M.actions.focus('right') end)
+  map('n', mappings.focus_left, function() return M.actions.focus('left') end)
+  map('n', mappings.focus_down, function() return M.actions.focus('down') end)
+  map('n', mappings.focus_up, function() return M.actions.focus('up') end)
+  map('n', mappings.focus_right, function() return M.actions.focus('right') end)
 end
 
 --- Apply the exact yank-highlight autocmd.

@@ -51,3 +51,25 @@ no-ops return `performed` with an empty `details.changed`; accepted work returns
 `operation_id`; declined consent returns `unavailable` with `reason = 'consent_denied'`. Declining
 is presented as cancellation, not a failure. Successful completed synchronization records changed
 packages and their `restart_required` states. Do not reapply in the mutated process.
+
+#### Capability actions and automatic work
+
+Successful hover, formatting, completion, and native editor actions stay quiet at `info`, across
+commands, Plait mappings, and direct Lua calls. Completion session or candidate unavailability is
+normal fallback and stays quiet at `errors` and `info`. Explicit diagnostic navigation without any
+diagnostics says “No diagnostics to navigate” at `info`; this is not an error.
+
+Genuine failures and blocked actions include repair guidance at `errors`, `info`, and `debug`.
+Application and startup produce one actionable degradation summary pointing to
+`:Plait inspect diagnostics`; successful application and startup checks remain quiet at `info`.
+Automatic warnings suppress unchanged problems within the Neovim process. Changed problems and
+problems that resolve and recur are reported again. Explicit commands report the current outcome
+without this suppression. Format-on-save follows the same policy, including `silent` for failures.
+
+At `debug` (or `all`), synchronous results produce one execution record, and asynchronous actions
+produce one start/completion pair. This includes Lua calls, Plait mappings, automatic save
+formatting, and expected fallback. Language operation completion means the native LSP request was
+dispatched; it does not confirm a server response or a successful semantic action.
+
+Automatic save formatting emits one synchronous result record. Asynchronous language and maintenance
+operations emit one start/completion pair.

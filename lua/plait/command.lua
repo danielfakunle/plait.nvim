@@ -213,7 +213,7 @@ function M.dispatch(arguments, command)
         end_ = { line = command.line2 - 1, character = #line },
       }
     end
-    feedback.command_result(plait.actions.formatting.format(range and { range = range } or nil))
+    feedback.invoke(plait.actions.formatting.format, 'command', range and { range = range } or nil)
   else
     fail('unknown or invalid command')
   end

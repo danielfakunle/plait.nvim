@@ -354,8 +354,33 @@ local function setup_options(configuration, effective_plan)
   if configuration.on_save then
     setup.format_on_save = function(buffer)
       local chain, unavailable, lsp = format_policy(state.snapshot or effective_plan, buffer, configuration)
-      if #unavailable > 0 then return nil end
-      if #chain == 0 and not lsp then return nil end
+      if #unavailable > 0 then
+        require('plait.feedback').automatic(
+          'formatting.on_save',
+          require('plait.feedback').debug()
+              and ('Plait formatting.on_save unavailable in buffer %d: %s'):format(
+                buffer,
+                require('plait.canonical').encode(unavailable)
+              )
+            or 'Plait save formatting is blocked: formatter chain unavailable.',
+          'Inspect :Plait inspect tools, repair the formatter chain, then save again.',
+          true,
+          require('plait.canonical').encode(unavailable)
+        )
+        return nil
+      end
+      if #chain == 0 and not lsp then
+        require('plait.feedback').automatic_failure()
+        if require('plait.feedback').debug() then
+          require('plait.feedback').action_result({
+            status = 'unavailable',
+            operation = 'formatting.on_save',
+            reason = 'no_formatter',
+            details = { buffer = buffer },
+          }, 'automatic')
+        end
+        return nil
+      end
       return {
         timeout_ms = configuration.timeout_ms,
         formatters = #chain > 0 and chain or nil,
@@ -364,8 +389,16 @@ local function setup_options(configuration, effective_plan)
       }, function(err)
         if err then
           require('plait.feedback').automatic_failure(
-            'Plait formatting operation failed.',
-            'Inspect :Plait inspect tools and diagnostics, repair the formatter, then retry.'
+            require('plait.feedback').debug() and 'Plait formatting.on_save failed.'
+              or 'Plait formatting operation failed.',
+            'Inspect :Plait inspect tools and diagnostics, repair the formatter, then retry.',
+            vim.fn.sha256(tostring(err))
+          )
+        else
+          require('plait.feedback').automatic_failure()
+          require('plait.feedback').action_result(
+            { status = 'performed', operation = 'formatting.on_save', details = { buffer = buffer, chain = chain } },
+            'automatic'
           )
         end
       end
@@ -386,8 +419,16 @@ function M.apply_effect(identity, configuration, effective_plan)
     require('conform').setup(setup_options(configuration, effective_plan))
   elseif identity == 'formatting/actions-and-mapping' then
     if configuration.mappings.format ~= false then
-      vim.keymap.set('n', configuration.mappings.format, M.format)
-      vim.keymap.set('x', configuration.mappings.format, function() M.format({ range = visual_range() }) end)
+      vim.keymap.set(
+        'n',
+        configuration.mappings.format,
+        function() return require('plait.feedback').invoke(M.actions.format, 'mapping') end
+      )
+      vim.keymap.set(
+        'x',
+        configuration.mappings.format,
+        function() require('plait.feedback').invoke(M.actions.format, 'mapping', { range = visual_range() }) end
+      )
     end
   end
 end
@@ -399,5 +440,8 @@ M.integration = {
   activation_effect = 'formatting/actions-and-mapping',
   activate = function() state.formatting_active = true end,
 }
+for name, action in pairs(M.actions) do
+  M.actions[name] = require('plait.feedback').wrap(action)
+end
 
 return M

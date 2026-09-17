@@ -139,6 +139,9 @@ M.actions = {
   previous = select_previous,
   scroll_documentation = scroll_documentation,
 }
+for name, action in pairs(M.actions) do
+  M.actions[name] = require('plait.feedback').wrap(action)
+end
 
 --- Declare the completion capability's complete managed effect family.
 ---@param sources table[]
@@ -218,7 +221,7 @@ end
 local function map(lhs, action, argument, preserve_native)
   if lhs == false then return end
   vim.keymap.set('i', lhs, function()
-    local result = action(argument)
+    local result = require('plait.feedback').invoke(action, 'mapping', argument)
     return result.status == 'unavailable' and preserve_native ~= false and lhs or ''
   end, { expr = true })
 end
