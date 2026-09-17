@@ -1,0 +1,45 @@
+Plait inspection
+
+Diagnostics
+  [WARNING] tool.unprobeable
+    Summary: Tool tsc could not be probed (version_missing).
+    Repair: Repair the executable/path so the fixed probe succeeds.
+    Source:
+      file: tests/fixtures/daily/config.lua
+      line: 5
+      path: select[7]
+    Affected:
+      affected_operations:
+        - language.typescript
+      constraint: >=7.0.0,<8.0.0
+      path: <project>/node_modules/.bin/tsc
+      reason: version_missing
+      tool: tsc
+  [INFO] operation.succeeded
+    Summary: Operation op-00000001 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000001
+      targets:
+        - buffer:1
+  [INFO] operation.succeeded
+    Summary: Operation op-00000002 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000002
+      targets:
+        - buffer:1
+  [INFO] operation.succeeded
+    Summary: Operation op-00000003 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000003
+      targets:
+        - buffer:1
+  [INFO] operation.succeeded
+    Summary: Operation op-00000004 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000004
+      targets:
+        - buffer:1

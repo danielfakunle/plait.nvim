@@ -1,0 +1,41 @@
+Plait inspection
+
+Diagnostics
+  [WARNING] tool.absent
+    Summary: Tool tsc is absent.
+    Repair: Install through the declared ownership path, then check again.
+    Source:
+      file: tests/fixtures/daily/config.lua
+      line: 5
+      path: select[7]
+    Affected:
+      affected_operations:
+        - language.typescript
+      candidates:
+        - path: <project>/src/node_modules/.bin/tsc
+          real_path: none
+          reason: none
+          source: workspace
+          state: absent
+        - path: <project>/node_modules/.bin/tsc
+          real_path: none
+          reason: none
+          source: workspace
+          state: absent
+        - path: /tmp/node_modules/.bin/tsc
+          real_path: none
+          reason: none
+          source: workspace
+          state: absent
+        - path: /private/node_modules/.bin/tsc
+          real_path: none
+          reason: none
+          source: workspace
+          state: absent
+        - path: //node_modules/.bin/tsc
+          real_path: none
+          reason: none
+          source: workspace
+          state: absent
+      constraint: >=7.0.0,<8.0.0
+      tool: tsc

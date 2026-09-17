@@ -13,6 +13,8 @@ local builtin_servers = {
   },
 }
 
+local builtin_languages = { lua_ls = 'lang.lua', tsc = 'lang.typescript' }
+
 local completion_capabilities = {
   textDocument = {
     completion = {
@@ -385,7 +387,7 @@ function M.apply_effect(identity, configuration, effective_plan)
       filetypes = vim.deepcopy(declaration.filetypes),
       tool = declaration.tool,
       state = record and record.state or 'absent',
-      language = server_identity == 'lua_ls' and 'lang.lua' or 'lang.' .. server_identity,
+      language = builtin_languages[server_identity] or ('lang.' .. server_identity),
     }
     if not record or record.state ~= 'satisfied' then return 'skipped' end
     local qualified = vim.deepcopy(vim.lsp.config[server_identity])

@@ -1,0 +1,121 @@
+Plait inspection
+
+Diagnostics
+  [WARNING] formatting.chain_unavailable
+    Summary: Formatter chain for javascript is unavailable.
+    Repair: Satisfy every listed formatter tool, then format again.
+    Affected:
+      filetype: javascript
+      unavailable:
+        - formatter: oxfmt
+          state: absent
+          tool: oxfmt
+  [WARNING] formatting.chain_unavailable
+    Summary: Formatter chain for typescript is unavailable.
+    Repair: Satisfy every listed formatter tool, then format again.
+    Affected:
+      filetype: typescript
+      unavailable:
+        - formatter: oxfmt
+          state: absent
+          tool: oxfmt
+  [WARNING] formatting.chain_unavailable
+    Summary: Formatter chain for typescriptreact is unavailable.
+    Repair: Satisfy every listed formatter tool, then format again.
+    Affected:
+      filetype: typescriptreact
+      unavailable:
+        - formatter: oxfmt
+          state: absent
+          tool: oxfmt
+  [WARNING] tool.absent
+    Summary: Tool tsc is absent.
+    Repair: Install through the declared ownership path, then check again.
+    Source:
+      file: tests/fixtures/daily/config.lua
+      line: 5
+      path: select[7]
+    Affected:
+      affected_operations:
+        - language.typescript
+      candidates:
+        - path: <project>/src/node_modules/.bin/tsc
+          real_path: none
+          reason: none
+          source: workspace
+          state: absent
+        - path: <project>/node_modules/.bin/tsc
+          real_path: <project>/node_modules/.bin/tsc
+          reason: none
+          source: workspace
+          state: present
+        - path: /tmp/node_modules/.bin/tsc
+          real_path: none
+          reason: none
+          source: workspace
+          state: absent
+        - path: /private/node_modules/.bin/tsc
+          real_path: none
+          reason: none
+          source: workspace
+          state: absent
+        - path: //node_modules/.bin/tsc
+          real_path: none
+          reason: none
+          source: workspace
+          state: absent
+        - path: <project>/node_modules/.bin/tsc
+          real_path: <project>/node_modules/.bin/tsc
+          reason: none
+          source: PATH
+          state: present
+      constraint: >=16.20.0
+      tool: tsc
+  [WARNING] tool.absent
+    Summary: Tool oxfmt is absent.
+    Repair: Install through the declared ownership path, then check again.
+    Source:
+      file: tests/fixtures/daily/config.lua
+      line: 10
+      path: override
+    Affected:
+      candidates:
+        - path: <project>/src/node_modules/.bin/oxfmt
+          real_path: none
+          reason: none
+          source: workspace
+          state: absent
+        - path: <project>/node_modules/.bin/oxfmt
+          real_path: <project>/node_modules/.bin/oxfmt
+          reason: none
+          source: workspace
+          state: present
+        - path: /tmp/node_modules/.bin/oxfmt
+          real_path: none
+          reason: none
+          source: workspace
+          state: absent
+        - path: /private/node_modules/.bin/oxfmt
+          real_path: none
+          reason: none
+          source: workspace
+          state: absent
+        - path: //node_modules/.bin/oxfmt
+          real_path: none
+          reason: none
+          source: workspace
+          state: absent
+        - path: <project>/node_modules/.bin/oxfmt
+          real_path: <project>/node_modules/.bin/oxfmt
+          reason: none
+          source: PATH
+          state: present
+      constraint: >=22.12.0
+      tool: oxfmt
+  [INFO] operation.succeeded
+    Summary: Operation op-00000001 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000001
+      targets:
+        - buffer:1

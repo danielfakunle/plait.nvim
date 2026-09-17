@@ -1,0 +1,73 @@
+Plait inspection
+
+Diagnostics
+  [WARNING] formatting.chain_unavailable
+    Summary: Formatter chain for javascript is unavailable.
+    Repair: Satisfy every listed formatter tool, then format again.
+    Affected:
+      filetype: javascript
+      unavailable:
+        - formatter: oxfmt
+          state: absent
+          tool: oxfmt
+  [WARNING] formatting.chain_unavailable
+    Summary: Formatter chain for typescript is unavailable.
+    Repair: Satisfy every listed formatter tool, then format again.
+    Affected:
+      filetype: typescript
+      unavailable:
+        - formatter: oxfmt
+          state: absent
+          tool: oxfmt
+  [WARNING] formatting.chain_unavailable
+    Summary: Formatter chain for typescriptreact is unavailable.
+    Repair: Satisfy every listed formatter tool, then format again.
+    Affected:
+      filetype: typescriptreact
+      unavailable:
+        - formatter: oxfmt
+          state: absent
+          tool: oxfmt
+  [WARNING] tool.absent
+    Summary: Tool oxfmt is absent.
+    Repair: Install through the declared ownership path, then check again.
+    Source:
+      file: tests/fixtures/daily/config.lua
+      line: 10
+      path: override
+    Affected:
+      candidates:
+        - path: <project>/src/node_modules/.bin/oxfmt
+          real_path: none
+          reason: none
+          source: workspace
+          state: absent
+        - path: <project>/node_modules/.bin/oxfmt
+          real_path: none
+          reason: none
+          source: workspace
+          state: absent
+        - path: /tmp/node_modules/.bin/oxfmt
+          real_path: none
+          reason: none
+          source: workspace
+          state: absent
+        - path: /private/node_modules/.bin/oxfmt
+          real_path: none
+          reason: none
+          source: workspace
+          state: absent
+        - path: //node_modules/.bin/oxfmt
+          real_path: none
+          reason: none
+          source: workspace
+          state: absent
+      constraint: =0.66.0
+      tool: oxfmt
+  [INFO] operation.succeeded
+    Summary: Operation op-00000001 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000001
+      targets:
+        - buffer:1

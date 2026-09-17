@@ -1,0 +1,45 @@
+Plait inspection
+
+Diagnostics
+  [WARNING] tool.incompatible
+    Summary: Tool tsc does not satisfy >=7.0.0,<8.0.0.
+    Repair: Install a satisfying version or change the requirement.
+    Source:
+      file: tests/fixtures/daily/config.lua
+      line: 5
+      path: select[7]
+    Affected:
+      affected_operations:
+        - language.typescript
+      constraint: >=7.0.0,<8.0.0
+      path: <project>/node_modules/.bin/tsc
+      tool: tsc
+      version: 1.0.0
+  [INFO] operation.succeeded
+    Summary: Operation op-00000001 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000001
+      targets:
+        - buffer:1
+  [INFO] operation.succeeded
+    Summary: Operation op-00000002 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000002
+      targets:
+        - buffer:1
+  [INFO] operation.succeeded
+    Summary: Operation op-00000003 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000003
+      targets:
+        - buffer:1
+  [INFO] operation.succeeded
+    Summary: Operation op-00000004 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000004
+      targets:
+        - buffer:1

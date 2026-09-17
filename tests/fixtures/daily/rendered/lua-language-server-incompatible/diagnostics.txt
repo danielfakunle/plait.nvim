@@ -1,0 +1,21 @@
+Plait inspection
+
+Diagnostics
+  [WARNING] tool.incompatible
+    Summary: Tool lua-language-server does not satisfy =3.19.1.
+    Repair: Install a satisfying version or change the requirement.
+    Source:
+      file: tests/fixtures/daily/config.lua
+      line: 5
+      path: select[6]
+    Affected:
+      affected_operations:
+        - language.code_action
+        - language.definition
+        - language.hover
+        - language.references
+        - language.rename
+      constraint: =3.19.1
+      path: <project>/node_modules/.bin/lua-language-server
+      tool: lua-language-server
+      version: 1.0.0

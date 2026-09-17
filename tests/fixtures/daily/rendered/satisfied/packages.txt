@@ -1,0 +1,31 @@
+Plait inspection
+
+Packages
+  [SATISFIED] blink.cmp
+    Source: https://github.com/Saghen/blink.cmp
+    Required commit: 78336bc89ee5365633bcf754d93df01678b5c08f
+    Active source: https://github.com/Saghen/blink.cmp
+    Active commit: 78336bc89ee5365633bcf754d93df01678b5c08f
+    Capabilities:
+      - completion
+  [SATISFIED] conform.nvim
+    Source: https://github.com/stevearc/conform.nvim
+    Required commit: 016802de402556da54c36bd7359b441266b01cdd
+    Active source: https://github.com/stevearc/conform.nvim
+    Active commit: 016802de402556da54c36bd7359b441266b01cdd
+    Capabilities:
+      - formatting
+  [SATISFIED] mason.nvim
+    Source: https://github.com/mason-org/mason.nvim
+    Required commit: 2a6940af80375532e5e9e7c1f2fc6319a1b7a69d
+    Active source: https://github.com/mason-org/mason.nvim
+    Active commit: 2a6940af80375532e5e9e7c1f2fc6319a1b7a69d
+    Capabilities:
+      - tooling
+  [SATISFIED] nvim-lspconfig
+    Source: https://github.com/neovim/nvim-lspconfig
+    Required commit: 615d7b2712efb2f530a83a9d0466acafba6b1d6f
+    Active source: https://github.com/neovim/nvim-lspconfig
+    Active commit: 615d7b2712efb2f530a83a9d0466acafba6b1d6f
+    Capabilities:
+      - language

@@ -1,0 +1,49 @@
+Plait inspection
+
+Diagnostics
+  [WARNING] formatting.chain_unavailable
+    Summary: Formatter chain for javascript is unavailable.
+    Repair: Satisfy every listed formatter tool, then format again.
+    Affected:
+      filetype: javascript
+      unavailable:
+        - formatter: oxfmt
+          state: unprobeable
+          tool: oxfmt
+  [WARNING] formatting.chain_unavailable
+    Summary: Formatter chain for typescript is unavailable.
+    Repair: Satisfy every listed formatter tool, then format again.
+    Affected:
+      filetype: typescript
+      unavailable:
+        - formatter: oxfmt
+          state: unprobeable
+          tool: oxfmt
+  [WARNING] formatting.chain_unavailable
+    Summary: Formatter chain for typescriptreact is unavailable.
+    Repair: Satisfy every listed formatter tool, then format again.
+    Affected:
+      filetype: typescriptreact
+      unavailable:
+        - formatter: oxfmt
+          state: unprobeable
+          tool: oxfmt
+  [WARNING] tool.unprobeable
+    Summary: Tool oxfmt could not be probed (version_missing).
+    Repair: Repair the executable/path so the fixed probe succeeds.
+    Source:
+      file: tests/fixtures/daily/config.lua
+      line: 10
+      path: override
+    Affected:
+      constraint: =0.66.0
+      path: <project>/node_modules/.bin/oxfmt
+      reason: version_missing
+      tool: oxfmt
+  [INFO] operation.succeeded
+    Summary: Operation op-00000001 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000001
+      targets:
+        - buffer:1

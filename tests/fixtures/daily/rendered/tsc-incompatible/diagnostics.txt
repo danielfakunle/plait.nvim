@@ -1,0 +1,17 @@
+Plait inspection
+
+Diagnostics
+  [WARNING] tool.incompatible
+    Summary: Tool tsc does not satisfy >=7.0.0,<8.0.0.
+    Repair: Install a satisfying version or change the requirement.
+    Source:
+      file: tests/fixtures/daily/config.lua
+      line: 5
+      path: select[7]
+    Affected:
+      affected_operations:
+        - language.typescript
+      constraint: >=7.0.0,<8.0.0
+      path: <project>/node_modules/.bin/tsc
+      tool: tsc
+      version: 1.0.0

@@ -1,0 +1,93 @@
+Plait inspection
+
+Modules
+  [ACTIVE] editor
+    Provides:
+      - editor
+    Contributions:
+      - editor.configuration
+    Selected at:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[1]
+  [ACTIVE] language
+    Provides:
+      - language
+    Selected at:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[2]
+  [ACTIVE] completion
+    Provides:
+      - completion
+    Requires:
+      - language
+    Ordering:
+      - language
+    Selected at:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[3]
+  [ACTIVE] formatting
+    Provides:
+      - formatting
+    Ordering:
+      - language
+    Selected at:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[4]
+  [ACTIVE] tooling
+    Provides:
+      - tooling
+    Selected at:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[5]
+  [ACTIVE] lang.lua
+    Provides:
+      - lang.lua
+    Requires:
+      - formatting
+      - language
+      - tooling
+    Ordering:
+      - completion
+      - formatting
+      - language
+      - tooling
+    Contributions:
+      - formatting.by_filetype.lua
+      - formatting.formatters.stylua
+      - language.servers.lua_ls
+      - tooling.tools.lua-language-server
+      - tooling.tools.stylua
+    Selected at:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[6]
+  [ACTIVE] lang.typescript
+    Provides:
+      - lang.typescript
+    Requires:
+      - formatting
+      - language
+      - tooling
+    Ordering:
+      - completion
+      - formatting
+      - language
+      - tooling
+    Contributions:
+      - formatting.by_filetype.javascript
+      - formatting.by_filetype.javascriptreact
+      - formatting.by_filetype.typescript
+      - formatting.by_filetype.typescriptreact
+      - formatting.formatters.oxfmt
+      - language.servers.tsc
+      - tooling.tools.oxfmt
+      - tooling.tools.tsc
+    Selected at:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[7]

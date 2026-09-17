@@ -73,28 +73,11 @@ vim.system = function(command, options)
 end
 -- luacheck: pop
 
-local plait = require('plait')
-_G.M = plait
-local config = plait.config()
-config:select({ 'editor', 'language', 'completion', 'formatting', 'tooling', 'lang.lua', 'lang.typescript' })
-config:configure({
-  editor = { indentation = { style = 'spaces', width = 4 }, mappings = { save = '<leader>w' } },
-  formatting = { on_save = false },
-})
-config:override({
-  formatting = { by_filetype = { javascriptreact = plait.disable() } },
-  tooling = {
-    tools = {
-      oxfmt = plait.replace({
-        executable = 'oxfmt',
-        version = '=0.66.0',
-        ownership = 'project',
-        workspace_paths = { 'node_modules/.bin/oxfmt' },
-      }),
-    },
-  },
-})
-_G.typescript_validation_result = config:validate()
+_G.M = require('plait')
+-- luacheck: ignore 122
+vim.pack.add = function() end
+local daily = dofile('tests/fixtures/daily/config.lua')
+_G.typescript_validation_result = daily.validation
 _G.typescript_validation_result.plan.effects[1].identity = 'mutated-public-result'
-_G.typescript_apply_result = config:apply()
+_G.typescript_apply_result = daily.result
 _G.tsc_config = vim.deepcopy(vim.lsp.config.tsc)

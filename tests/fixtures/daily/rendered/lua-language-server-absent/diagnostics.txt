@@ -1,0 +1,25 @@
+Plait inspection
+
+Diagnostics
+  [WARNING] tool.absent
+    Summary: Tool lua-language-server is absent.
+    Repair: Install through the declared ownership path, then check again.
+    Source:
+      file: tests/fixtures/daily/config.lua
+      line: 5
+      path: select[6]
+    Affected:
+      affected_operations:
+        - language.code_action
+        - language.definition
+        - language.hover
+        - language.references
+        - language.rename
+      candidates:
+        - path: <project>/data/mason/bin/lua-language-server
+          real_path: none
+          reason: none
+          source: mason
+          state: absent
+      constraint: =3.19.1
+      tool: lua-language-server

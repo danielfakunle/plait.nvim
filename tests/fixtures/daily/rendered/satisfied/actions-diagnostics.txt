@@ -1,0 +1,31 @@
+Plait inspection
+
+Diagnostics
+  [INFO] operation.succeeded
+    Summary: Operation op-00000001 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000001
+      targets:
+        - buffer:1
+  [INFO] operation.succeeded
+    Summary: Operation op-00000002 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000002
+      targets:
+        - buffer:1
+  [INFO] operation.succeeded
+    Summary: Operation op-00000003 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000003
+      targets:
+        - buffer:1
+  [INFO] operation.succeeded
+    Summary: Operation op-00000004 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000004
+      targets:
+        - buffer:1

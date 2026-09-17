@@ -1,0 +1,49 @@
+Plait inspection
+
+Diagnostics
+  [WARNING] tool.unprobeable
+    Summary: Tool lua-language-server could not be probed (version_missing).
+    Repair: Repair the executable/path so the fixed probe succeeds.
+    Source:
+      file: tests/fixtures/daily/config.lua
+      line: 5
+      path: select[6]
+    Affected:
+      affected_operations:
+        - language.code_action
+        - language.definition
+        - language.hover
+        - language.references
+        - language.rename
+      constraint: =3.19.1
+      path: <project>/node_modules/.bin/lua-language-server
+      reason: version_missing
+      tool: lua-language-server
+  [INFO] operation.succeeded
+    Summary: Operation op-00000001 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000001
+      targets:
+        - buffer:1
+  [INFO] operation.succeeded
+    Summary: Operation op-00000002 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000002
+      targets:
+        - buffer:1
+  [INFO] operation.succeeded
+    Summary: Operation op-00000003 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000003
+      targets:
+        - buffer:1
+  [INFO] operation.succeeded
+    Summary: Operation op-00000004 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000004
+      targets:
+        - buffer:1

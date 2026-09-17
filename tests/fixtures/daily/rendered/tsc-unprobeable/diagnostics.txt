@@ -1,0 +1,17 @@
+Plait inspection
+
+Diagnostics
+  [WARNING] tool.unprobeable
+    Summary: Tool tsc could not be probed (version_missing).
+    Repair: Repair the executable/path so the fixed probe succeeds.
+    Source:
+      file: tests/fixtures/daily/config.lua
+      line: 5
+      path: select[7]
+    Affected:
+      affected_operations:
+        - language.typescript
+      constraint: >=7.0.0,<8.0.0
+      path: <project>/node_modules/.bin/tsc
+      reason: version_missing
+      tool: tsc

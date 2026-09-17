@@ -1,0 +1,47 @@
+Plait inspection
+
+Diagnostics
+  [WARNING] formatting.chain_unavailable
+    Summary: Formatter chain for lua is unavailable.
+    Repair: Satisfy every listed formatter tool, then format again.
+    Affected:
+      filetype: lua
+      unavailable:
+        - formatter: stylua
+          state: incompatible
+          tool: stylua
+  [WARNING] tool.incompatible
+    Summary: Tool stylua does not satisfy =2.5.2.
+    Repair: Install a satisfying version or change the requirement.
+    Source:
+      file: tests/fixtures/daily/config.lua
+      line: 5
+      path: select[6]
+    Affected:
+      affected_operations:
+        - formatting.lua
+      constraint: =2.5.2
+      path: <project>/node_modules/.bin/stylua
+      tool: stylua
+      version: 1.0.0
+  [INFO] operation.succeeded
+    Summary: Operation op-00000001 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000001
+      targets:
+        - buffer:1
+  [INFO] operation.succeeded
+    Summary: Operation op-00000002 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000002
+      targets:
+        - buffer:1
+  [INFO] operation.succeeded
+    Summary: Operation op-00000003 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000003
+      targets:
+        - buffer:1

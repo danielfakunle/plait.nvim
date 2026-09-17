@@ -1,0 +1,42 @@
+Plait inspection
+
+Tools
+  [SATISFIED] lua-language-server
+    Executable: lua-language-server
+    Version constraint: =3.19.1
+    Ownership: mason
+    Resolved path: <project>/node_modules/.bin/lua-language-server
+    Resolved source: PATH
+    Resolved version: 3.19.1
+    Operations:
+      - language.code_action
+      - language.definition
+      - language.hover
+      - language.references
+      - language.rename
+  [SATISFIED] oxfmt
+    Executable: oxfmt
+    Version constraint: =0.66.0
+    Ownership: project
+    Resolved path: <project>/node_modules/.bin/oxfmt
+    Resolved source: workspace
+    Resolved version: 0.66.0
+  [INCOMPATIBLE] stylua
+    Executable: stylua
+    Version constraint: =2.5.2
+    Ownership: mason
+    Resolved path: <project>/node_modules/.bin/stylua
+    Resolved source: PATH
+    Resolved version: 1.0.0
+    Operations:
+      - formatting.lua
+    Repair: Install a satisfying version or change the requirement.
+  [SATISFIED] tsc
+    Executable: tsc
+    Version constraint: >=7.0.0,<8.0.0
+    Ownership: project
+    Resolved path: <project>/node_modules/.bin/tsc
+    Resolved source: workspace
+    Resolved version: 7.0.2
+    Operations:
+      - language.typescript

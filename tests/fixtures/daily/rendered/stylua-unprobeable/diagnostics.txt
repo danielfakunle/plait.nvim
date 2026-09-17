@@ -1,0 +1,17 @@
+Plait inspection
+
+Diagnostics
+  [WARNING] tool.unprobeable
+    Summary: Tool stylua could not be probed (version_missing).
+    Repair: Repair the executable/path so the fixed probe succeeds.
+    Source:
+      file: tests/fixtures/daily/config.lua
+      line: 5
+      path: select[6]
+    Affected:
+      affected_operations:
+        - formatting.lua
+      constraint: =2.5.2
+      path: <project>/node_modules/.bin/stylua
+      reason: version_missing
+      tool: stylua

@@ -1,0 +1,51 @@
+Plait inspection
+
+Diagnostics
+  [WARNING] formatting.chain_unavailable
+    Summary: Formatter chain for lua is unavailable.
+    Repair: Satisfy every listed formatter tool, then format again.
+    Affected:
+      filetype: lua
+      unavailable:
+        - formatter: stylua
+          state: absent
+          tool: stylua
+  [WARNING] tool.absent
+    Summary: Tool stylua is absent.
+    Repair: Install through the declared ownership path, then check again.
+    Source:
+      file: tests/fixtures/daily/config.lua
+      line: 5
+      path: select[6]
+    Affected:
+      affected_operations:
+        - formatting.lua
+      candidates:
+        - path: <project>/data/mason/bin/stylua
+          real_path: none
+          reason: none
+          source: mason
+          state: absent
+      constraint: =2.5.2
+      tool: stylua
+  [INFO] operation.succeeded
+    Summary: Operation op-00000001 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000001
+      targets:
+        - buffer:1
+  [INFO] operation.succeeded
+    Summary: Operation op-00000002 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000002
+      targets:
+        - buffer:1
+  [INFO] operation.succeeded
+    Summary: Operation op-00000003 succeeded.
+    Affected:
+      operation: formatting.format
+      operation_id: op-00000003
+      targets:
+        - buffer:1

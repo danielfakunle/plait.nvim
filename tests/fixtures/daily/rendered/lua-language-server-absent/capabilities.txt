@@ -1,0 +1,158 @@
+Plait inspection
+
+Capabilities
+  Configuration-wide health (completed snapshot); use language_servers for current-buffer readiness.
+  [ACTIVE] completion
+    Integration: completion
+    Providers:
+      - blink.cmp
+    Dependents:
+      - lang.lua
+      - lang.typescript
+    Actions:
+      - completion.accept
+      - completion.cancel
+      - completion.hide
+      - completion.next
+      - completion.previous
+      - completion.scroll_documentation
+      - completion.select_and_accept
+      - completion.trigger
+    Configuration:
+      values:
+        automatic: true
+        documentation: selected
+        mappings:
+          accept: <CR>
+          hide: <C-e>
+          next: <C-n>
+          next_arrow: <Down>
+          previous: <C-p>
+          previous_arrow: <Up>
+          scroll_documentation_down: <C-f>
+          scroll_documentation_up: <C-b>
+          select_and_accept: <C-y>
+          trigger: <C-Space>
+        signature_help: true
+        sources:
+          - lsp
+          - path
+          - snippets
+          - buffer
+  [ACTIVE] editor
+    Integration: editor/native
+    Actions:
+      - editor.clear_search
+      - editor.focus
+      - editor.save
+    Configuration:
+      values:
+        clipboard: auto
+        indentation:
+          style: spaces
+          width: 2
+        line_numbers: relative
+        mappings:
+          clear_search: <Esc>
+          delete_word: <A-BS>
+          focus_down: <C-j>
+          focus_left: <C-h>
+          focus_right: <C-l>
+          focus_up: <C-k>
+          message_pager: <leader>m
+          save: <leader>w
+        persistent_undo: true
+        splits:
+          horizontal: below
+          vertical: right
+        ui2: true
+        wrap: false
+        yank_highlight: true
+  [ACTIVE] formatting
+    Integration: formatting
+    Providers:
+      - conform.nvim
+    Dependents:
+      - lang.lua
+      - lang.typescript
+    Actions:
+      - formatting.format
+    Formatter chains:
+      - javascript: oxfmt [effective]; lang.typescript; Module contribution.
+      - javascriptreact: none [disabled]; owner override (disable); Explicit owner override supersedes module contributions.
+      - lua: stylua [effective]; lang.lua; Module contribution.
+      - typescript: oxfmt [effective]; lang.typescript; Module contribution.
+      - typescriptreact: oxfmt [effective]; lang.typescript; Module contribution.
+    LSP fallback: if_no_formatter: absent or disabled external chains still permit formatting when a managed LSP client supports it.
+    Configuration:
+      values:
+        lsp_fallback: if_no_formatter
+        mappings:
+          format: <leader>cf
+        on_save: false
+        timeout_ms: 1000
+    Overrides:
+      - formatting.by_filetype.javascriptreact: owner disable supersedes module contributions
+  [ACTIVE] lang.lua
+    Integration: language
+    Configuration:
+  [ACTIVE] lang.typescript
+    Integration: language
+    Configuration:
+  [DEGRADED] language
+    Integration: language
+    Providers:
+      - vim.lsp
+    Dependents:
+      - completion
+      - formatting
+      - lang.lua
+      - lang.typescript
+    Actions:
+      - language.code_action
+      - language.definition
+      - language.hover
+      - language.next_diagnostic
+      - language.previous_diagnostic
+      - language.references
+      - language.rename
+    Problems:
+      - Repair: Install through the declared ownership path, then check again.
+        filetypes:
+          - lua
+        summary: Tool lua-language-server is absent.
+        tool: lua-language-server
+    Configuration:
+      values:
+        diagnostics:
+          severity_sort: true
+          signs: true
+          underline: true
+          update_in_insert: false
+          virtual_text: true
+        inlay_hints: false
+        mappings:
+          code_action: <leader>ca
+          definition: gd
+          hover: K
+          next_diagnostic: ]d
+          previous_diagnostic: [d
+          references: gr
+          rename: <leader>cr
+  [ACTIVE] tooling
+    Integration: tooling
+    Providers:
+      - mason.nvim
+    Dependents:
+      - lang.lua
+      - lang.typescript
+    Actions:
+      - tooling.check
+      - tooling.ensure
+      - tooling.install
+      - tooling.update
+    Configuration:
+      values:
+        check_on_startup: true
+    Overrides:
+      - tooling.tools.oxfmt: owner replace supersedes module contributions

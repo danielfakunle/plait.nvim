@@ -46,8 +46,8 @@ T['qualified local integrations']['run the canonical TypeScript author journey']
     child.lua_get([[conform_setup.formatters.oxfmt.command]]),
     child.lua_get([[vim.uv.fs_realpath(typescript_project .. '/node_modules/.bin/oxfmt')]])
   )
-  expect.equality(child.lua_get([[vim.bo.shiftwidth]]), 4)
-  expect.equality(child.lua_get([[vim.bo.tabstop]]), 4)
+  expect.equality(child.lua_get([[vim.bo.shiftwidth]]), 2)
+  expect.equality(child.lua_get([[vim.bo.tabstop]]), 2)
   expect.equality(child.lua_get([[vim.bo.softtabstop]]), -1)
   for _, mode in ipairs({ 'n', 'i', 'x', 's' }) do
     expect.equality(child.lua_get(([[vim.fn.maparg('<leader>w', %q, false, true).callback ~= nil]]):format(mode)), true)

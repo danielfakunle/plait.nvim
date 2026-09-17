@@ -1,0 +1,51 @@
+Plait inspection
+
+Operations
+  [SUCCEEDED] op-00000001
+    Operation: formatting.format
+    Targets:
+      - buffer:1
+    Started: <timestamp>
+    Completed: <timestamp>
+    Result:
+      details:
+        buffer: 1
+        chain:
+          - oxfmt
+        range: none
+      operation: formatting.format
+      status: performed
+    Diagnostics:
+      - operation.succeeded
+  [SUCCEEDED] op-00000002
+    Operation: formatting.format
+    Targets:
+      - buffer:1
+    Started: <timestamp>
+    Completed: <timestamp>
+    Result:
+      details:
+        buffer: 1
+        chain:
+          - oxfmt
+        range: none
+      operation: formatting.format
+      status: performed
+    Diagnostics:
+      - operation.succeeded
+  [SUCCEEDED] op-00000003
+    Operation: formatting.format
+    Targets:
+      - buffer:1
+    Started: <timestamp>
+    Completed: <timestamp>
+    Result:
+      details:
+        buffer: 1
+        chain:
+          - oxfmt
+        range: none
+      operation: formatting.format
+      status: performed
+    Diagnostics:
+      - operation.succeeded

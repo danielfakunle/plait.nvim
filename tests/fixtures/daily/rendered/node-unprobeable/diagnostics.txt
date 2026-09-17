@@ -1,0 +1,29 @@
+Plait inspection
+
+Diagnostics
+  [WARNING] tool.unprobeable
+    Summary: Tool tsc could not be probed (version_missing).
+    Repair: Repair the executable/path so the fixed probe succeeds.
+    Source:
+      file: tests/fixtures/daily/config.lua
+      line: 5
+      path: select[7]
+    Affected:
+      affected_operations:
+        - language.typescript
+      constraint: >=16.20.0
+      path: <project>/runtime-bin/node
+      reason: version_missing
+      tool: tsc
+  [WARNING] tool.unprobeable
+    Summary: Tool oxfmt could not be probed (version_missing).
+    Repair: Repair the executable/path so the fixed probe succeeds.
+    Source:
+      file: tests/fixtures/daily/config.lua
+      line: 10
+      path: override
+    Affected:
+      constraint: >=22.12.0
+      path: <project>/runtime-bin/node
+      reason: version_missing
+      tool: oxfmt

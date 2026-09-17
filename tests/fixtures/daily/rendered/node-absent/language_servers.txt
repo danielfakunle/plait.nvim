@@ -1,0 +1,6 @@
+Plait inspection
+
+Language servers (current buffer)
+  [NOT_ATTACHED] tsc
+    Tool state: absent
+    Buffer: <project>/src/main.ts

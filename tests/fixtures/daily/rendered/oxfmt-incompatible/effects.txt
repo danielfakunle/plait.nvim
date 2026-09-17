@@ -1,0 +1,214 @@
+Plait inspection
+
+Managed effects
+  [COMPLETED] completion/package/blink.cmp
+    Capability: completion
+    Provider: vim.pack
+    Stage: 2
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[3]
+  [COMPLETED] formatting/package/conform.nvim
+    Capability: formatting
+    Provider: vim.pack
+    Stage: 2
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[4]
+  [COMPLETED] language/package/nvim-lspconfig
+    Capability: language
+    Provider: vim.pack
+    Stage: 2
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[2]
+  [COMPLETED] tooling/package/mason.nvim
+    Capability: tooling
+    Provider: vim.pack
+    Stage: 2
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[5]
+  [COMPLETED] completion/provider-setup
+    Capability: completion
+    Provider: blink.cmp
+    Stage: 3
+    Dependencies:
+      - completion/package/blink.cmp
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[3]
+  [COMPLETED] editor/native-options
+    Capability: editor
+    Stage: 3
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[1]
+  [COMPLETED] language/native-diagnostics
+    Capability: language
+    Provider: vim.diagnostic
+    Stage: 3
+    Dependencies:
+      - language/package/nvim-lspconfig
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[2]
+  [COMPLETED] tooling/provider-setup
+    Capability: tooling
+    Provider: mason.nvim
+    Stage: 3
+    Dependencies:
+      - tooling/package/mason.nvim
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[5]
+  [COMPLETED] tooling/tool-resolution
+    Capability: tooling
+    Stage: 3
+    Dependencies:
+      - tooling/package/mason.nvim
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[5]
+  [COMPLETED] formatting/provider-setup
+    Capability: formatting
+    Provider: conform.nvim
+    Stage: 3
+    Dependencies:
+      - formatting/package/conform.nvim
+      - tooling/tool-resolution
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[4]
+  [COMPLETED] language/server-definition/lua_ls
+    Capability: language
+    Provider: vim.lsp
+    Stage: 3
+    Dependencies:
+      - language/package/nvim-lspconfig
+      - tooling/tool-resolution
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[6]
+  [COMPLETED] language/server-definition/tsc
+    Capability: language
+    Provider: vim.lsp
+    Stage: 3
+    Dependencies:
+      - language/package/nvim-lspconfig
+      - tooling/tool-resolution
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[7]
+  [COMPLETED] completion/actions-and-mappings
+    Capability: completion
+    Provider: blink.cmp
+    Stage: 4
+    Dependencies:
+      - completion/provider-setup
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[3]
+  [COMPLETED] editor/actions
+    Capability: editor
+    Stage: 4
+    Dependencies:
+      - editor/native-options
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[1]
+  [COMPLETED] editor/mappings
+    Capability: editor
+    Stage: 4
+    Dependencies:
+      - editor/actions
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[1]
+  [COMPLETED] editor/yank-highlight
+    Capability: editor
+    Stage: 4
+    Dependencies:
+      - editor/native-options
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[1]
+  [COMPLETED] formatting/actions-and-mapping
+    Capability: formatting
+    Provider: conform.nvim
+    Stage: 4
+    Dependencies:
+      - formatting/provider-setup
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[4]
+  [COMPLETED] language/actions-and-mappings
+    Capability: language
+    Provider: vim.lsp
+    Stage: 4
+    Dependencies:
+      - language/native-diagnostics
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[2]
+  [COMPLETED] tooling/actions
+    Capability: tooling
+    Provider: mason.nvim
+    Stage: 4
+    Dependencies:
+      - tooling/tool-resolution
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[5]
+  [COMPLETED] tooling/startup-check
+    Capability: tooling
+    Stage: 5
+    Dependencies:
+      - tooling/tool-resolution
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[5]
+  [COMPLETED] language/service/lua_ls
+    Capability: language
+    Provider: vim.lsp
+    Stage: 5
+    Dependencies:
+      - language/server-definition/lua_ls
+      - tooling/startup-check
+      - completion/provider-setup
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[6]
+  [COMPLETED] language/service/tsc
+    Capability: language
+    Provider: vim.lsp
+    Stage: 5
+    Dependencies:
+      - language/server-definition/tsc
+      - tooling/startup-check
+      - completion/provider-setup
+    Sources:
+      - file: tests/fixtures/daily/config.lua
+        line: 5
+        path: select[7]

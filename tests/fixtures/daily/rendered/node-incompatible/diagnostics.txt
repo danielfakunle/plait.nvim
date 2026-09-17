@@ -1,0 +1,29 @@
+Plait inspection
+
+Diagnostics
+  [WARNING] tool.incompatible
+    Summary: Tool tsc does not satisfy >=16.20.0.
+    Repair: Install a satisfying version or change the requirement.
+    Source:
+      file: tests/fixtures/daily/config.lua
+      line: 5
+      path: select[7]
+    Affected:
+      affected_operations:
+        - language.typescript
+      constraint: >=16.20.0
+      path: <project>/runtime-bin/node
+      tool: tsc
+      version: 1.0.0
+  [WARNING] tool.incompatible
+    Summary: Tool oxfmt does not satisfy >=22.12.0.
+    Repair: Install a satisfying version or change the requirement.
+    Source:
+      file: tests/fixtures/daily/config.lua
+      line: 10
+      path: override
+    Affected:
+      constraint: >=22.12.0
+      path: <project>/runtime-bin/node
+      tool: oxfmt
+      version: 1.0.0
