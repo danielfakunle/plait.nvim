@@ -4,6 +4,7 @@
     "---Reference---",
     "./reference/capability-configuration-schema",
     "./reference/tool-observations",
+    "./reference/inspection",
     "---Guides---",
     "./guides/guide-1"
   ]

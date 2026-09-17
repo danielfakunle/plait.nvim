@@ -77,10 +77,13 @@ local definitions = {
       { 'Dependents', 'dependents' },
       { 'Actions', 'actions' },
       { 'Degradation', 'degradation_reasons' },
+      { 'Problems', 'degradation_details' },
       { 'Formatter chains', 'formatter_chains' },
       { 'LSP fallback', 'lsp_fallback' },
       { 'Configuration', 'configuration' },
+      { 'Overrides', 'overrides' },
       { 'Contributions', 'contributions' },
+      { 'Contribution history', 'contribution_history' },
     },
   },
   effects = {
@@ -161,12 +164,17 @@ local definitions = {
 --- Render one purpose-specific inspection section.
 ---@param section string
 ---@param records table|table[]
+---@param verbose? boolean
 ---@return string[]
-function M.section(section, records)
+function M.section(section, records, verbose)
   local definition = assert(definitions[section])
   local items = records
   if records.identity or records.code then items = { records } end
   local lines = { definition.heading }
+  if section == 'capabilities' then
+    lines[#lines + 1] =
+      '  Configuration-wide health (completed snapshot); use language_servers for current-buffer readiness.'
+  end
   if #items == 0 then
     lines[#lines + 1] = '  ' .. definition.empty
     return lines
@@ -176,20 +184,52 @@ function M.section(section, records)
     local state = item.state or item.severity or 'reported'
     lines[#lines + 1] = ('  [%s] %s'):format(tostring(state):upper(), identity)
     for _, field in ipairs(definition.fields) do
+      ---@type any
       local value = item[field[2]]
-      if field[2] == 'formatter_chains' and value then
-        value = vim.tbl_map(function(chain)
-          local source = chain.sources[1]
-          local location = source and (' at %s:%s (%s)'):format(source.file, source.line, source.path) or ''
-          return ('%s: %s [%s]; %s%s; %s'):format(
-            chain.filetype,
-            presentation.value(chain.chain),
-            chain.state,
-            chain.declaration,
-            location,
-            chain.reason
+      if section == 'capabilities' and not verbose then
+        if field[2] == 'configuration' then
+          value = { values = value and value.values, providers = value and value.providers }
+          if value.providers then
+            value.providers = vim.tbl_map(
+              function(provider)
+                return { identity = provider.identity, target = provider.target, value = provider.value }
+              end,
+              value.providers
+            )
+          end
+        elseif field[2] == 'degradation_reasons' and item.degradation_details then
+          value = vim.tbl_filter(function(code)
+            return not vim.iter(item.degradation_details):any(function(problem) return problem.code == code end)
+          end, value or {})
+        elseif field[2] == 'degradation_details' then
+          value = vim.tbl_map(
+            function(problem)
+              return {
+                tool = problem.tool,
+                filetypes = problem.filetypes,
+                summary = problem.summary,
+                Repair = problem.repair,
+              }
+            end,
+            value or {}
           )
-        end, value)
+        elseif field[2] == 'contributions' or field[2] == 'contribution_history' then
+          value = nil
+        end
+      end
+      if field[2] == 'formatter_chains' and value and not verbose then
+        value = vim.tbl_map(
+          function(chain)
+            return ('%s: %s [%s]; %s; %s'):format(
+              chain.filetype,
+              presentation.value(chain.chain),
+              chain.state,
+              chain.declaration,
+              chain.reason
+            )
+          end,
+          value
+        )
       end
       if value ~= nil and value ~= vim.NIL and not empty(value) then
         if type(value) == 'table' then
@@ -207,11 +247,12 @@ end
 --- Render a complete inspection report in canonical section order.
 ---@param selected table<string, table|table[]>
 ---@param sections string[]
+---@param verbose? boolean
 ---@return string[]
-function M.render(selected, sections)
+function M.render(selected, sections, verbose)
   local lines = { 'Plait inspection', '' }
   for index, section in ipairs(sections) do
-    vim.list_extend(lines, M.section(section, selected[section]))
+    vim.list_extend(lines, M.section(section, selected[section], verbose))
     if index < #sections then lines[#lines + 1] = '' end
   end
   return lines

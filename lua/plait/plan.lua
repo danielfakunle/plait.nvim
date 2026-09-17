@@ -37,6 +37,79 @@ local function configuration_value(node, value)
   return result
 end
 
+--- Find configured filetypes whose effective integration uses one tool.
+---@param capability string
+---@param tool string
+---@param formatting table
+---@param language table
+---@return string[]
+local function affected_filetypes(capability, tool, formatting, language)
+  local found = {}
+  if capability == 'formatting' then
+    for filetype, chain in pairs(formatting.by_filetype) do
+      for _, formatter in ipairs(chain) do
+        if formatting.formatters[formatter] and formatting.formatters[formatter].tool == tool then
+          found[filetype] = true
+        end
+      end
+    end
+  elseif capability == 'language' then
+    for _, server in pairs(language) do
+      if server.tool == tool then
+        for _, filetype in ipairs(server.filetypes) do
+          found[filetype] = true
+        end
+      end
+    end
+  end
+  local filetypes = vim.tbl_keys(found)
+  table.sort(filetypes)
+  return filetypes
+end
+
+--- Retain declaration history and summarize owner intent at capability seams.
+---@param capability table
+---@param resolution table
+local function explain_contributions(capability, resolution)
+  capability.overrides, capability.contribution_history = {}, {}
+  local targets = {}
+  for _, module in ipairs(resolution.modules) do
+    for _, target in ipairs(module.contributions) do
+      if target:match('^([^.]+)') == capability.identity then targets[target] = true end
+    end
+  end
+  for target in pairs(resolution.contribution_overrides or {}) do
+    if target:match('^([^.]+)') == capability.identity then targets[target] = true end
+  end
+  local ordered = vim.tbl_keys(targets)
+  table.sort(ordered)
+  for _, target in ipairs(ordered) do
+    local declarations = vim.deepcopy((resolution.contribution_history or {})[target] or {})
+    for _, module in ipairs(resolution.modules) do
+      if vim.list_contains(module.contributions, target) then
+        local recorded = vim.iter(declarations):any(function(item) return item.module == module.identity end)
+        if not recorded then
+          declarations[#declarations + 1] =
+            { module = module.identity, sources = vim.deepcopy(module.selection_sources) }
+        end
+      end
+    end
+    table.sort(declarations, function(left, right) return left.module < right.module end)
+    local overrides = vim.deepcopy((resolution.contribution_overrides or {})[target] or {})
+    if #overrides > 0 then
+      capability.overrides[#capability.overrides + 1] = target
+        .. ': owner '
+        .. overrides[1].operation.kind
+        .. ' supersedes module contributions'
+    end
+    capability.contribution_history[#capability.contribution_history + 1] = {
+      target = target,
+      declarations = declarations,
+      overrides = overrides,
+    }
+  end
+end
+
 --- Sort effects by stage, dependency topology, and bytewise identity.
 ---@param effects table[]
 local function sort_effects(effects)
@@ -113,17 +186,31 @@ function M.build(configuration, resolution)
   end
   local package_records, package_diagnostics = packages.resolve(resolution)
   local tool_records, tool_diagnostics, tool_requirements = tools.resolve(resolution)
-  for _, item in ipairs(tool_diagnostics) do
-    for _, operation in ipairs(item.details.affected_operations) do
-      local capability_identity = operation:match('^([^.]+)')
-      for _, capability in ipairs(resolution.capabilities) do
-        if capability.identity == capability_identity then
-          capability.state = 'degraded'
-          if not vim.list_contains(capability.degradation_reasons, item.code) then
-            capability.degradation_reasons[#capability.degradation_reasons + 1] = item.code
-            table.sort(capability.degradation_reasons)
-          end
+  local formatting_requirements = formatting_integration.resolve(resolution)
+  local language_requirements = require('plait.language').resolve(resolution)
+  for _, capability in ipairs(resolution.capabilities) do
+    explain_contributions(capability, resolution)
+    capability.degradation_details = {}
+    for _, item in ipairs(tool_diagnostics) do
+      local filetypes =
+        affected_filetypes(capability.identity, item.details.tool, formatting_requirements, language_requirements)
+      local affected = #filetypes > 0
+      for _, operation in ipairs(item.details.affected_operations) do
+        if operation:match('^([^.]+)') == capability.identity then affected = true end
+      end
+      if affected then
+        capability.state = 'degraded'
+        if not vim.list_contains(capability.degradation_reasons, item.code) then
+          capability.degradation_reasons[#capability.degradation_reasons + 1] = item.code
+          table.sort(capability.degradation_reasons)
         end
+        capability.degradation_details[#capability.degradation_details + 1] = {
+          code = item.code,
+          tool = item.details.tool,
+          filetypes = array(filetypes),
+          summary = item.summary,
+          repair = item.repair,
+        }
       end
     end
   end
@@ -146,8 +233,8 @@ function M.build(configuration, resolution)
         or 'never: LSP formatting fallback is disabled.'
     end
   end
-  private_formatting_requirements[effective_plan] = formatting_integration.resolve(resolution)
-  private_language_requirements[effective_plan] = require('plait.language').resolve(resolution)
+  private_formatting_requirements[effective_plan] = formatting_requirements
+  private_language_requirements[effective_plan] = language_requirements
   return effective_plan, package_diagnostics
 end
 

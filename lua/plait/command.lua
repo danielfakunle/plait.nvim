@@ -53,21 +53,31 @@ function M.complete(argument_lead, command_line, cursor_position)
   if before_cursor:match('%s$') then arguments[#arguments + 1] = '' end
   if #arguments == 2 then return matching(subcommands, argument_lead) end
   local subcommand = arguments[2]
-  if subcommand == 'inspect' and #arguments == 3 then
-    local candidates = vim.deepcopy(sections)
-    candidates[#candidates + 1] = '--json'
-    return matching(candidates, argument_lead)
-  end
-  if subcommand == 'inspect' and #arguments == 4 and vim.tbl_contains(sections, arguments[3]) then
-    local candidates = snapshot_identities(arguments[3])
-    candidates[#candidates + 1] = '--json'
-    return matching(candidates, argument_lead)
-  end
-  if subcommand == 'inspect' and #arguments == 5 and vim.tbl_contains(sections, arguments[3]) then
-    if vim.tbl_contains(snapshot_identities(arguments[3]), arguments[4]) then
-      return matching({ '--json' }, argument_lead)
+  if subcommand == 'inspect' then
+    local positional, used = {}, {}
+    for index = 3, #arguments - 1 do
+      local argument = arguments[index]
+      if argument == '--json' or argument == '--verbose' then
+        if used[argument] then return {} end
+        used[argument] = true
+      elseif argument:sub(1, 2) == '--' then
+        return {}
+      else
+        positional[#positional + 1] = argument
+      end
     end
-    return {}
+    local candidates = {}
+    if #positional == 0 then
+      candidates = vim.deepcopy(sections)
+    elseif #positional == 1 and vim.tbl_contains(sections, positional[1]) then
+      candidates = snapshot_identities(positional[1])
+    elseif #positional ~= 2 or not vim.tbl_contains(snapshot_identities(positional[1]), positional[2]) then
+      return {}
+    end
+    for _, option in ipairs({ '--json', '--verbose' }) do
+      if not used[option] then candidates[#candidates + 1] = option end
+    end
+    return matching(candidates, argument_lead)
   end
   if subcommand == 'packages' and #arguments == 3 then return matching(package_actions, argument_lead) end
   if subcommand == 'tooling' and #arguments == 3 then return matching(tooling_actions, argument_lead) end
@@ -143,8 +153,18 @@ end
 --- Render inspection records selected by command arguments.
 ---@param arguments string[]
 local function inspect(arguments)
-  local json = arguments[#arguments] == '--json'
-  if json then table.remove(arguments) end
+  local options, positional = {}, {}
+  for _, argument in ipairs(arguments) do
+    if argument:sub(1, 2) == '--' then
+      if argument ~= '--json' and argument ~= '--verbose' then fail('unknown inspect option ' .. argument) end
+      if options[argument] then fail('duplicate inspect option ' .. argument) end
+      options[argument] = true
+    else
+      positional[#positional + 1] = argument
+    end
+  end
+  arguments = positional
+  local json = options['--json']
   if #arguments > 2 then fail('inspect expects a section and optional identity') end
   local requested_sections = arguments[1] and { arguments[1] } or sections
   local selected = {}
@@ -161,7 +181,7 @@ local function inspect(arguments)
     end
     print(table.concat(lines, '\n'))
   else
-    open_report(report.render(selected, requested_sections))
+    open_report(report.render(selected, requested_sections, options['--verbose']))
   end
 end
 

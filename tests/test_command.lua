@@ -20,6 +20,7 @@ describe('Plait command', function()
   it('completes only valid static arguments at each nested command position', function()
     expect.equality(child.lua_get([[vim.fn.getcompletion('Plait inspect ', 'cmdline')]]), {
       '--json',
+      '--verbose',
       'capabilities',
       'diagnostics',
       'effects',
@@ -55,6 +56,7 @@ describe('Plait command', function()
 
     expect.equality(child.lua_get([[vim.fn.getcompletion('Plait inspect modules ', 'cmdline')]]), {
       '--json',
+      '--verbose',
       'formatting',
       'lang.lua',
       'language',
@@ -66,15 +68,22 @@ describe('Plait command', function()
     })
     expect.equality(child.lua_get([[vim.fn.getcompletion('Plait inspect modules lang.lua ', 'cmdline')]]), {
       '--json',
+      '--verbose',
     })
-    expect.equality(child.lua_get([[vim.fn.getcompletion('Plait inspect operations ', 'cmdline')]]), { '--json' })
+    expect.equality(
+      child.lua_get([[vim.fn.getcompletion('Plait inspect operations ', 'cmdline')]]),
+      { '--json', '--verbose' }
+    )
     expect.equality(child.lua_get([[vim.fn.getcompletion('Plait tooling install ', 'cmdline')]]), {
       'lua-language-server',
       'stylua',
     })
     expect.equality(child.lua_get([[vim.fn.getcompletion('Plait tooling update sty', 'cmdline')]]), { 'stylua' })
     expect.equality(child.lua_get([[vim.fn.getcompletion('Plait tooling install stylua ', 'cmdline')]]), {})
-    expect.equality(child.lua_get([[vim.fn.getcompletion('Plait inspect modules --json ', 'cmdline')]]), {})
+    expect.equality(
+      child.lua_get([[vim.fn.getcompletion('Plait inspect modules --json --verbose -- ', 'cmdline')]]),
+      {}
+    )
     expect.equality(
       child.lua_get([[
         completion_snapshot_before == vim.inspect({
@@ -97,6 +106,7 @@ describe('Plait command', function()
 
     expect.equality(child.lua_get([[vim.fn.getcompletion('Plait inspect diagnostics ', 'cmdline')]]), {
       '--json',
+      '--verbose',
       'config.invalid',
     })
     expect.equality(
@@ -120,6 +130,7 @@ describe('Plait command', function()
 
     expect.equality(child.lua_get([[vim.fn.getcompletion('Plait inspect language_servers ', 'cmdline')]]), {
       '--json',
+      '--verbose',
       'lua_ls',
     })
     local json = child.cmd_capture('Plait inspect language_servers lua_ls --json')
@@ -198,7 +209,7 @@ describe('Plait command', function()
     local report = child.lua_get([[table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), '\n')]])
     expect.equality(report:find('Modules\n  [ACTIVE] editor', 1, true) ~= nil, true)
     expect.equality(report:find('    Provides:\n      - editor', 1, true) ~= nil, true)
-    expect.equality(report:find('Capabilities\n  [ACTIVE] editor', 1, true) ~= nil, true)
+    expect.equality(report:find('[ACTIVE] editor\n    Integration:', 1, true) ~= nil, true)
     expect.equality(report:find('Managed effects\n  [PENDING] editor/native-options', 1, true) ~= nil, true)
     expect.equality(report:find('Packages\n  No package requirements.', 1, true) ~= nil, true)
     expect.equality(report:find('Tools\n  No tool requirements.', 1, true) ~= nil, true)
@@ -295,7 +306,7 @@ describe('Plait command', function()
       end
     ]])
 
-    child.cmd('Plait inspect')
+    child.cmd('Plait inspect --verbose')
     local report = child.lua_get([[table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), '\n')]])
     for _, text in ipairs({
       '[INVALID] demo',

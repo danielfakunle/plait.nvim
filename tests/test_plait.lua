@@ -30,6 +30,17 @@ local minimal_editor = [[
   })
 ]]
 
+local function without_contribution_sources(capability)
+  for _, history in ipairs(capability.contribution_history or {}) do
+    for _, declaration in ipairs(history.declarations) do
+      declaration.source, declaration.sources = nil, nil
+    end
+    for _, override in ipairs(history.overrides) do
+      override.source = nil
+    end
+  end
+end
+
 local function without_provenance(plan)
   local semantic = vim.deepcopy(plan)
   semantic.snapshot_state = nil
@@ -43,6 +54,7 @@ local function without_provenance(plan)
   end
   for _, capability in ipairs(semantic.capabilities) do
     capability.configuration.sources = nil
+    without_contribution_sources(capability)
     for _, chain in ipairs(capability.formatter_chains or {}) do
       chain.sources = nil
     end
@@ -139,6 +151,15 @@ describe('effective plan', function()
             'editor.focus',
             'editor.save',
           },
+          contribution_history = {
+            {
+              target = 'editor.configuration',
+              declarations = { { module = 'editor', sources = { { file = '<nvim>', line = 2, path = 'select[1]' } } } },
+              overrides = {},
+            },
+          },
+          overrides = {},
+          degradation_details = {},
           degradation_reasons = {},
         },
       }
@@ -272,6 +293,7 @@ describe('effective plan', function()
     local second_capabilities = child.lua_get([[M.inspect('capabilities')]])
     for _, capabilities in ipairs({ first_capabilities, second_capabilities }) do
       for _, capability in ipairs(capabilities) do
+        without_contribution_sources(capability)
         for _, chain in ipairs(capability.formatter_chains or {}) do
           chain.sources = nil
         end

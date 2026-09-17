@@ -1,0 +1,49 @@
+---
+title: Capability inspection
+description: Inspect configuration-wide capability health and request full provenance.
+---
+
+`:Plait inspect capabilities` describes the whole configured capability from the most recent
+completed snapshot. The default report emphasizes effective configuration, formatter chains,
+explicit owner disables and replacements, and actionable problems. Tool problems name the tool and
+the configured filetypes it affects, with repair guidance.
+
+A capability remains `DEGRADED` when a tool needed by a configured filetype is unavailable, even
+while another filetype is open. For example, absent `oxfmt` degrades formatting in a Lua/TypeScript
+configuration even while a Lua buffer has a satisfied `stylua` tool. This is configuration-wide
+health from a completed snapshot; it does not assert live readiness for the current buffer.
+Validation alone also does not mean providers have been applied or language servers have attached.
+
+Use `:Plait inspect language_servers` for managed language-server readiness in the current buffer.
+Capability actions check their current execution context when invoked.
+
+## Request full detail
+
+```vim
+:Plait inspect capabilities formatting
+:Plait inspect capabilities formatting --verbose
+:Plait inspect capabilities language --verbose
+```
+
+`--verbose` includes full source locations and available contribution history, including module
+declarations superseded by owner overrides. The option applies to that inspection command only;
+there is no persistent verbosity setting. Options can appear before or after the section and
+identity.
+
+An explicitly disabled formatter chain remains explained in the concise report. It disables that
+external chain; the report also describes whether managed LSP formatting fallback is permitted by
+the capability's effective policy.
+
+## Structured evidence
+
+```vim
+:Plait inspect capabilities formatting --json
+```
+
+```lua
+local formatting = require('plait').inspect('capabilities', 'formatting')
+```
+
+JSON and Lua inspection retain complete structured evidence, including source records and available
+contribution history, regardless of the human report's detail level. `--json --verbose` returns the
+same structured data as `--json`.

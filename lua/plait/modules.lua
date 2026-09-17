@@ -492,6 +492,7 @@ function M.resolve(selections, selection_sources, configuration, configuration_s
     end
   end
 
+  local contribution_history = vim.deepcopy(contributed)
   local operations = {}
   local builtin_contributions = {
     ['language.servers.lua_ls'] = true,
@@ -686,6 +687,7 @@ function M.resolve(selections, selection_sources, configuration, configuration_s
     capabilities = capabilities,
     effective_contributions = effective_contributions,
     contribution_values = contribution_values,
+    contribution_history = contribution_history,
     contribution_overrides = vim.deepcopy(operations),
   },
     diagnostics
