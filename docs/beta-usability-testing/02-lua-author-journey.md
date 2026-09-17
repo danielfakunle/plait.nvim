@@ -29,7 +29,7 @@ If `lua-language-server` or `stylua` is absent or incompatible, run:
 :Plait inspect operations
 ```
 
-With the default `operation_feedback = 'errors'`, `ensure` does not announce the start or success automatically. Inspection still shows its operation ID, targets, and eventual state.
+With the default `operation_feedback = 'info'`, a direct Lua `ensure` remains quiet on success; `:Plait tooling ensure` announces maintenance start and completion, or confirms an immediate no-op once. Inspection still shows its operation ID, targets, and eventual state.
 
 Wait for the operation to finish, then run `:Plait tooling check` again. Expected:
 
@@ -72,7 +72,7 @@ Also sample the public facade:
 :lua local p = require('plait'); print(p.render(p.actions.language.definition()))
 ```
 
-Expected: explicit `p.render(...)` calls return `started` with operation IDs when supported, regardless of `operation_feedback`. `:Plait inspect operations` eventually records success or failure with buffer, position, method, and completion evidence; default automatic notifications appear only on failure.
+Expected: explicit `p.render(...)` calls return `started` with operation IDs when supported, regardless of `operation_feedback`. `:Plait inspect operations` eventually records success or failure with buffer, position, method, and completion evidence; successful direct Lua actions stay quiet at `info`; genuine failures are notified.
 
 ## 3. Test completion
 
@@ -109,7 +109,7 @@ Select a few lines and run `:Plait format`, then repeat with `<leader>cf` in nor
 Expected:
 
 - Save formatting and explicit formatting use the `stylua` chain.
-- Explicitly rendering the action returns `started`; its operation later records success or failure. Automatic start/success messages stay suppressed under the default feedback policy.
+- Explicitly rendering the action returns `started`; its operation later records success or failure. Automatic start/success messages stay suppressed for direct Lua invocation at `info`.
 - Visual formatting sends the selected range.
 - No provider command or provider-specific result leaks into the normal authoring path.
 
@@ -141,11 +141,18 @@ Restart and verify the observed behavior matches every configured value: complet
 
 ## 6. Verify all operation feedback modes
 
-Use the canonical config with no `operation_feedback` declaration first (`errors`). Run `:Plait format` on a Lua buffer and `:Plait inspect operations`: the command has no start/success chatter, but the operation is inspectable. Induce a safely recoverable failure (for example, temporarily make StyLua unavailable in an isolated app) and verify that failure is notified. Explicitly render a returned result with `:lua print(require('plait').render(_G.plait_apply))`; the output must not change with the feedback policy.
+Use the canonical config with no `operation_feedback` declaration first (`info`). Run
+`:Plait tooling ensure`: expect “already satisfied” once when nothing changes. In an isolated app
+with an unmet Mason-owned tool, expect one start and one final outcome when mutation occurs.
+A satisfied StyLua must never be described as installed or updated. Run the same successful action
+through Lua and confirm it returns a structured result without notifications.
 
-Then add `config:configure({ operation_feedback = 'all' })` before `validate()`, restart, and repeat. The command prints the started operation and ID with `:Plait inspect operations <id>` guidance; Lua-facade asynchronous actions also announce their start with the same inspection guidance. Success and failure notifications include the operation name and ID. Inspect both records afterward.
-
-Finally use `config:configure({ operation_feedback = 'silent' })` in a fresh restart. Neither command progress nor asynchronous completion notifications appear, including for failures. Inspect the operation records and diagnostics to confirm they remain available, and render `_G.plait_apply` explicitly again. Restore the canonical config after this check.
+Repeat with `errors`, `debug`, `all`, and `silent` in fresh restarts. `errors` shows only genuine
+failures and blocked actions with repair guidance. `debug` and `all` include names, lifecycle events,
+and operation IDs, with one message per start/completion. `silent` suppresses incidental failures too.
+For each policy, run `:Plait tooling check` with an absent or incompatible tool: findings and repair
+guidance must always appear. `:Plait inspect operations`, `:Plait validate`, and explicitly rendered
+results remain visible. Restore the canonical config after this check.
 
 ## 7. Preserve the shared app
 

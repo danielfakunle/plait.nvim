@@ -82,8 +82,9 @@ describe('provider package observation', function()
 end)
 
 describe('provider package synchronization', function()
-  it('starts one exact activation and publishes a terminal operation', function()
-    child.lua([[
+  for _, invocation in ipairs({ 'lua', 'command' }) do
+    it('starts one exact activation and publishes a terminal operation via ' .. invocation, function()
+      child.lua([[
       local data_path = vim.fn.stdpath('data')
       local config_path = vim.fn.tempname()
       local checkout_path = config_path .. '/pack/plait/opt/nvim-lspconfig'
@@ -111,6 +112,8 @@ describe('provider package synchronization', function()
         end
         return original_system(arguments)
       end
+      notifications = {}
+      vim.notify = function(message) notifications[#notifications + 1] = message end
       pack_calls = {}
       vim.pack.add = function(specs, options)
         pack_calls[#pack_calls + 1] = { specs = vim.deepcopy(specs), options = vim.deepcopy(options) }
@@ -123,31 +126,45 @@ describe('provider package synchronization', function()
       local config = M.config()
       config:select({ 'language' })
       config:validate()
-      sync_result = M.actions.packages.sync(true)
     ]])
+      if invocation == 'lua' then
+        child.lua([[sync_result = M.actions.packages.sync(true)]])
+      else
+        child.cmd('Plait packages sync!')
+      end
 
-    expect.equality(child.lua_get([[sync_result]]), {
-      status = 'started',
-      operation = 'packages.sync',
-      operation_id = 'op-00000001',
-      details = { packages = { 'nvim-lspconfig' } },
-    })
-    expect.equality(child.lua_get([[pack_calls]]), {
-      {
-        specs = {
-          {
-            name = 'nvim-lspconfig',
-            src = 'https://github.com/neovim/nvim-lspconfig',
-            version = '615d7b2712efb2f530a83a9d0466acafba6b1d6f',
+      if invocation == 'lua' then
+        expect.equality(child.lua_get([[sync_result]]), {
+          status = 'started',
+          operation = 'packages.sync',
+          operation_id = 'op-00000001',
+          details = { packages = { 'nvim-lspconfig' } },
+        })
+      end
+      expect.equality(child.lua_get([[pack_calls]]), {
+        {
+          specs = {
+            {
+              name = 'nvim-lspconfig',
+              src = 'https://github.com/neovim/nvim-lspconfig',
+              version = '615d7b2712efb2f530a83a9d0466acafba6b1d6f',
+            },
           },
+          options = { load = false, confirm = false },
         },
-        options = { load = false, confirm = false },
-      },
-    })
-    child.lua([[vim.wait(1000, function() return M.inspect('operations')[1].state ~= 'pending' end)]])
-    expect.equality(child.lua_get([[M.inspect('operations')[1].state]]), 'succeeded')
-    expect.equality(child.lua_get([[M.inspect('packages')[1].state]]), 'restart_required')
-  end)
+      })
+      child.lua([[vim.wait(1000, function() return M.inspect('operations')[1].state ~= 'pending' end)]])
+      expect.equality(child.lua_get([[M.inspect('operations')[1].state]]), 'succeeded')
+      expect.equality(child.lua_get([[M.inspect('packages')[1].state]]), 'restart_required')
+      expect.equality(child.lua_get([[#notifications]]), invocation == 'command' and 2 or 0)
+      if invocation == 'command' then
+        expect.equality(
+          child.lua_get([=[notifications[2]]=]),
+          'Plait: Synchronized nvim-lspconfig. Restart Neovim to use the package changes.'
+        )
+      end
+    end)
+  end
 
   it('publishes one sanitized failure diagnostic and notification', function()
     child.lua([[

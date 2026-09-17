@@ -91,7 +91,7 @@ local fixture = plait.module({
 local config = plait.config()
 config:select({ 'language', 'formatting', 'tooling', 'lang.lua', fixture })
 config:configure({
-  operation_feedback = vim.env.PLAIT_FEEDBACK_POLICY or 'errors',
+  operation_feedback = vim.env.PLAIT_FEEDBACK_POLICY or 'info',
   formatting = {
     on_save = false,
     timeout_ms = 5000,
@@ -286,7 +286,7 @@ Plait managed effect running after failed preflight.
 
 ## 6. Judge blocked-application feedback and repairs
 
-Quit. Run this scenario once for each feedback policy (`errors`, `all`, `silent`),
+Quit. Run this scenario once for each feedback policy (`silent`, `errors`, `info`, `debug`, `all`),
 always quitting before changing the environment:
 
 ```fish
@@ -368,7 +368,7 @@ and any hesitation; unexecuted checks remain untested.
 | Native mapping survives detach (PRO-168) | | | | |
 | Native / foreign preflight distinction (PRO-168) | | | | |
 | Foreign mapping protected on later attachment (PRO-168) | | | | |
-| Blocked feedback under errors / all / silent (PRO-169) | | | | |
+| Blocked feedback under silent / errors / info / debug / all (PRO-169) | | | | |
 | Removed collision / disabled mapping repairs (PRO-169) | | | | |
 | Concise report and configuration-wide scope (PRO-170) | | | | |
 | Per-command verbose detail and contribution history (PRO-170) | | | | |

@@ -35,5 +35,17 @@ refresh a Mason registry. Successful Plait-managed tool mutations also refresh t
 state.
 
 The structured result retains `status = 'performed'`, `operation = 'tooling.check'`, and
-`details.tools` / `details.states`. Command feedback follows `operation_feedback`: `errors`
-suppresses successful check output, `all` displays it, and `silent` suppresses automatic feedback.
+`details.tools` / `details.states`. `:Plait tooling check` always prints current findings and repair
+guidance for unmet tools, including under `operation_feedback = 'silent'`. A successful Lua check
+returns the same structured result quietly at `info`; use `require('plait').render(result)` for an
+explicit report.
+
+`install <tool>`, `ensure`, and `update [tool]` reconcile effective requirements with their
+qualified versions. A satisfying tool is already satisfied: Plait does not reinstall it or claim it
+was installed or updated. Actual mutations return `started` with an operation ID; their final
+results and evidence remain available in `:Plait inspect operations`. At `info`, commands announce
+the start and final outcome once. Direct Lua successes stay quiet. Unmet project-owned tools block
+mutation with repair guidance.
+
+See [Operation Feedback](/docs/reference/operation-feedback) for policy levels and package
+synchronization outcomes.

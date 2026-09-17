@@ -1,3 +1,4 @@
+local feedback = require('plait.feedback')
 local state = require('plait.state')
 local validation = require('plait.validation')
 
@@ -24,7 +25,9 @@ end
 ---@param definition PlaitOperationDefinition
 ---@return table
 function M.start(definition)
+  local invocation = feedback.origin()
   local operation_name = definition.operation
+  local maintenance = operation_name:match('^tooling%.') or operation_name == 'packages.sync'
   local targets = vim.deepcopy(definition.targets)
   table.sort(targets)
   local failure_message = definition.failure_message
@@ -43,16 +46,16 @@ function M.start(definition)
   }
   state.operations[#state.operations + 1] = record
   if state.snapshot then state.snapshot.operations = state.operations end
-  if state.operation_feedback == 'all' then
-    pcall(
-      vim.notify,
-      ('Plait operation %s started (%s)\nInspect progress: :Plait inspect operations %s'):format(
-        operation_name,
-        operation_id,
-        operation_id
-      ),
-      vim.log.levels.INFO
-    )
+  local started = {
+    status = 'started',
+    operation = operation_name,
+    operation_id = operation_id,
+    details = vim.deepcopy(definition.started_details or { targets = targets }),
+  }
+  if maintenance then
+    feedback.maintenance(started, invocation)
+  else
+    feedback.lifecycle(operation_name, operation_id, 'started')
   end
 
   local completed = false
@@ -112,24 +115,22 @@ function M.start(definition)
       state.snapshot.diagnostics[#state.snapshot.diagnostics + 1] = vim.deepcopy(diagnostic)
       validation.sort_diagnostics(state.snapshot.diagnostics)
     end
-    if require('plait.feedback').present_completion(ok) then
-      pcall(
-        vim.notify,
-        ('Plait operation %s %s (%s)'):format(operation_name, ok and 'succeeded' or 'failed', operation_id),
-        ok and vim.log.levels.INFO or vim.log.levels.ERROR
-      )
+    if maintenance then
+      feedback.maintenance(ok and record.result or {
+        status = 'failed',
+        operation = operation_name,
+        reason = 'execution_failed',
+        details = { targets = targets, message = message },
+      }, invocation, true, operation_id)
+    else
+      feedback.lifecycle(operation_name, operation_id, ok and 'succeeded' or 'failed')
     end
   end
   vim.schedule(function()
     local ok = pcall(definition.work, done)
     if not ok then done(false) end
   end)
-  return {
-    status = 'started',
-    operation = operation_name,
-    operation_id = operation_id,
-    details = vim.deepcopy(definition.started_details or { targets = targets }),
-  }
+  return started
 end
 
 return M

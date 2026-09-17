@@ -2,6 +2,7 @@ local application = require('plait.application')
 local canonical = require('plait.canonical')
 local completion = require('plait.completion')
 local editor = require('plait.editor')
+local feedback = require('plait.feedback')
 local formatting = require('plait.formatting')
 local language = require('plait.language')
 local environment = require('plait.environment')
@@ -22,8 +23,13 @@ local M = {
     editor = editor.actions,
     formatting = formatting.actions,
     language = language.actions,
-    packages = { sync = packages.sync },
-    tooling = tooling.actions,
+    packages = { sync = feedback.wrap(packages.sync) },
+    tooling = {
+      check = feedback.wrap(tooling.check),
+      ensure = feedback.wrap(tooling.ensure),
+      install = feedback.wrap(tooling.install),
+      update = feedback.wrap(tooling.update),
+    },
   },
 }
 
@@ -94,7 +100,7 @@ function Collector:select(entries)
 end
 
 --- Add capability configuration to this Plait configuration.
----@param declaration { operation_feedback?: 'errors'|'all'|'silent', editor?: PlaitEditorConfiguration, language?: PlaitLanguageConfiguration, completion?: PlaitCompletionConfiguration, formatting?: PlaitFormattingConfiguration, tooling?: PlaitToolingConfiguration }
+---@param declaration { operation_feedback?: 'silent'|'errors'|'info'|'debug'|'all', editor?: PlaitEditorConfiguration, language?: PlaitLanguageConfiguration, completion?: PlaitCompletionConfiguration, formatting?: PlaitFormattingConfiguration, tooling?: PlaitToolingConfiguration }
 ---@return PlaitCollector
 function Collector:configure(declaration)
   ensure_collecting(self)

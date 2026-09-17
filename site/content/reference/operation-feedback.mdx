@@ -1,0 +1,53 @@
+---
+title: Operation Feedback
+description: Control incidental Plait messages and understand maintenance outcomes.
+---
+
+Configure feedback before validating or applying:
+
+```lua
+config:configure({ operation_feedback = 'info' })
+```
+
+| Policy           | Incidental Plait messages                                                     |
+| ---------------- | ----------------------------------------------------------------------------- |
+| `silent`         | Suppresses all incidental messages, including failures.                       |
+| `errors`         | Genuine failures and blocked actions, with repair guidance.                   |
+| `info` (default) | Adds useful maintenance confirmations and progress for commands and mappings. |
+| `debug`          | Adds operation names, lifecycle events, IDs, and execution details.           |
+| `all`            | Compatibility alias for `debug`.                                              |
+
+The feedback module owns presentation. Command and mapping invocation can request informational
+maintenance feedback; direct Lua invocation returns structured results and stays quiet on success at
+`info`. Automatic work also stays quiet on success at `info`. Genuine maintenance failures respect
+the policy regardless of entry point. A custom mapping that calls a Lua action directly uses the Lua
+policy; a mapping that invokes `:Plait` uses command feedback.
+
+Explicit `:Plait inspect`, `:Plait validate`, `:Plait tooling check`, and
+`require('plait').render(result)` reports remain available at every level. Policy never removes
+structured results, operation-ledger evidence, or diagnostics. It controls messages emitted by Plait
+only; native Neovim and provider UI keep their own configuration.
+
+#### Tool maintenance
+
+At `info`, an immediate no-op produces one confirmation such as “StyLua is already satisfied.”
+Actual `install`, `ensure`, or `update` work produces one start message and one final outcome.
+Multiple targets use counts and names; longer lists point to inspection. `update` keeps qualified
+pins and does not reinstall an already satisfying version. A failed operation includes repair
+guidance; `debug` adds execution details without a second command presenter.
+
+#### Package synchronization
+
+`:Plait packages sync` requests consent; `:Plait packages sync!` supplies it explicitly.
+
+- Already satisfied: one confirmation, no pending operation or package mutation.
+- Started: a synchronization message while the operation is pending.
+- Completed: a confirmation explicitly instructing you to restart Neovim.
+- Cancelled: a neutral confirmation that no packages changed; no failure notification or operation.
+- Failed: repair guidance and ledger/diagnostic evidence for interrupted synchronization.
+
+The Lua action `require('plait').actions.packages.sync(consent)` retains its structured contract:
+no-ops return `performed` with an empty `details.changed`; accepted work returns `started` with
+`operation_id`; declined consent returns `unavailable` with `reason = 'consent_denied'`. Declining
+is presented as cancellation, not a failure. Successful completed synchronization records changed
+packages and their `restart_required` states. Do not reapply in the mutated process.

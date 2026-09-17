@@ -2,7 +2,7 @@
 
 These procedures test the complete Beta author journey added after Alpha:
 
-The canonical Lua configuration uses Space as leader, relative line numbers, and `operation_feedback = 'errors'` by default. The Lua procedure exercises `errors`, `all`, and `silent`; automatic feedback never removes operation records from inspection or alters explicit structured-result rendering.
+The canonical Lua configuration uses Space as leader, relative line numbers, and `operation_feedback = 'info'` by default. The Lua procedure exercises `silent`, `errors`, `info`, `debug`, and the `all` alias; automatic feedback never removes operation records from inspection or alters explicit structured-result rendering.
 
 - Owner-local modules, contributions, explicit replacement, and disabling
 - Compatibility and managed-effect collision preflight

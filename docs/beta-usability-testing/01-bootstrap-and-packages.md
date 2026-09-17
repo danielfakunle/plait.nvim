@@ -145,10 +145,17 @@ Cancel the startup installation prompt, then run:
 Wait until the operation is no longer pending and inspect again. Expected:
 
 - The command immediately returns `started` with an operation ID.
-- Under the default `operation_feedback = 'errors'`, the start and successful completion are not printed automatically; use `:Plait inspect operations` for the ID and final state. The Lua facade still returns a structured `started` result that can be explicitly rendered.
+- Under the default `operation_feedback = 'info'`, expect one human-readable start and one final confirmation explicitly saying to restart Neovim; use `:Plait inspect operations` for the ID and final state. The Lua facade still returns a structured `started` result that can be explicitly rendered.
 - The operation record exposes targets, timestamps, final state, result, and any diagnostic codes.
 - Successful packages become `restart_required`; apply is not retried in the mutated process.
 - After quitting and restarting, all packages recompute as `satisfied` and apply completes.
+
+Repeat `:Plait packages sync` in a fresh isolated app and decline consent. Expect cancellation,
+no failure notification, no success/mutation claim, and no operation record. At `errors` or `silent`,
+cancellation remains quiet. For already satisfied packages at `info`, expect one confirmation and
+no pending operation. At `debug` (and alias `all`), actual synchronization adds operation names,
+lifecycle events, and IDs without duplicate start/completion messages. Explicit reports remain visible
+under every policy.
 
 ## 6. Clean up the synchronization app
 

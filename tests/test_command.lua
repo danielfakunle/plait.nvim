@@ -353,7 +353,7 @@ describe('Plait command', function()
       config:validate()
     ]])
 
-    expect.equality(child.cmd_capture('Plait packages sync!'), '')
+    expect.equality(child.cmd_capture('Plait packages sync!'), 'Plait: Packages are already satisfied.')
     expect.equality(child.lua_get([[M.inspect('operations')]]), {})
   end)
 
@@ -364,8 +364,8 @@ describe('Plait command', function()
       config:validate()
     ]])
 
-    expect.equality(child.cmd_capture('Plait tooling check'), '')
-    expect.equality(child.cmd_capture('Plait tooling ensure'), '')
+    expect.equality(child.cmd_capture('Plait tooling check'), 'Plait: No tool requirements.')
+    expect.equality(child.cmd_capture('Plait tooling ensure'), 'Plait: Tools are already satisfied.')
   end)
 
   it('routes command ranges through the shared formatting action', function()
@@ -401,14 +401,17 @@ describe('Plait command', function()
     ]])
 
     child.lua([[require('plait.state').operation_feedback = 'errors']])
-    expect.equality(child.cmd_capture('Plait tooling check'), '')
+    expect.equality(child.cmd_capture('Plait tooling check'), 'Plait: No tool requirements.')
     expect.equality(
       child.cmd_capture('Plait tooling ensure'):match('^plait: tooling.ensure unavailable'),
       'plait: tooling.ensure unavailable'
     )
 
     child.lua([[require('plait.state').operation_feedback = 'all']])
-    expect.equality(child.cmd_capture('Plait tooling check'), 'plait: tooling.check performed')
+    expect.equality(
+      child.cmd_capture('Plait tooling check'),
+      'Plait: No tool requirements.\nplait: tooling.check performed'
+    )
 
     child.lua([[require('plait.state').operation_feedback = 'silent']])
     expect.equality(child.cmd_capture('Plait tooling ensure'), '')

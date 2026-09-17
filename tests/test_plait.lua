@@ -82,8 +82,8 @@ describe('effective plan', function()
     expect.equality(child.lua_get([[feedback_policy]]), 'all')
     expect.equality(child.lua_get([[require('plait.schema_generated').operation_feedback]]), {
       type = 'enum',
-      values = { 'errors', 'all', 'silent' },
-      default = 'errors',
+      values = { 'silent', 'errors', 'info', 'debug', 'all' },
+      default = 'info',
     })
   end)
 

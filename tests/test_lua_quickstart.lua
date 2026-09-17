@@ -265,7 +265,10 @@ T['canonical Lua quickstart']['does not mutate absent packages in non-interactiv
     ),
     {}
   )
-  expect.equality(child.cmd_capture('Plait packages sync!'), '')
+  expect.equality(
+    child.cmd_capture('Plait packages sync!'),
+    'Plait: Synchronizing 4 packages (blink.cmp, conform.nvim, mason.nvim, …; inspect: :Plait inspect packages).'
+  )
   expect.equality(child.lua_get([[M.inspect('operations')[1].targets]]), {
     'blink.cmp',
     'conform.nvim',
@@ -305,7 +308,10 @@ T['canonical Lua quickstart']['records synchronization restart and fresh-process
     'tests/fixtures/lua_quickstart/init.lua',
   })
 
-  expect.equality(child.cmd_capture('Plait packages sync!'), '')
+  expect.equality(
+    child.cmd_capture('Plait packages sync!'),
+    'Plait: Synchronizing 4 packages (blink.cmp, conform.nvim, mason.nvim, …; inspect: :Plait inspect packages).'
+  )
   child.lua([[vim.wait(1000, function() return M.inspect('operations')[1].state ~= 'pending' end)]])
   expect.equality(child.lua_get([[M.inspect('operations')[1].state]]), 'succeeded')
   assert_schema([[M.inspect('operations')]], {
@@ -365,7 +371,10 @@ T['canonical Lua quickstart']['records failed synchronization with its accepted 
     'tests/fixtures/lua_quickstart/init.lua',
   })
 
-  expect.equality(child.cmd_capture('Plait packages sync!'), '')
+  expect.equality(
+    child.cmd_capture('Plait packages sync!'),
+    'Plait: Synchronizing 4 packages (blink.cmp, conform.nvim, mason.nvim, …; inspect: :Plait inspect packages).'
+  )
   child.lua([[vim.wait(1000, function() return M.inspect('operations')[1].state ~= 'pending' end)]])
   expect.equality(child.lua_get([[M.inspect('operations')[1].state]]), 'failed')
   assert_schema([[M.inspect('operations')]], {

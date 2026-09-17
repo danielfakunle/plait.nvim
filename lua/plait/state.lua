@@ -20,7 +20,7 @@
 ---@field package_interrupted table<string, { operation_id?: string, message?: string }>
 ---@field operations table[]
 ---@field next_operation_id integer
----@field operation_feedback 'errors'|'all'|'silent'
+---@field operation_feedback 'silent'|'errors'|'info'|'debug'|'all'
 local state = {
   collector = nil,
   snapshot = nil,
@@ -43,7 +43,7 @@ local state = {
   package_interrupted = {},
   operations = {},
   next_operation_id = 0,
-  operation_feedback = 'errors',
+  operation_feedback = 'info',
 }
 
 return state

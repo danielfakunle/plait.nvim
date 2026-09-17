@@ -1,6 +1,6 @@
 local M = {}
 
-M.operation_feedback = { type = 'enum', values = { 'errors', 'all', 'silent' }, default = 'errors' }
+M.operation_feedback = { type = 'enum', values = { 'silent', 'errors', 'info', 'debug', 'all' }, default = 'info' }
 
 M.editor = {
   type = 'map',

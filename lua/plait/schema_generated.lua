@@ -335,12 +335,14 @@ return {
     type = 'map',
   },
   operation_feedback = {
-    default = 'errors',
+    default = 'info',
     type = 'enum',
     values = {
-      [1] = 'errors',
-      [2] = 'all',
-      [3] = 'silent',
+      [1] = 'silent',
+      [2] = 'errors',
+      [3] = 'info',
+      [4] = 'debug',
+      [5] = 'all',
     },
   },
   tooling = {

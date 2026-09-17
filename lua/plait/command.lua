@@ -1,8 +1,8 @@
 local canonical = require('plait.canonical')
+local feedback = require('plait.feedback')
 local diagnostic = require('plait.diagnostic')
 local plait = require('plait')
 local report = require('plait.report')
-local result_presentation = require('plait.result')
 local state = require('plait.state')
 
 local M = {}
@@ -185,12 +185,6 @@ local function inspect(arguments)
   end
 end
 
---- Render a closed action result for the command line.
----@param result table
-local function render_result(result)
-  if require('plait.feedback').present_result(result) then print(result_presentation.render_command(result)) end
-end
-
 --- Dispatch the process-wide Plait command.
 ---@param arguments string[]
 ---@param command? table
@@ -201,15 +195,15 @@ function M.dispatch(arguments, command)
   elseif subcommand == 'inspect' then
     inspect(arguments)
   elseif subcommand == 'packages' and (arguments[1] == 'sync' or arguments[1] == 'sync!') and #arguments == 1 then
-    render_result(plait.actions.packages.sync(arguments[1] == 'sync!' and true or nil))
+    feedback.invoke(plait.actions.packages.sync, 'command', arguments[1] == 'sync!' and true or nil)
   elseif subcommand == 'tooling' and arguments[1] == 'check' and #arguments == 1 then
-    render_result(plait.actions.tooling.check())
+    feedback.invoke(plait.actions.tooling.check, 'command')
   elseif subcommand == 'tooling' and arguments[1] == 'ensure' and #arguments == 1 then
-    render_result(plait.actions.tooling.ensure())
+    feedback.invoke(plait.actions.tooling.ensure, 'command')
   elseif subcommand == 'tooling' and arguments[1] == 'install' and #arguments == 2 then
-    render_result(plait.actions.tooling.install(arguments[2]))
+    feedback.invoke(plait.actions.tooling.install, 'command', arguments[2])
   elseif subcommand == 'tooling' and arguments[1] == 'update' and #arguments <= 2 then
-    render_result(plait.actions.tooling.update(arguments[2]))
+    feedback.invoke(plait.actions.tooling.update, 'command', arguments[2])
   elseif subcommand == 'format' and #arguments == 0 then
     local range
     if command and command.range > 0 then
@@ -219,7 +213,7 @@ function M.dispatch(arguments, command)
         end_ = { line = command.line2 - 1, character = #line },
       }
     end
-    render_result(plait.actions.formatting.format(range and { range = range } or nil))
+    feedback.command_result(plait.actions.formatting.format(range and { range = range } or nil))
   else
     fail('unknown or invalid command')
   end

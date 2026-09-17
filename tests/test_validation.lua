@@ -6,6 +6,21 @@ before_each(function() child.setup() end)
 teardown(function() child.stop() end)
 
 describe('configuration validation', function()
+  it('accepts feedback levels and defaults to informational feedback', function()
+    child.lua([[
+      local config = M.config()
+      config:select({ 'editor' })
+      result = config:validate()
+    ]])
+    expect.equality(child.cmd_capture('Plait packages sync!'), 'Plait: Packages are already satisfied.')
+    for _, policy in ipairs({ 'silent', 'errors', 'info', 'debug', 'all' }) do
+      child.setup()
+      child.lua(([[local config = M.config(); config:select({ 'editor' });
+        config:configure({ operation_feedback = %q }); result = config:validate()]]):format(policy))
+      expect.equality(child.lua_get([[result.status]]), 'valid')
+    end
+  end)
+
   it('aggregates independent closed-schema errors in canonical order', function()
     child.lua([[
       local config = M.config()

@@ -199,7 +199,7 @@ Start Neovim and check the visible feedback before rendering `_G.plait_apply` an
 
 Expected: one concise error notification says application was blocked and no managed effects were applied, names the foreign format mapping, gives a repair, and points to `:Plait inspect diagnostics effect.collision`. Apply is invalid before any managed effect runs; a collision diagnostic identifies the mapping and the Plait effect that would overwrite it; all effects remain pending in `:Plait inspect effects`; and the foreign mapping remains intact.
 
-Repeat after restarting with `operation_feedback = 'all'` and then `'silent'`. Both `errors` (the default) and `all` produce one notification; `silent` produces none. The explicit apply result and inspection diagnostics remain available under every setting.
+Repeat after restarting with `operation_feedback = 'errors'`, `'debug'`, `'all'`, and then `'silent'`. The default `info`, `errors`, `debug`, and `all` produce one notification; `silent` produces none. The explicit apply result and inspection diagnostics remain available under every setting.
 
 Restart with the collision removed and confirm application succeeds without a stale blocked-application notification. Then test a compatible repair by setting `formatting.mappings.format = false`; expected: Plait deliberately owns no format mapping and does not report a collision or a blocked-application notification. Routine partial unavailability still uses existing action-time feedback.
 

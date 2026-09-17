@@ -263,7 +263,7 @@ describe('tooling capability actions', function()
       vim.cmd('Plait tooling check')
     ]])
     expect.equality(child.lua_get([[tool_probes]]), 3)
-    expect.equality(child.lua_get([[#output]]), 0)
+    expect.equality(child.lua_get([[#output]]), 1)
     for _, policy in ipairs({ 'all', 'silent' }) do
       child.restart({
         '--clean',
@@ -278,7 +278,7 @@ describe('tooling capability actions', function()
         vim.cmd('Plait tooling check')
       ]])
       expect.equality(child.lua_get([[tool_probes]]), 2)
-      expect.equality(child.lua_get([[#output]]), policy == 'all' and 1 or 0)
+      expect.equality(child.lua_get([[#output]]), 1)
     end
   end)
 

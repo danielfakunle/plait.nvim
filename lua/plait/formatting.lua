@@ -362,7 +362,12 @@ local function setup_options(configuration, effective_plan)
         lsp_format = lsp and 'fallback' or 'never',
         quiet = true,
       }, function(err)
-        if err then vim.notify('Plait formatting operation failed.', vim.log.levels.ERROR) end
+        if err then
+          require('plait.feedback').automatic_failure(
+            'Plait formatting operation failed.',
+            'Inspect :Plait inspect tools and diagnostics, repair the formatter, then retry.'
+          )
+        end
       end
     end
   else

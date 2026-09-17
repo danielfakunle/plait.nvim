@@ -191,9 +191,30 @@ describe('formatting capability facade', function()
       quiet = true,
     })
     expect.equality(child.lua_get([[save_notifications]]), {
-      { 'Plait formatting operation failed.', vim.log.levels.ERROR },
+      {
+        'Plait formatting operation failed. Repair: Inspect :Plait inspect tools and diagnostics, repair the formatter, then retry.',
+        vim.log.levels.ERROR,
+      },
     })
     expect.equality(child.lua_get([[vim.inspect(save_notifications):find('SECRET', 1, true) == nil]]), true)
+  end)
+
+  it('suppresses automatic format-on-save failures under silent', function()
+    child.restart({
+      '--clean',
+      '--cmd',
+      "lua vim.g.formatting_on_save = true; vim.g.apply_feedback = 'silent'",
+      '-u',
+      'tests/fixtures/formatting_apply/init.lua',
+    })
+    child.lua([[
+      vim.bo.filetype = 'lua'
+      notifications = {}
+      vim.notify = function(message) notifications[#notifications + 1] = message end
+      local _, callback = conform_setup.format_on_save(1)
+      callback('SECRET')
+    ]])
+    expect.equality(child.lua_get([[#notifications]]), 0)
   end)
 
   it('validates and starts zero-based end-exclusive ranged formatting', function()
