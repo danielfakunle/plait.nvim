@@ -221,6 +221,25 @@ function M.format(opts)
   local buffer = vim.api.nvim_get_current_buf()
   local chain, unavailable, lsp = format_policy(snapshot, buffer, state.formatting_configuration)
   if #unavailable > 0 then
+    local filetype = vim.bo[buffer].filetype
+    -- Repeated requests update the current chain observation instead of duplicating it.
+    snapshot.diagnostics = vim.tbl_filter(
+      function(item) return item.code ~= 'formatting.chain_unavailable' or item.details.filetype ~= filetype end,
+      snapshot.diagnostics
+    )
+    snapshot.diagnostics[#snapshot.diagnostics + 1] = {
+      code = 'formatting.chain_unavailable',
+      severity = 'warning',
+      summary = require('plait.text').truncate_sentence(
+        require('plait.text').normalize('Formatter chain for ' .. filetype .. ' is unavailable.'),
+        160
+      ),
+      repair = 'Satisfy every listed formatter tool, then format again.',
+      source = nil,
+      related_sources = {},
+      details = { filetype = filetype, unavailable = vim.deepcopy(unavailable) },
+    }
+    require('plait.validation').sort_diagnostics(snapshot.diagnostics)
     return {
       status = 'unavailable',
       operation = operation,

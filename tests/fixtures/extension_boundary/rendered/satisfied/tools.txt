@@ -1,0 +1,17 @@
+Plait inspection
+
+Tools
+  [SATISFIED] basedpyright
+    Executable: basedpyright-langserver
+    Version constraint: >=1.0.0,<2.0.0
+    Ownership: mason
+    Resolved path: <bin>/basedpyright-langserver
+    Resolved source: PATH
+    Resolved version: 1.31.4
+  [SATISFIED] ruff
+    Executable: ruff
+    Version constraint: >=0.13.0,<0.14.0
+    Ownership: mason
+    Resolved path: <bin>/ruff
+    Resolved source: PATH
+    Resolved version: 0.13.2

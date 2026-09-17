@@ -1,0 +1,128 @@
+Plait inspection
+
+Managed effects
+  [COMPLETED] formatting/package/conform.nvim
+    Capability: formatting
+    Provider: vim.pack
+    Stage: 2
+    Sources:
+      - file: tests/fixtures/extension_boundary/config.lua
+        line: 9
+        path: select[2]
+  [COMPLETED] language/package/nvim-lspconfig
+    Capability: language
+    Provider: vim.pack
+    Stage: 2
+    Sources:
+      - file: tests/fixtures/extension_boundary/config.lua
+        line: 9
+        path: select[1]
+  [COMPLETED] tooling/package/mason.nvim
+    Capability: tooling
+    Provider: vim.pack
+    Stage: 2
+    Sources:
+      - file: tests/fixtures/extension_boundary/config.lua
+        line: 9
+        path: select[3]
+  [COMPLETED] language/native-diagnostics
+    Capability: language
+    Provider: vim.diagnostic
+    Stage: 3
+    Dependencies:
+      - language/package/nvim-lspconfig
+    Sources:
+      - file: tests/fixtures/extension_boundary/config.lua
+        line: 9
+        path: select[1]
+  [COMPLETED] tooling/provider-setup
+    Capability: tooling
+    Provider: mason.nvim
+    Stage: 3
+    Dependencies:
+      - tooling/package/mason.nvim
+    Sources:
+      - file: tests/fixtures/extension_boundary/config.lua
+        line: 9
+        path: select[3]
+  [COMPLETED] tooling/tool-resolution
+    Capability: tooling
+    Stage: 3
+    Dependencies:
+      - tooling/package/mason.nvim
+    Sources:
+      - file: tests/fixtures/extension_boundary/config.lua
+        line: 9
+        path: select[3]
+  [COMPLETED] formatting/provider-setup
+    Capability: formatting
+    Provider: conform.nvim
+    Stage: 3
+    Dependencies:
+      - formatting/package/conform.nvim
+      - tooling/tool-resolution
+    Sources:
+      - file: tests/fixtures/extension_boundary/config.lua
+        line: 9
+        path: select[2]
+  [COMPLETED] language/server-definition/basedpyright
+    Capability: language
+    Provider: vim.lsp
+    Stage: 3
+    Dependencies:
+      - language/package/nvim-lspconfig
+      - tooling/tool-resolution
+    Sources:
+      - file: tests/fixtures/extension_boundary/config.lua
+        line: 9
+        path: select[4]
+  [COMPLETED] formatting/actions-and-mapping
+    Capability: formatting
+    Provider: conform.nvim
+    Stage: 4
+    Dependencies:
+      - formatting/provider-setup
+    Sources:
+      - file: tests/fixtures/extension_boundary/config.lua
+        line: 9
+        path: select[2]
+  [COMPLETED] language/actions-and-mappings
+    Capability: language
+    Provider: vim.lsp
+    Stage: 4
+    Dependencies:
+      - language/native-diagnostics
+    Sources:
+      - file: tests/fixtures/extension_boundary/config.lua
+        line: 9
+        path: select[1]
+  [COMPLETED] tooling/actions
+    Capability: tooling
+    Provider: mason.nvim
+    Stage: 4
+    Dependencies:
+      - tooling/tool-resolution
+    Sources:
+      - file: tests/fixtures/extension_boundary/config.lua
+        line: 9
+        path: select[3]
+  [COMPLETED] tooling/startup-check
+    Capability: tooling
+    Stage: 5
+    Dependencies:
+      - tooling/tool-resolution
+    Sources:
+      - file: tests/fixtures/extension_boundary/config.lua
+        line: 9
+        path: select[3]
+  [COMPLETED] language/service/basedpyright
+    Capability: language
+    Provider: vim.lsp
+    Stage: 5
+    Dependencies:
+      - language/server-definition/basedpyright
+      - tooling/startup-check
+    Sources:
+      - file: tests/fixtures/extension_boundary/config.lua
+        line: 9
+        path: select[4]

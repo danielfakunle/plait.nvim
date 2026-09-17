@@ -1,0 +1,23 @@
+Plait inspection
+
+Tools
+  [SATISFIED] basedpyright
+    Executable: basedpyright-langserver
+    Version constraint: >=1.0.0,<2.0.0
+    Ownership: mason
+    Resolved path: <bin>/basedpyright-langserver
+    Resolved source: PATH
+    Resolved version: 1.31.4
+  [ABSENT] oxfmt
+    Executable: oxfmt
+    Version constraint: =1.0.0
+    Ownership: mason
+    Repair: Install through the declared ownership path, then check again.
+  [INCOMPATIBLE] ruff
+    Executable: ruff
+    Version constraint: >=0.13.0,<0.14.0
+    Ownership: mason
+    Resolved path: <bin>/ruff
+    Resolved source: PATH
+    Resolved version: 0.14.0
+    Repair: Install a satisfying version or change the requirement.

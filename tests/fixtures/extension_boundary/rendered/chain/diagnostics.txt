@@ -1,0 +1,43 @@
+Plait inspection
+
+Diagnostics
+  [WARNING] formatting.chain_unavailable
+    Summary: Formatter chain for python is unavailable.
+    Repair: Satisfy every listed formatter tool, then format again.
+    Affected:
+      filetype: python
+      unavailable:
+        - formatter: ruff
+          state: incompatible
+          tool: ruff
+        - formatter: oxfmt
+          state: absent
+          tool: oxfmt
+  [WARNING] tool.absent
+    Summary: Tool oxfmt is absent.
+    Repair: Install through the declared ownership path, then check again.
+    Source:
+      file: tests/fixtures/extension_boundary/init.lua
+      line: 114
+      path: select[1]
+    Affected:
+      candidates:
+        - path: <root>/data/mason/bin/oxfmt
+          real_path: none
+          reason: none
+          source: mason
+          state: absent
+      constraint: =1.0.0
+      tool: oxfmt
+  [WARNING] tool.incompatible
+    Summary: Tool ruff does not satisfy >=0.13.0,<0.14.0.
+    Repair: Install a satisfying version or change the requirement.
+    Source:
+      file: tests/fixtures/extension_boundary/init.lua
+      line: 113
+      path: select[4]
+    Affected:
+      constraint: >=0.13.0,<0.14.0
+      path: <bin>/ruff
+      tool: ruff
+      version: 0.14.0

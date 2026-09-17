@@ -1,0 +1,31 @@
+Plait inspection
+
+Diagnostics
+  [ERROR] provider.guarded_path
+    Summary: Provider payload touches a guarded path.
+    Repair: Remove the path and configure the capability-level setting instead.
+    Source:
+      file: tests/fixtures/extension_boundary/init.lua
+      line: 106
+      path: providers.formatting.conform.nvim.formatters.ruff.command
+    Affected:
+      generated_source:
+        file: plait:v0.1/conform.nvim
+        line: 0
+        path: command
+      path: command
+      target: conform.nvim.ruff
+  [ERROR] provider.guarded_path
+    Summary: Provider payload touches a guarded path.
+    Repair: Remove the path and configure the capability-level setting instead.
+    Source:
+      file: tests/fixtures/extension_boundary/init.lua
+      line: 106
+      path: providers.language.vim.lsp.servers.basedpyright.cmd[1]
+    Affected:
+      generated_source:
+        file: plait:v0.1/vim.lsp
+        line: 0
+        path: cmd
+      path: cmd.1
+      target: vim.lsp.basedpyright

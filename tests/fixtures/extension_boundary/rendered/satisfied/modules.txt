@@ -1,0 +1,47 @@
+Plait inspection
+
+Modules
+  [ACTIVE] language
+    Provides:
+      - language
+    Selected at:
+      - file: tests/fixtures/extension_boundary/config.lua
+        line: 9
+        path: select[1]
+  [ACTIVE] formatting
+    Provides:
+      - formatting
+    Ordering:
+      - language
+    Selected at:
+      - file: tests/fixtures/extension_boundary/config.lua
+        line: 9
+        path: select[2]
+  [ACTIVE] tooling
+    Provides:
+      - tooling
+    Selected at:
+      - file: tests/fixtures/extension_boundary/config.lua
+        line: 9
+        path: select[3]
+  [ACTIVE] local.lang.python
+    Provides:
+      - local.lang.python
+    Requires:
+      - language
+      - formatting
+      - tooling
+    Ordering:
+      - formatting
+      - language
+      - tooling
+    Contributions:
+      - formatting.by_filetype.python
+      - formatting.formatters.ruff
+      - language.servers.basedpyright
+      - tooling.tools.basedpyright
+      - tooling.tools.ruff
+    Selected at:
+      - file: tests/fixtures/extension_boundary/config.lua
+        line: 9
+        path: select[4]

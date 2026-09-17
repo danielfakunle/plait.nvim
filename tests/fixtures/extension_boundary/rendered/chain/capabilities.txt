@@ -1,0 +1,89 @@
+Plait inspection
+
+Capabilities
+  Configuration-wide health (completed snapshot); use language_servers for current-buffer readiness.
+  [DEGRADED] formatting
+    Integration: formatting
+    Providers:
+      - conform.nvim
+    Dependents:
+      - local.lang.python
+      - local.python.chain
+    Actions:
+      - formatting.format
+    Problems:
+      - Repair: Install through the declared ownership path, then check again.
+        filetypes:
+          - python
+        summary: Tool oxfmt is absent.
+        tool: oxfmt
+      - Repair: Install a satisfying version or change the requirement.
+        filetypes:
+          - python
+        summary: Tool ruff does not satisfy >=0.13.0,<0.14.0.
+        tool: ruff
+    Formatter chains:
+      - python: ruff, oxfmt [effective]; owner override (replace); Explicit owner override supersedes module contributions.
+    LSP fallback: if_no_formatter: absent or disabled external chains still permit formatting when a managed LSP client supports it.
+    Configuration:
+      values:
+        lsp_fallback: if_no_formatter
+        mappings:
+          format: <leader>cf
+        on_save: true
+        timeout_ms: 1000
+    Overrides:
+      - formatting.by_filetype.python: owner replace supersedes module contributions
+  [ACTIVE] language
+    Integration: language
+    Providers:
+      - vim.lsp
+    Dependents:
+      - formatting
+      - local.lang.python
+    Actions:
+      - language.code_action
+      - language.definition
+      - language.hover
+      - language.next_diagnostic
+      - language.previous_diagnostic
+      - language.references
+      - language.rename
+    Configuration:
+      values:
+        diagnostics:
+          severity_sort: true
+          signs: true
+          underline: true
+          update_in_insert: false
+          virtual_text: true
+        inlay_hints: false
+        mappings:
+          code_action: <leader>ca
+          definition: gd
+          hover: K
+          next_diagnostic: ]d
+          previous_diagnostic: [d
+          references: gr
+          rename: <leader>cr
+  [ACTIVE] local.lang.python
+    Integration: local.lang.python
+    Configuration:
+  [ACTIVE] local.python.chain
+    Integration: local.python.chain
+    Configuration:
+  [ACTIVE] tooling
+    Integration: tooling
+    Providers:
+      - mason.nvim
+    Dependents:
+      - local.lang.python
+      - local.python.chain
+    Actions:
+      - tooling.check
+      - tooling.ensure
+      - tooling.install
+      - tooling.update
+    Configuration:
+      values:
+        check_on_startup: true
