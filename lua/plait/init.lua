@@ -38,16 +38,7 @@ local M = {
 ---@return string
 function M.render(value) return result_renderer.render(value) end
 
-local inspection_sections = {
-  modules = true,
-  capabilities = true,
-  effects = true,
-  language_servers = true,
-  packages = true,
-  tools = true,
-  diagnostics = true,
-  operations = true,
-}
+local inspection_sections = require('plait.authority').sections
 
 --- Raise a public API misuse error.
 ---@param message string
@@ -111,7 +102,7 @@ function Collector:configure(declaration)
 end
 
 --- Add owner overrides to this Plait configuration.
----@param declaration table
+---@param declaration PlaitOverrides
 ---@return PlaitCollector
 function Collector:override(declaration)
   ensure_collecting(self)
@@ -121,7 +112,7 @@ function Collector:override(declaration)
 end
 
 --- Add provider escape-hatch declarations to this Plait configuration.
----@param declaration table
+---@param declaration PlaitProviderDeclarations
 ---@return PlaitCollector
 function Collector:providers(declaration)
   ensure_collecting(self)
@@ -404,7 +395,7 @@ function M.config()
 end
 
 --- Declare a constrained owner-local module.
----@param declaration table
+---@param declaration PlaitModuleDeclaration
 ---@return table
 function M.module(declaration) return require('plait.modules').create_local(declaration, source('module')) end
 

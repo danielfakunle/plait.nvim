@@ -1,7 +1,13 @@
 local MiniTest = require('mini.test')
 local child = dofile('tests/helpers.lua').new_clean_neovim()
 local expect = MiniTest.expect
-local T = MiniTest.new_set({ hooks = { pre_case = child.setup, post_once = child.stop } })
+local T = MiniTest.new_set({
+  hooks = {
+    pre_case = child.setup,
+    post_case = function() dofile('tests/public_contract.lua')(child) end,
+    post_once = child.stop,
+  },
+})
 
 local function assert_rendered(mode)
   child.lua([[daily_renderer = dofile('tests/fixtures/daily/render.lua')]])

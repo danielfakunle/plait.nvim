@@ -452,7 +452,7 @@ function M.sync(consent)
       done(execution_ok and ok)
     end,
     success_details = function() return { changed = vim.deepcopy(targets), states = state_map(records) } end,
-    started_details = { packages = vim.deepcopy(targets) },
+    started_details = { targets = vim.deepcopy(targets) },
     failure_message = 'Provider package synchronization failed.',
     on_success = function()
       M.mark_restart_required(targets)

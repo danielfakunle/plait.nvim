@@ -162,7 +162,9 @@ end
 --- Check whether a value is an exact built-in module identity.
 ---@param identity any
 ---@return boolean
-function M.is_builtin(identity) return type(identity) == 'string' and module_catalog[identity] ~= nil end
+function M.is_builtin(identity)
+  return type(identity) == 'string' and vim.tbl_contains(require('plait.authority').declarations.selection, identity)
+end
 
 --- Return the identity offered by a selected module value when it is known.
 ---@param value any
@@ -542,12 +544,12 @@ function M.resolve(selections, selection_sources, configuration, configuration_s
     collect_operations(call.value, '', call.source)
   end
 
-  local supported = {
-    ['language.servers'] = true,
-    ['formatting.formatters'] = true,
-    ['formatting.by_filetype'] = true,
-    ['tooling.tools'] = true,
-  }
+  local supported = {}
+  for capability, categories in pairs(require('plait.authority').declarations.override) do
+    for _, category in ipairs(categories) do
+      supported[capability .. '.' .. category] = true
+    end
+  end
   for target, owner_operations in pairs(operations) do
     local prefix = target:match('^([^.]+%.[^.]+)')
     if not supported[prefix] then

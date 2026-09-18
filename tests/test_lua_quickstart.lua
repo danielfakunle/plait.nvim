@@ -18,6 +18,7 @@ end
 local T = MiniTest.new_set({
   hooks = {
     pre_case = child.setup,
+    post_case = function() dofile('tests/public_contract.lua')(child) end,
     post_once = child.stop,
   },
 })

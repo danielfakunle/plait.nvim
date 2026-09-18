@@ -2,6 +2,7 @@ local canonical = require('plait.canonical')
 local modules = require('plait.modules')
 local text = require('plait.text')
 local tools = require('plait.tools')
+local contract = require('plait.public_contract')
 
 local M = {}
 
@@ -206,9 +207,9 @@ local function validate_selections(selections, declaration_sources, diagnostics)
       valid_sources[#valid_sources + 1] = declaration_sources[index]
     elseif modules.is_local(selections[index]) then
       local declaration = selections[index].declaration
-      local valid = type(declaration) == 'table' and getmetatable(declaration) == nil
+      local valid = contract.matches('PlaitModuleDeclaration', declaration)
       if valid then
-        local allowed = { name = true, provides = true, requires = true, contribute = true }
+        local allowed = require('plait.authority').declarations.module.fields
         for key in pairs(declaration) do
           if not allowed[key] then valid = false end
         end
@@ -359,6 +360,34 @@ function M.validate(
 )
   local diagnostics = {}
   for _, call in ipairs(override_calls or {}) do
+    if not contract.matches('PlaitOverrides', call.value) then
+      diagnostics[#diagnostics + 1] =
+        diagnostic('override', 'supported closed contribution seams', call.value, call.source)
+    end
+    for capability, categories in pairs(require('plait.authority').declarations.override) do
+      for _, category in ipairs(categories) do
+        local values = type(call.value) == 'table' and call.value[capability]
+        local entries = type(values) == 'table' and values[category]
+        if type(entries) == 'table' then
+          for identity, operation in pairs(entries) do
+            if type(operation) == 'table' and operation.kind == 'replace' then
+              local kind = category == 'servers' and 'PlaitServerDeclaration'
+                or category == 'formatters' and 'PlaitFormatterDeclaration'
+                or category == 'by_filetype' and 'string[]'
+                or 'PlaitToolDeclaration'
+              if not contract.matches(kind, operation.value) then
+                diagnostics[#diagnostics + 1] = diagnostic(
+                  'override.' .. capability .. '.' .. category .. '.' .. tostring(identity),
+                  kind,
+                  operation.value,
+                  call.source
+                )
+              end
+            end
+          end
+        end
+      end
+    end
     local declared = type(call.value) == 'table'
         and type(call.value.tooling) == 'table'
         and type(call.value.tooling.tools) == 'table'

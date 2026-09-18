@@ -13,7 +13,13 @@ local function assert_schema(expression, fields)
   )
 end
 
-local T = MiniTest.new_set({ hooks = { pre_case = child.setup, post_once = child.stop } })
+local T = MiniTest.new_set({
+  hooks = {
+    pre_case = child.setup,
+    post_case = function() dofile('tests/public_contract.lua')(child) end,
+    post_once = child.stop,
+  },
+})
 
 T['extension boundary locks the canonical local module'] = function()
   child.restart({ '--clean', '-u', 'tests/fixtures/extension_boundary/init.lua' })

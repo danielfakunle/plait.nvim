@@ -1,7 +1,7 @@
 local compatibility = require('plait.compatibility')
 
 local M = {}
-local output_limit = 65536
+local output_limit = require('plait.authority').compatibility.tool_probe.output_limit
 
 --- Copy a public array value.
 ---@param value? table[]
@@ -139,7 +139,7 @@ end
 ---@return table|nil
 function M.normalize_declaration(value)
   if type(value) ~= 'table' or getmetatable(value) ~= nil then return nil end
-  local allowed = { executable = true, version = true, ownership = true, workspace_paths = true, mason = true }
+  local allowed = require('plait.authority').declarations.tool.fields
   for key in pairs(value) do
     if type(key) ~= 'string' or not allowed[key] then return nil end
   end
@@ -405,7 +405,7 @@ local function probe(candidate, preserve_name, probe_cache)
     if probe_cache then probe_cache[cache_key] = { reason = 'exit_nonzero' } end
     return nil, 'exit_nonzero'
   end
-  local result = process:wait(2000)
+  local result = process:wait(compatibility.tool_probe.timeout_ms)
   local reason = exceeded and 'output_limit'
     or (result.code == 124 or result.signal == 15) and 'timeout'
     or result.code ~= 0 and 'exit_nonzero'

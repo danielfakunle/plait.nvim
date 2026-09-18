@@ -335,14 +335,14 @@ describe('Plait command', function()
       M.actions.tooling.ensure = function()
         return {
           status = 'unavailable', operation = 'tooling.ensure', reason = 'capability_inactive',
-          details = { capability = 'tooling', targets = { 'stylua', 'lua-language-server' } },
+          details = { capability = 'tooling' },
         }
       end
     ]])
 
     expect.equality(
       child.cmd_capture('Plait tooling ensure'),
-      'plait: tooling.ensure unavailable: capability inactive\nAffected capability: tooling\nAffected targets: stylua, lua-language-server\nRepair: activate the tooling capability, validate again, then retry.'
+      'plait: tooling.ensure unavailable: capability inactive\nAffected capability: tooling\nRepair: activate the tooling capability, validate again, then retry.'
     )
   end)
 
@@ -392,7 +392,7 @@ describe('Plait command', function()
   it('applies every automatic operation feedback policy to command results', function()
     child.lua([[
       M.actions.tooling.check = function()
-        return { status = 'performed', operation = 'tooling.check', details = {} }
+        return { status = 'performed', operation = 'tooling.check', details = { tools = {}, states = {} } }
       end
       M.actions.tooling.ensure = function()
         return { status = 'unavailable', operation = 'tooling.ensure', reason = 'capability_inactive',
@@ -410,7 +410,7 @@ describe('Plait command', function()
     child.lua([[require('plait.state').operation_feedback = 'all']])
     expect.equality(
       child.cmd_capture('Plait tooling check'),
-      'Plait: No tool requirements.\nplait: tooling.check performed'
+      'Plait: No tool requirements.\nplait: tooling.check performed\nDetails states: none\nDetails tools: none'
     )
 
     child.lua([[require('plait.state').operation_feedback = 'silent']])

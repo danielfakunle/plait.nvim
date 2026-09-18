@@ -4,12 +4,7 @@ local text = require('plait.text')
 
 local M = {}
 
-local target_schema = {
-  language = { ['vim.lsp'] = { global = true, servers = 'dynamic' } },
-  completion = { ['blink.cmp'] = { setup = true } },
-  formatting = { ['conform.nvim'] = { setup = true, formatters = 'dynamic' } },
-  tooling = { ['mason.nvim'] = { setup = true } },
-}
+local target_schema = require('plait.authority').declarations.providers
 
 --- Return a safe description of an invalid opaque value.
 ---@param value any

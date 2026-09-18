@@ -1,0 +1,495 @@
+---
+title: Public Contract
+description: Generated public schemas and compatibility facts.
+---
+
+This reference is generated from the executable public authority.
+[Machine-readable public contract](/plait-schema.json) includes all record, declaration, action, reason, and diagnostic schemas.
+
+Plait version: `0.1.0-dev`.
+Neovim: `>=0.12.5,<0.13.0`.
+Mason registry: `2026-09-07-abaft-pruner` (`93b6e9e56b647c1aa6a2ae529e50e0ae3367a885`).
+
+| Provider | Source | Qualified commit |
+| --- | --- | --- |
+| `nvim-lspconfig` | https://github.com/neovim/nvim-lspconfig | `615d7b2712efb2f530a83a9d0466acafba6b1d6f` |
+| `blink.cmp` | https://github.com/Saghen/blink.cmp | `78336bc89ee5365633bcf754d93df01678b5c08f` |
+| `conform.nvim` | https://github.com/stevearc/conform.nvim | `016802de402556da54c36bd7359b441266b01cdd` |
+| `mason.nvim` | https://github.com/mason-org/mason.nvim | `2a6940af80375532e5e9e7c1f2fc6319a1b7a69d` |
+
+### PlaitCapabilityRecord
+
+| Field | Type |
+| --- | --- |
+| `actions` | `string[]` |
+| `activator` | `string` |
+| `cardinality` | `"exclusive"\|"compositional"` |
+| `configuration` | `PlaitConfigurationRecord` |
+| `contribution_history` | `PlaitContributionHistory[]` |
+| `contributions` | `string[]` |
+| `degradation_details` | `PlaitDegradation[]` |
+| `degradation_reasons` | `string[]` |
+| `dependents` | `string[]` |
+| `formatter_chains` | `PlaitFormatterChain[]\|nil` |
+| `identity` | `string` |
+| `lsp_fallback` | `string\|nil` |
+| `overrides` | `string[]` |
+| `providers` | `string[]` |
+| `responsible_integration` | `string` |
+| `state` | `PlaitCapabilityState` |
+
+### PlaitCompletionProviders
+
+| Field | Type |
+| --- | --- |
+| `blink.cmp` | `PlaitSetupTarget` |
+
+### PlaitConfigurationRecord
+
+| Field | Type |
+| --- | --- |
+| `providers` | `PlaitProviderRecord[]` |
+| `sources` | `PlaitSource[]` |
+| `values` | `table` |
+
+### PlaitContributionDeclaration
+
+| Field | Type |
+| --- | --- |
+| `module` | `string` |
+| `source` | `PlaitSource` |
+| `sources` | `PlaitSource[]` |
+| `value` | `PlaitValue` |
+
+### PlaitContributionDeclarationMap
+
+| Field | Type |
+| --- | --- |
+| `formatting` | `PlaitFormattingContributions` |
+| `language` | `PlaitLanguageContributions` |
+| `tooling` | `PlaitToolingContributions` |
+
+### PlaitContributionHistory
+
+| Field | Type |
+| --- | --- |
+| `declarations` | `PlaitContributionDeclaration[]` |
+| `overrides` | `PlaitContributionOverride[]` |
+| `target` | `string` |
+
+### PlaitContributionOverride
+
+| Field | Type |
+| --- | --- |
+| `operation` | `PlaitOverrideOperation` |
+| `source` | `PlaitSource` |
+
+### PlaitDegradation
+
+| Field | Type |
+| --- | --- |
+| `code` | `string` |
+| `filetypes` | `string[]` |
+| `repair` | `string` |
+| `summary` | `string` |
+| `tool` | `string` |
+
+### PlaitDiagnostic
+
+| Field | Type |
+| --- | --- |
+| `code` | `string` |
+| `details` | `table` |
+| `related_sources` | `PlaitSource[]` |
+| `repair` | `string` |
+| `severity` | `"error"\|"warning"\|"info"` |
+| `source` | `PlaitSource\|nil` |
+| `summary` | `string` |
+
+### PlaitEffectError
+
+| Field | Type |
+| --- | --- |
+| `code` | `string` |
+| `details` | `table` |
+| `operation_id` | `string\|nil` |
+| `provider` | `string\|nil` |
+| `responsible_capability` | `string` |
+| `summary` | `string` |
+
+### PlaitEffectPartition
+
+| Field | Type |
+| --- | --- |
+| `completed` | `string[]` |
+| `failed` | `string[]` |
+| `skipped` | `string[]` |
+
+### PlaitEffectRecord
+
+| Field | Type |
+| --- | --- |
+| `dependencies` | `string[]` |
+| `error` | `PlaitEffectError\|nil` |
+| `identity` | `string` |
+| `provider` | `string\|nil` |
+| `responsible_capability` | `string` |
+| `sources` | `PlaitSource[]` |
+| `stage` | `integer` |
+| `state` | `PlaitEffectState` |
+
+### PlaitFormatOptions
+
+| Field | Type |
+| --- | --- |
+| `range` | `PlaitRange` |
+
+### PlaitFormatterChain
+
+| Field | Type |
+| --- | --- |
+| `chain` | `string[]` |
+| `declaration` | `string` |
+| `filetype` | `string` |
+| `reason` | `string` |
+| `sources` | `PlaitSource[]` |
+| `state` | `"disabled"\|"effective"` |
+
+### PlaitFormatterDeclaration
+
+| Field | Type |
+| --- | --- |
+| `tool` | `string` |
+
+### PlaitFormatterTargets
+
+| Field | Type |
+| --- | --- |
+| `formatters` | `table<string, table>` |
+| `setup` | `table` |
+
+### PlaitFormattingContributions
+
+| Field | Type |
+| --- | --- |
+| `by_filetype` | `table<string, string[]>` |
+| `formatters` | `table<string, PlaitFormatterDeclaration>` |
+
+### PlaitFormattingOverrides
+
+| Field | Type |
+| --- | --- |
+| `by_filetype` | `table<string, PlaitOverrideOperation>` |
+| `formatters` | `table<string, PlaitOverrideOperation>` |
+
+### PlaitFormattingProviders
+
+| Field | Type |
+| --- | --- |
+| `conform.nvim` | `PlaitFormatterTargets` |
+
+### PlaitFunction
+
+| Field | Type |
+| --- | --- |
+| `kind` | `"function"` |
+| `line` | `integer` |
+| `source` | `string` |
+
+### PlaitInvalidResult
+
+| Field | Type |
+| --- | --- |
+| `capabilities` | `PlaitCapabilityRecord[]` |
+| `diagnostics` | `PlaitDiagnostic[]` |
+| `effects` | `PlaitEffectRecord[]` |
+| `modules` | `PlaitModuleRecord[]` |
+| `packages` | `PlaitPackageRecord[]` |
+| `status` | `"invalid"` |
+| `tools` | `PlaitToolRecord[]` |
+
+### PlaitLanguageContributions
+
+| Field | Type |
+| --- | --- |
+| `servers` | `table<string, PlaitServerDeclaration>` |
+
+### PlaitLanguageOverrides
+
+| Field | Type |
+| --- | --- |
+| `servers` | `table<string, PlaitOverrideOperation>` |
+
+### PlaitLanguageProviders
+
+| Field | Type |
+| --- | --- |
+| `vim.lsp` | `PlaitLspTargets` |
+
+### PlaitLanguageServerRecord
+
+| Field | Type |
+| --- | --- |
+| `buffer` | `string` |
+| `identity` | `string` |
+| `note` | `string` |
+| `repair` | `string` |
+| `state` | `"attached"\|"not_attached"` |
+| `tool_state` | `PlaitToolState` |
+| `workspace_root` | `string\|nil` |
+
+### PlaitLspTargets
+
+| Field | Type |
+| --- | --- |
+| `global` | `table` |
+| `servers` | `table<string, table>` |
+
+### PlaitModuleDeclaration
+
+| Field | Type |
+| --- | --- |
+| `contribute` | `PlaitContributionDeclarationMap` |
+| `name` | `string` |
+| `provides` | `string[]` |
+| `requires` | `string[]` |
+
+### PlaitModuleRecord
+
+| Field | Type |
+| --- | --- |
+| `contributions` | `string[]` |
+| `identity` | `string` |
+| `ordering_edges` | `string[]` |
+| `provides` | `string[]` |
+| `requires` | `string[]` |
+| `selection_sources` | `PlaitSource[]` |
+| `state` | `PlaitModuleState` |
+
+### PlaitOperationError
+
+| Field | Type |
+| --- | --- |
+| `message` | `string` |
+| `reason` | `"execution_failed"` |
+
+### PlaitOperationRecord
+
+| Field | Type |
+| --- | --- |
+| `completed_at` | `string\|nil` |
+| `diagnostic_codes` | `string[]` |
+| `error` | `PlaitOperationError\|nil` |
+| `identity` | `string` |
+| `operation` | `string` |
+| `result` | `PlaitPerformedResult\|nil` |
+| `started_at` | `string` |
+| `state` | `PlaitOperationState` |
+| `targets` | `string[]` |
+
+### PlaitOverrideOperation
+
+| Field | Type |
+| --- | --- |
+| `kind` | `"replace"\|"disable"` |
+| `value` | `PlaitValue\|nil` |
+
+### PlaitOverrides
+
+| Field | Type |
+| --- | --- |
+| `formatting` | `PlaitFormattingOverrides` |
+| `language` | `PlaitLanguageOverrides` |
+| `tooling` | `PlaitToolingOverrides` |
+
+### PlaitPackageRecord
+
+| Field | Type |
+| --- | --- |
+| `active_commit` | `string\|nil` |
+| `active_source` | `string\|nil` |
+| `identity` | `string` |
+| `inconsistency` | `PlaitPackageInconsistency\|nil` |
+| `repair` | `string` |
+| `required_commit` | `string` |
+| `responsible_capabilities` | `string[]` |
+| `source` | `string` |
+| `sources` | `PlaitSource[]` |
+| `state` | `PlaitPackageState` |
+
+### PlaitPerformedResult
+
+| Field | Type |
+| --- | --- |
+| `details` | `table` |
+| `operation` | `string` |
+| `status` | `"performed"` |
+
+### PlaitPlan
+
+| Field | Type |
+| --- | --- |
+| `capabilities` | `PlaitCapabilityRecord[]` |
+| `effects` | `PlaitEffectRecord[]` |
+| `modules` | `PlaitModuleRecord[]` |
+| `packages` | `PlaitPackageRecord[]` |
+| `snapshot_state` | `PlaitSnapshotState` |
+| `tools` | `PlaitToolRecord[]` |
+
+### PlaitPosition
+
+| Field | Type |
+| --- | --- |
+| `character` | `integer` |
+| `line` | `integer` |
+
+### PlaitProviderDeclarations
+
+| Field | Type |
+| --- | --- |
+| `completion` | `PlaitCompletionProviders` |
+| `formatting` | `PlaitFormattingProviders` |
+| `language` | `PlaitLanguageProviders` |
+| `tooling` | `PlaitToolingProviders` |
+
+### PlaitProviderRecord
+
+| Field | Type |
+| --- | --- |
+| `identity` | `string` |
+| `opaque` | `boolean` |
+| `revision_coupled` | `boolean` |
+| `sources` | `PlaitSource[]` |
+| `target` | `string` |
+| `value` | `PlaitValue` |
+
+### PlaitRange
+
+| Field | Type |
+| --- | --- |
+| `end_` | `PlaitPosition` |
+| `start` | `PlaitPosition` |
+
+### PlaitServerDeclaration
+
+| Field | Type |
+| --- | --- |
+| `filetypes` | `string[]` |
+| `tool` | `string` |
+
+### PlaitSetupTarget
+
+| Field | Type |
+| --- | --- |
+| `setup` | `table` |
+
+### PlaitSource
+
+| Field | Type |
+| --- | --- |
+| `file` | `string` |
+| `line` | `integer` |
+| `path` | `string` |
+
+### PlaitStartedResult
+
+| Field | Type |
+| --- | --- |
+| `details` | `table` |
+| `operation` | `string` |
+| `operation_id` | `string` |
+| `status` | `"started"` |
+
+### PlaitToolCandidate
+
+| Field | Type |
+| --- | --- |
+| `path` | `string` |
+| `real_path` | `string\|nil` |
+| `reason` | `PlaitToolProbeFailure\|nil` |
+| `source` | `"workspace"\|"mason"\|"PATH"` |
+| `state` | `"absent"\|"present"\|"rejected"` |
+
+### PlaitToolDeclaration
+
+| Field | Type |
+| --- | --- |
+| `executable` | `string` |
+| `mason` | `string` |
+| `ownership` | `PlaitOwnership` |
+| `version` | `string` |
+| `workspace_paths` | `string[]` |
+
+### PlaitToolRecord
+
+| Field | Type |
+| --- | --- |
+| `affected_operations` | `string[]` |
+| `authoritative_candidate` | `integer\|nil` |
+| `candidates` | `PlaitToolCandidate[]` |
+| `constraint` | `string` |
+| `executable` | `string` |
+| `identity` | `string` |
+| `ownership` | `"mason"\|"project"\|"hybrid"` |
+| `path` | `string\|nil` |
+| `repair` | `string` |
+| `runtime` | `PlaitToolRuntime\|nil` |
+| `source` | `"workspace"\|"mason"\|"PATH"\|nil` |
+| `sources` | `PlaitSource[]` |
+| `state` | `PlaitToolState` |
+| `version` | `string\|nil` |
+
+### PlaitToolRuntime
+
+| Field | Type |
+| --- | --- |
+| `constraint` | `string` |
+| `executable` | `string` |
+| `path` | `string\|nil` |
+| `reason` | `PlaitToolProbeFailure\|nil` |
+| `state` | `PlaitToolState` |
+| `version` | `string\|nil` |
+
+### PlaitToolingContributions
+
+| Field | Type |
+| --- | --- |
+| `tools` | `table<string, PlaitToolDeclaration>` |
+
+### PlaitToolingOverrides
+
+| Field | Type |
+| --- | --- |
+| `tools` | `table<string, PlaitOverrideOperation>` |
+
+### PlaitToolingProviders
+
+| Field | Type |
+| --- | --- |
+| `mason.nvim` | `PlaitSetupTarget` |
+
+### PlaitUnavailableFormatter
+
+| Field | Type |
+| --- | --- |
+| `formatter` | `string` |
+| `state` | `"absent"\|"incompatible"\|"unprobeable"` |
+| `tool` | `string` |
+
+### PlaitUnavailableResult
+
+| Field | Type |
+| --- | --- |
+| `details` | `table` |
+| `operation` | `string` |
+| `reason` | `PlaitReasonId` |
+| `status` | `"unavailable"` |
+
+### PlaitValidResult
+
+| Field | Type |
+| --- | --- |
+| `diagnostics` | `PlaitDiagnostic[]` |
+| `plan` | `PlaitPlan` |
+| `plan_id` | `string` |
+| `status` | `"valid"` |

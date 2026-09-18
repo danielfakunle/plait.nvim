@@ -1,6 +1,7 @@
 local diagnostic = require('plait.diagnostic')
 local presentation = require('plait.presentation')
 local text = require('plait.text')
+local contract = require('plait.public_contract')
 
 local M = {}
 
@@ -131,6 +132,13 @@ end
 ---@return string
 function M.render(value)
   if not plain_table(value) or type(value.status) ~= 'string' then unsupported() end
+  if value.status == 'valid' then
+    if not contract.matches('PlaitValidResult', value) then unsupported() end
+  elseif value.status == 'invalid' then
+    if not contract.matches('PlaitInvalidResult', value) then unsupported() end
+  elseif not contract.action_result(value) then
+    unsupported()
+  end
   local ok, rendered = pcall(function()
     if value.status == 'valid' or value.status == 'invalid' then return render_validation(value) end
     return render_action(value)
@@ -144,6 +152,7 @@ end
 ---@return string
 function M.render_command(value)
   if not plain_table(value) or type(value.status) ~= 'string' then unsupported() end
+  if not contract.action_result(value) then unsupported() end
   return render_action(value, true)
 end
 

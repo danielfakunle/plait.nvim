@@ -3,6 +3,7 @@
     "./(index)/index",
     "---Reference---",
     "./reference/capability-configuration-schema",
+    "./reference/public-contract",
     "./reference/tool-observations",
     "./reference/operation-feedback",
     "./reference/inspection",

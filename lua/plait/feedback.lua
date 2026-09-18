@@ -57,7 +57,13 @@ function M.maintenance(result, invocation, completion, operation_id)
   end
   local names = target_names(targets, section)
   local message
-  if failed then
+  if result.status == 'failed' and completion then
+    message = ('plait: %s failed: execution failed\nAffected targets: %s\nAffected message: %s\nRepair: inspect diagnostics and the affected targets, repair them, then retry.'):format(
+      result.operation,
+      names,
+      details.message
+    )
+  elseif failed then
     message = require('plait.result').render_command(result)
   elseif result.reason == 'consent_denied' then
     message = 'Plait: Package synchronization cancelled; no packages changed.'
@@ -84,7 +90,7 @@ function M.maintenance(result, invocation, completion, operation_id)
     message = ('Plait: %s %s already satisfied.'):format(names, #targets == 1 and 'is' or 'are')
   end
   if M.debug() then
-    local rendered = require('plait.result').render(result)
+    local rendered = result.status == 'failed' and completion and message or require('plait.result').render(result)
     message = failed and rendered or message .. '\n' .. rendered
     if completion then
       message = message

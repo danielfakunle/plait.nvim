@@ -53,21 +53,21 @@ describe('public result rendering', function()
     )
   end)
 
-  it('renders performed, started, unavailable, and failed action outcomes', function()
+  it('renders closed performed, started, and unavailable action outcomes', function()
     child.lua([[
       rendered_actions = {
         M.render({ status = 'performed', operation = 'editor.save', details = { buffer = 7 } }),
         M.render({
           status = 'started', operation = 'formatting.format', operation_id = 'op-00000009',
-          details = { buffer = 7, targets = { 'lua' } },
+          details = { buffer = 7, range = vim.NIL, chain = { 'stylua' } },
         }),
         M.render({
           status = 'unavailable', operation = 'tooling.ensure', reason = 'capability_inactive',
-          details = { targets = { 'stylua', 'lua-language-server' }, capability = 'tooling' },
+          details = { capability = 'tooling' },
         }),
         M.render({
-          status = 'failed', operation = 'language.hover', reason = 'execution_failed',
-          details = { diagnostic_codes = { 'operation.failed' }, operation_id = 'op-00000010' },
+          status = 'unavailable', operation = 'language.hover', reason = 'no_client',
+          details = { buffer = 7, position = { line = 0, character = 0 } },
         }),
       }
     ]])
@@ -77,19 +77,19 @@ describe('public result rendering', function()
       table.concat({
         'plait: formatting.format started (op-00000009)',
         'Details buffer: 7',
-        'Details targets: lua',
+        'Details chain: stylua',
+        'Details range: none',
         'Inspect progress: :Plait inspect operations op-00000009',
       }, '\n'),
       table.concat({
         'plait: tooling.ensure unavailable: capability inactive',
         'Affected capability: tooling',
-        'Affected targets: stylua, lua-language-server',
         'Repair: activate the tooling capability, validate again, then retry.',
       }, '\n'),
       table.concat({
-        'plait: language.hover failed: execution failed',
-        'Affected diagnostic codes: operation.failed',
-        'Affected operation id: op-00000010',
+        'plait: language.hover unavailable: no client',
+        'Affected buffer: 7',
+        'Affected position: (character: 0; line: 0)',
         'Repair: inspect diagnostics and the affected targets, repair them, then retry.',
       }, '\n'),
     })
@@ -99,6 +99,8 @@ describe('public result rendering', function()
     child.lua([[
       local state = require('plait.state')
       state.editor_active = true
+      state.applied_plan_id = string.rep('a', 64)
+      state.applied_effects = { completed = {}, failed = {}, skipped = {} }
       vim.cmd.enew()
       vim.bo.buftype = 'nofile'
       vim.api.nvim_buf_set_name(0, 'token=SECRET')

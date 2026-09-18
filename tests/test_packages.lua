@@ -138,7 +138,7 @@ describe('provider package synchronization', function()
           status = 'started',
           operation = 'packages.sync',
           operation_id = 'op-00000001',
-          details = { packages = { 'nvim-lspconfig' } },
+          details = { targets = { 'nvim-lspconfig' } },
         })
       end
       expect.equality(child.lua_get([[pack_calls]]), {

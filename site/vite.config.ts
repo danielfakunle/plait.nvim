@@ -24,6 +24,9 @@ const ignorePatterns = [
   "**/routeTree.gen.ts",
   "**/__unconfig*",
   "**/todos.json",
+  // The executable public authority owns these deterministic generated artifacts.
+  "**/public/plait-schema.json",
+  "**/content/reference/public-contract.mdx",
 ];
 
 const config = defineConfig({

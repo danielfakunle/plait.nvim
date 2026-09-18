@@ -1,6 +1,9 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
 local schema = require('plait.schema')
+local public_schema = dofile('scripts/public_schema.lua')
+public_schema.check_versions()
+public_schema.check_exports()
 
 --- Return deterministic keys for generated output.
 ---@param value table
@@ -195,6 +198,12 @@ local function reference_artifact()
 end
 
 local artifacts = {
+  ['lua/plait/public_generated.lua'] = public_schema.annotations('records'),
+  ['lua/plait/actions_generated.lua'] = public_schema.annotations('actions'),
+  ['lua/plait/reasons_generated.lua'] = public_schema.annotations('reasons'),
+  ['lua/plait/diagnostics_generated.lua'] = public_schema.annotations('diagnostics'),
+  ['site/public/plait-schema.json'] = public_schema.facts(),
+  ['site/content/reference/public-contract.mdx'] = public_schema.reference(),
   ['lua/plait/schema_generated.lua'] = runtime_artifact(),
   ['site/content/reference/capability-configuration-schema.mdx'] = reference_artifact(),
 }
